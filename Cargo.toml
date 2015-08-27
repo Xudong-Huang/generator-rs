@@ -1,0 +1,22 @@
+[package]
+name = "generator"
+version = "0.1.0"
+authors = ["Xudong Huang <xudongh@juniper.net>"]
+license = "MIT/ISC"
+repository = "https://github.com/Xudong-Huang/generator-rs.git"
+description = "Generator Library in Rust"
+readme = "README.md"
+homepage = "https://github.com/Xudong-Huang/generator-rs.git"
+keywords = ["generator", "coroutine", "green", "thread", "fiber"]
+
+[dependencies]
+context = { git = "https://github.com/Xudong-Huang/context-rs.git" }
+libc = "*"
+
+[lib]
+name = "generator"
+path = "src/lib.rs"
+
+[[bin]]
+name = "generator"
+path = "src/main.rs"
