@@ -1,5 +1,3 @@
-#![feature(asm)]
-
 #[macro_use]
 extern crate generator;
 use generator::Generator;
