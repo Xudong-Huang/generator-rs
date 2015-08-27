@@ -21,6 +21,7 @@ pub use env::ContextStack;
 use context::Stack;
 use context::Context as RegContext;
 use std::rt::unwind::try;
+use std::rt::util::min_stack;
 use std::boxed::FnBox;
 use std::any::Any;
 use std::mem;
@@ -45,11 +46,9 @@ pub struct Context {
 impl Context {
     /// return a default generator context
     pub fn new() -> Context {
-        // the default generator stack size
-        const STACK_SIZE: usize = 16*1024;
         Context {
             regs: RegContext::empty(),
-            stack: Stack::new(STACK_SIZE),
+            stack: Stack::new(min_stack()),
             para: unsafe { mem::transmute(&0 as &Any) },
             ret: unsafe { mem::transmute(&0 as &Any) },
             _ref: 0,
