@@ -5,7 +5,7 @@ rust generator library
 use the dev version on master
 
 ```toml
-[dependencies.context]
+[dependencies.generator]
 git = "https://github.com/Xudong-Huang/generator-rs.git"
 ```
 
@@ -41,3 +41,7 @@ fn main() {
 * This crate supports platforms in
 
     - x86_64
+
+* It depends on the contex libaray, currently the context library need
+  some patch to compile the generator lib
+
