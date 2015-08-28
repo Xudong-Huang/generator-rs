@@ -87,8 +87,7 @@ impl Context {
     pub fn get_para<T>(&self) -> Option<T> where T: Any {
         let para = unsafe { &mut *self.para };
         let val = para.downcast_mut::<Option<T>>().unwrap();
-        // simple consume the value
-        mem::replace(val, None)
+        val.take()
     }
 
     /// set current generator return value
