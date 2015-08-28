@@ -265,23 +265,10 @@ macro_rules! _yield {
     // `(para)`
     // val: the value that need to be yield
     // and got the send para from context
-    ($val:expr) => ( 
-        {
-            let context = generator::ContextStack::current().top();
-            let _no_use = context.get_flag();
-            context.save();
-            if *_no_use {
-                *_no_use = false;
-                // set the return value
-                context.set_ret($val);
-                // don't use the return instruction
-                generator::yield_now();
-                // will never come here, but for type check
-                return $val;
-            }
-            context.get_para().unwrap()
-        }
-    );
+    ($val:expr) => ({
+        _yield_!($val);
+        generator::ContextStack::current().top().get_para().unwrap()
+    });
 
     () => (_yield!(()));
 }
@@ -292,21 +279,19 @@ macro_rules! _yield_ {
     // `(para)`
     // val: the value that need to be yield
     // and got the send para from context
-    ($val:expr) => ( 
-        {
-            let context = generator::ContextStack::current().top();
-            let _no_use = context.get_flag();
-            context.save();
-            if *_no_use {
-                *_no_use = false;
-                context.set_ret($val);
-                // don't use the return instruction
-                generator::yield_now();
-                // context.load();
-                return $val;
-            }
+    ($val:expr) => ({
+        let context = generator::ContextStack::current().top();
+        let _no_use = context.get_flag();
+        context.save();
+        if *_no_use {
+            *_no_use = false;
+            context.set_ret($val);
+            // don't use the return instruction
+            generator::yield_now();
+            // context.load();
+            return $val;
         }
-    );
+    });
 
     () => (_yield_!(()));
 }
