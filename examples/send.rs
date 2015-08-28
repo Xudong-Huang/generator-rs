@@ -10,7 +10,7 @@ unsafe fn sum(a: u32) -> u32 {
         recv = _yield!(sum);
     }
 
-    return 10000;
+    10000
 }
 
 fn main() {

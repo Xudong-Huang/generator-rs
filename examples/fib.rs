@@ -8,7 +8,8 @@ unsafe fn fib(a: u32, b: u32) -> u32 {
         b = a + b;
         _yield_!(b);
     }
-    return 10000;
+
+    10000
 }
 
 fn main() {
