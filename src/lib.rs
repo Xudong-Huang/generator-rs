@@ -185,7 +185,7 @@ impl<A: Any, T: Any> Iterator for FnGenerator<A, T> {
 }
 
 /// switch back to parent context
-pub fn yield_now() {
+pub unsafe fn yield_now() {
     let env = ContextStack::current();
     let ctx = env.top();
     let sp = ctx.stack.start();
@@ -207,7 +207,7 @@ extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) {
         error!("Panicked inside: {:?}", cause.downcast::<&str>());
     }
 
-    yield_now();
+    unsafe { yield_now() };
 }
 
 /// create generator
