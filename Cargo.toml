@@ -10,7 +10,7 @@ homepage = "https://github.com/Xudong-Huang/generator-rs.git"
 keywords = ["generator", "coroutine", "green", "thread", "fiber"]
 
 [dependencies]
-context = { git = "https://github.com/Xudong-Huang/context-rs.git" }
+context = { git = "https://github.com/zonyitoo/context-rs.git" }
 libc = "*"
 
 [lib]
