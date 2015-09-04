@@ -106,8 +106,8 @@ pub trait Generator<A> {
     /// Output type
     type Output;
 
-    /// send interface, the Result let us throw out err
-    fn send(&mut self, para: Option<A>) -> Option<Self::Output>;
+    /// send interface
+    fn send(&mut self, para: A) -> Self::Output;
 
     /// is finished
     fn is_done(&self) -> bool;
@@ -142,13 +142,9 @@ impl<A, T> FnGenerator<A, T> {
         // when the f is consumed we think it's running
         self.f.is_none()
     }
-}
 
-impl<A: Any, T: Any> Generator<A> for FnGenerator<A, T> {
-    type Output = T;
-
-    fn send(&mut self, para: Option<A>) -> Option<T> {
-        if self.is_done() {
+    fn send_impl(&mut self, para: Option<A>) -> Option<T> {
+        if self.is_started() && self.context._ref != 0 {
             return None;
         }
 
@@ -164,7 +160,15 @@ impl<A: Any, T: Any> Generator<A> for FnGenerator<A, T> {
 
         self.ret.take()
     }
+}
 
+impl<A: Any, T: Any> Generator<A> for FnGenerator<A, T> {
+    type Output = T;
+
+    fn send(&mut self, para: A) -> T {
+        let ret = self.send_impl(Some(para));
+        ret.unwrap()
+    }
 
     fn is_done(&self) -> bool {
        self.is_started() && self.context._ref != 0
@@ -177,7 +181,7 @@ impl<A: Any, T: Any> Iterator for FnGenerator<A, T> {
     // return type is 'Option<T>', 'None' is returned when the 'Iterator' is
     // over, otherwise the next value is returned wrapped in 'Some'
     fn next(&mut self) -> Option<T> {
-        self.send(None)
+        self.send_impl(None)
     }
 }
 
@@ -275,7 +279,7 @@ macro_rules! _yield {
                 // will never come here, but for type check
                 return $val;
             }
-            context.get_para()
+            context.get_para().unwrap()
         }
     );
 

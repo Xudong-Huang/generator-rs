@@ -20,7 +20,7 @@ unsafe fn f0() {
 
 unsafe fn f1() -> u32 {
     let mut j = 0;
-    let mut i:Option<i32>;
+    let mut i:i32;
     while j < 10 {
         i = _yield!(j);
         println!("get send: {:?}", i);
@@ -53,7 +53,7 @@ fn main() {
     let mut g = generator!(f1(), <i32>);
     let mut i = 0;
     while !g.is_done() {
-        println!("get yield: {:?}", g.send(Some(i)));
+        println!("get yield: {:?}", g.send(i));
         i += 1;
     }
 
