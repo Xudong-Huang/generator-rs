@@ -52,6 +52,14 @@ fn main() {
 10000
 ```
 
+## Goals
+
+- [x] Basic single threaded support
+- [ ] Stack Cache support 
+- [ ] Multithreaded support
+- [ ] 1M+ generators running with N:M
+- [ ] basic library for Asynchronous I/O
+
 ## Notices
 
 * This crate supports platforms in
