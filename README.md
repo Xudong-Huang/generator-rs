@@ -54,11 +54,20 @@ fn main() {
 
 ## Goals
 
+- [x] basic send/yield support
+- [ ] generator cancel support
+- [ ] yield_from support
+- [ ] panic inside genertor support
 - [x] Basic single threaded support
-- [ ] Stack Cache support 
+- [ ] compact stack support
 - [ ] Multithreaded support
-- [ ] 1M+ generators running with N:M
-- [ ] basic library for Asynchronous I/O
+
+
+
+##  based on this basic library
+- we can easily port python libary based on generator into rust. the libaray has more powerfull tools than python that can make the generator more fast, safe and multi thread support.
+- schedule framework running with multi-thread.
+- basic library for Asynchronous I/O
 
 ## Notices
 
