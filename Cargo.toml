@@ -17,6 +17,3 @@ libc = "*"
 name = "generator"
 path = "src/lib.rs"
 
-[[bin]]
-name = "generator"
-path = "src/main.rs"
