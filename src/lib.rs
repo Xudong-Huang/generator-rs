@@ -198,16 +198,20 @@ pub fn yield_now() {
 }
 
 #[allow(unused_variables)]
-extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) {
-    let func: Box<Box<FnBox()>> = unsafe {
-        Box::from_raw(f as *mut Box<FnBox()>)
-    };
+extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) -> ! {
+    {
+        let func: Box<Box<FnBox()>> = unsafe {
+            Box::from_raw(f as *mut Box<FnBox()>)
+        };
 
-    if let Err(cause) = unsafe { try(move|| func()) } {
-        error!("Panicked inside: {:?}", cause.downcast::<&str>());
+        if let Err(cause) = unsafe { try(move|| func()) } {
+            error!("Panicked inside: {:?}", cause.downcast::<&str>());
+        }
     }
 
     yield_now();
+
+    unreachable!("Should never comeback");
 }
 
 /// create generator
@@ -224,7 +228,7 @@ pub fn make_gen<A: Any, T: Any>(p: Option<A>, f: Box<FnBox()->T>) -> Box<FnGener
         let ptr = Box::into_raw(g);
 
         //let start = Box::new(||{g.ret = Some((g.f.take().unwrap())())});
-        let start = Box::new(move||{
+        let start: Box<FnBox()> = Box::new(move||{
             let mut g = Box::from_raw(ptr);
             g.ret = Some((g.f.take().unwrap())());
             // don't free the box here 
@@ -233,7 +237,9 @@ pub fn make_gen<A: Any, T: Any>(p: Option<A>, f: Box<FnBox()->T>) -> Box<FnGener
 
         let stk = &mut (*ptr).context.stack;
         let reg = &mut (*ptr).context.regs;
-        reg.init_with(gen_init, ptr as usize, start, stk);
+        reg.init_with(gen_init, ptr as usize,
+                      Box::into_raw(Box::new(start)) as *mut libc::c_void,
+                      stk);
         Box::from_raw(ptr)
     }
 }
@@ -258,7 +264,7 @@ macro_rules! generator {
     ($func:expr) => (generator!($func, ()));
 }
 
-
+/// yiled and get the send para
 #[macro_export]
 macro_rules! _yield {
     // `(para)`
