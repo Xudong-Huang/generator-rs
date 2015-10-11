@@ -185,7 +185,7 @@ impl<A: Any, T: Any> Iterator for FnGenerator<A, T> {
 }
 
 /// switch back to parent context
-pub unsafe fn yield_now() {
+pub fn yield_now() {
     let env = ContextStack::current();
     let ctx = env.top();
     let sp = ctx.stack.start();
@@ -207,7 +207,7 @@ extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) {
         error!("Panicked inside: {:?}", cause.downcast::<&str>());
     }
 
-    unsafe { yield_now() };
+    yield_now();
 }
 
 /// create generator
@@ -245,14 +245,14 @@ macro_rules! generator {
     // func: the expression for unsafe async function which contains yiled
     // para: default send para type to the generator
     ($func:expr, <$para:ty>) => (
-        generator::make_gen::<$para, _>(None, Box::new(move|| unsafe{$func}))
+        generator::make_gen::<$para, _>(None, Box::new(move|| {$func}))
     );
 
     // `(func, para)`
     // func: the expression for unsafe async function which contains yiled
     // para: default send para to the generator
     ($func:expr, $para:expr) => (
-        generator::make_gen(Some($para), Box::new(move|| unsafe{$func}))
+        generator::make_gen(Some($para), Box::new(move|| {$func}))
     );
 
     ($func:expr) => (generator!($func, ()));

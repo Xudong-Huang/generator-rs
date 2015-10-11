@@ -2,7 +2,7 @@
 extern crate generator;
 use generator::Generator;
 
-unsafe fn sum(a: u32) -> u32 {
+fn sum(a: u32) -> u32 {
     let mut sum = a;
     let mut recv = 1u32;
     while sum < 200 {

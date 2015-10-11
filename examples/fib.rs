@@ -1,7 +1,7 @@
 #[macro_use]                                                               
 extern crate generator;                                                    
 
-unsafe fn fib(a: u32, b: u32) -> u32 {
+fn fib(a: u32, b: u32) -> u32 {
     let (mut a, mut b) = (a, b);
     while b < 200 {
         std::mem::swap(&mut a, &mut b);

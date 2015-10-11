@@ -3,7 +3,7 @@ extern crate generator;
 
 use generator::Generator;
 
-unsafe fn f0() {
+fn f0() {
     let mut i = 0;
     println!("{}", i);
 
@@ -19,7 +19,7 @@ unsafe fn f0() {
 }
 
 
-unsafe fn f1() -> u32 {
+fn f1() -> u32 {
     let mut j = 0;
     let mut i:i32;
     while j < 10 {
@@ -31,7 +31,7 @@ unsafe fn f1() -> u32 {
     return 10000;
 }
 
-unsafe fn f2() -> (u64, u64, u64)
+fn f2() -> (u64, u64, u64)
 {
     let mut i = 0u64;
     while i < 10 {
