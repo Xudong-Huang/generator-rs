@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate generator;
 
-use generator::{Generator, make_gen};
+use generator::{Generator, FnGenerator};
 
 fn f1() -> u32 {
     let mut j = 0;
@@ -41,11 +41,12 @@ fn generator_is_done() {
 
 #[test]
 fn test_yield() {
-    let mut g = make_gen::<(), _, _>(||{
+    let mut g = FnGenerator::new(||{
         _yield_!(10);
         20
     });
 
+    // the para type could be deduced here
     let i = g.send(());
     assert!(i == 10);
 

@@ -124,7 +124,39 @@ pub struct FnGenerator<A, T> {
 }
 
 
-impl<A, T> FnGenerator<A, T> {
+impl<A: Any, T: Any> FnGenerator<A, T> {
+    /// create a new generator
+    pub fn new<F>(f: F) -> Box<FnGenerator<A, T>>
+        where F: FnOnce()->T + 'static
+    {
+        let mut g = Box::new(FnGenerator {
+           para: None, ret: None, f: Some(Box::new(f)),
+           context: Context::new()
+        });
+
+        g.context.para = &mut g.para as &mut Any;
+        g.context.ret = &mut g.ret as &mut Any;
+
+        unsafe {
+            let ptr = Box::into_raw(g);
+
+            //let start = Box::new(||{g.ret = Some((g.f.take().unwrap())())});
+            let start: Box<FnBox()> = Box::new(move||{
+                let mut g = Box::from_raw(ptr);
+                g.ret = Some((g.f.take().unwrap())());
+                // don't free the box here
+                Box::into_raw(g);
+            });
+
+            let stk = &mut (*ptr).context.stack;
+            let reg = &mut (*ptr).context.regs;
+            reg.init_with(gen_init, ptr as usize,
+                          Box::into_raw(Box::new(start)) as *mut libc::c_void,
+                          stk);
+            Box::from_raw(ptr)
+        }
+    }
+
     fn resume_gen(&mut self) {
         let env = ContextStack::current();
         let cur = &mut env.top().regs;
@@ -215,45 +247,13 @@ extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) -> ! {
 }
 
 /// create generator
-pub fn make_gen<A: Any, T: Any, F>(f: F) -> Box<FnGenerator<A, T>>
-    where F: FnOnce()->T + 'static
-{
-    let mut g = Box::new(FnGenerator {
-       para: None, ret: None, f: Some(Box::new(f)),
-       context: Context::new()
-    });
-
-    g.context.para = &mut g.para as &mut Any;
-    g.context.ret = &mut g.ret as &mut Any;
-
-    unsafe {
-        let ptr = Box::into_raw(g);
-
-        //let start = Box::new(||{g.ret = Some((g.f.take().unwrap())())});
-        let start: Box<FnBox()> = Box::new(move||{
-            let mut g = Box::from_raw(ptr);
-            g.ret = Some((g.f.take().unwrap())());
-            // don't free the box here 
-            Box::into_raw(g);
-        });
-
-        let stk = &mut (*ptr).context.stack;
-        let reg = &mut (*ptr).context.regs;
-        reg.init_with(gen_init, ptr as usize,
-                      Box::into_raw(Box::new(start)) as *mut libc::c_void,
-                      stk);
-        Box::from_raw(ptr)
-    }
-}
-
-
 #[macro_export]
 macro_rules! generator {
     // `(func, <type>)`
     // func: the expression for unsafe async function which contains yiled
     // para: default send para type to the generator
     ($func:expr, <$para:ty>) => (
-        generator::make_gen::<$para, _, _>(move|| {$func})
+        generator::FnGenerator::<$para, _>::new(move|| {$func})
     );
 
     ($func:expr) => (generator!($func, <()>));
