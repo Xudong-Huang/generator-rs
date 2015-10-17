@@ -19,8 +19,8 @@ mod rt;
 pub use rt::Context;
 pub use rt::ContextStack;
 
-mod generator;
-pub use generator::FnGenerator;
+mod fn_gen;
+pub use fn_gen::FnGenerator;
 
 use std::ptr;
 use context::Context as RegContext;
