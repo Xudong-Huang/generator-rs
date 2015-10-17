@@ -28,7 +28,7 @@ pub struct FnGenerator<A, T> {
 
 impl<A: Any, T: Any> FnGenerator<A, T> {
     /// create a new generator
-    pub fn new<F>(f: F) -> Box<FnGenerator<A, T>>
+    pub fn new<F>(f: F) -> Box<Generator<A, Output=T>>
         where F: FnOnce()->T + 'static
     {
         let mut g = Box::new(FnGenerator {
@@ -76,7 +76,12 @@ impl<A: Any, T: Any> FnGenerator<A, T> {
         self.f.is_none()
     }
 
-    fn send_impl(&mut self, para: Option<A>) -> Option<T> {
+}
+
+impl<A: Any, T: Any> Generator<A> for FnGenerator<A, T> {
+    type Output = T;
+
+    fn raw_send(&mut self, para: Option<A>) -> Option<T> {
         if self.is_started() && self.context._ref != 0 {
             return None;
         }
@@ -93,28 +98,9 @@ impl<A: Any, T: Any> FnGenerator<A, T> {
 
         self.ret.take()
     }
-}
-
-impl<A: Any, T: Any> Generator<A> for FnGenerator<A, T> {
-    type Output = T;
-
-    fn send(&mut self, para: A) -> T {
-        let ret = self.send_impl(Some(para));
-        ret.unwrap()
-    }
 
     fn is_done(&self) -> bool {
        self.is_started() && self.context._ref != 0
-    }
-}
-
-impl<A: Any, T: Any> Iterator for FnGenerator<A, T> {
-    type Item = T;
-    // The 'Iterator' trait only requires the 'next' method to be defined. The
-    // return type is 'Option<T>', 'None' is returned when the 'Iterator' is
-    // over, otherwise the next value is returned wrapped in 'Some'
-    fn next(&mut self) -> Option<T> {
-        self.send_impl(None)
     }
 }
 
