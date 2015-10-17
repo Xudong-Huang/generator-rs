@@ -41,10 +41,10 @@ fn generator_is_done() {
 
 #[test]
 fn test_yield() {
-    let mut g = make_gen::<(), _>(Box::new(||{
+    let mut g = make_gen::<(), _, _>(||{
         _yield_!(10);
         20
-    }));
+    });
 
     let i = g.send(());
     assert!(i == 10);
