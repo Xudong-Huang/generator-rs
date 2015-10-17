@@ -1,6 +1,6 @@
-//! # generator enviroment
+//! # generator run time support
 //!
-//! generator context management
+//! generator run time context management
 //!
 
 use std::cell::UnsafeCell;

@@ -15,8 +15,8 @@ extern crate log;
 extern crate libc;
 extern crate context;
 
-pub mod env;
-pub use env::ContextStack;
+mod rt;
+pub use rt::ContextStack;
 
 use context::Stack;
 use context::Context as RegContext;
