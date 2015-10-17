@@ -16,89 +16,15 @@ extern crate libc;
 extern crate context;
 
 mod rt;
+pub use rt::Context;
 pub use rt::ContextStack;
 
-use context::Stack;
-use context::Context as RegContext;
 use std::rt::unwind::try;
-use std::rt::util::min_stack;
 use std::boxed::FnBox;
 use std::any::Any;
 use std::mem;
 use std::ptr;
-
-/// generator context
-pub struct Context {
-    /// generator regs context
-    regs: RegContext,
-    /// generator execution stack
-    stack: Stack,
-    /// passed in para for send
-    para: *mut Any,
-    /// this is just a buffer for the return value
-    ret:  *mut Any,
-    /// track generator ref, yield will -1, send will +1
-    _ref: u32,
-    /// priave flag that control the execution flow
-    _flag: bool,
-}
-
-impl Context {
-    /// return a default generator context
-    pub fn new() -> Context {
-        Context {
-            regs: RegContext::empty(),
-            stack: Stack::new(min_stack()),
-            para: unsafe { mem::transmute(&0 as &Any) },
-            ret: unsafe { mem::transmute(&0 as &Any) },
-            _ref: 0,
-            _flag: false,
-        }
-    }
-
-    /// empty context used for the normal thread
-    pub fn empty() -> Context {
-        Context {
-            regs: RegContext::empty(),
-            stack: unsafe { Stack::dummy_stack() },
-            para: unsafe { mem::transmute(&0 as &Any) },
-            ret: unsafe { mem::transmute(&0 as &Any) },
-            _ref: 0,
-            _flag: false,
-        }
-    }
-
-    /// save current generator context
-    #[inline(always)]
-    pub fn save(&mut self) {
-        self._ref -= 1;
-        self._flag = true;
-        RegContext::save(&mut self.regs);
-    }
-
-    /// generator involke flag, save it along with context
-    #[inline]
-    pub fn get_flag(&mut self)-> &'static mut bool {
-        unsafe {mem::transmute(&mut self._flag)}
-    }
-
-    /// get current generator send para
-    #[inline]
-    pub fn get_para<T>(&self) -> Option<T> where T: Any {
-        let para = unsafe { &mut *self.para };
-        let val = para.downcast_mut::<Option<T>>().unwrap();
-        val.take()
-    }
-
-    /// set current generator return value
-    #[inline]
-    pub fn set_ret<T>(&mut self, v: T) where T: Any {
-        let ret = unsafe { &mut *self.ret };
-        // add type check and panic with message
-        let val = ret.downcast_mut::<Option<T>>().unwrap();
-        mem::replace(val, Some(v));
-    }
-}
+use context::Context as RegContext;
 
 /// generator trait
 pub trait Generator<A> {
