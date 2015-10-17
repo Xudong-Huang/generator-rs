@@ -215,9 +215,9 @@ extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) -> ! {
 }
 
 /// create generator
-pub fn make_gen<A: Any, T: Any>(p: Option<A>, f: Box<FnBox()->T>) -> Box<FnGenerator<A, T>> {
+pub fn make_gen<A: Any, T: Any>(f: Box<FnBox()->T>) -> Box<FnGenerator<A, T>> {
     let mut g = Box::new(FnGenerator {
-       para: p, ret: None, f: Some(f),
+       para: None, ret: None, f: Some(f),
        context: Context::new()
     });
 
@@ -251,17 +251,10 @@ macro_rules! generator {
     // func: the expression for unsafe async function which contains yiled
     // para: default send para type to the generator
     ($func:expr, <$para:ty>) => (
-        generator::make_gen::<$para, _>(None, Box::new(move|| {$func}))
+        generator::make_gen::<$para, _>(Box::new(move|| {$func}))
     );
 
-    // `(func, para)`
-    // func: the expression for unsafe async function which contains yiled
-    // para: default send para to the generator
-    ($func:expr, $para:expr) => (
-        generator::make_gen(Some($para), Box::new(move|| {$func}))
-    );
-
-    ($func:expr) => (generator!($func, ()));
+    ($func:expr) => (generator!($func, <()>));
 }
 
 /// yiled and get the send para

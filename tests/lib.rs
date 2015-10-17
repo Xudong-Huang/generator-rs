@@ -41,7 +41,7 @@ fn generator_is_done() {
 
 #[test]
 fn test_yield() {
-    let mut g = make_gen::<(), _>(None, Box::new(||{
+    let mut g = make_gen::<(), _>(Box::new(||{
         _yield_!(10);
         20
     }));
