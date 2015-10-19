@@ -16,13 +16,13 @@ extern crate libc;
 extern crate context;
 
 mod rt;
-pub use rt::Context;
-pub use rt::ContextStack;
+use rt::ContextStack;
 
 mod fn_gen;
 pub use fn_gen::FnGenerator;
 
 use std::ptr;
+use std::any::Any;
 use context::Context as RegContext;
 
 /// generator trait
@@ -66,6 +66,33 @@ pub fn yield_now() {
     }
 }
 
+/// yiled something without catch passed in para
+#[inline]
+pub fn yield_with<T: Any>(v: T) {
+    let context = ContextStack::current().top();
+    let _no_use = context.get_flag();
+    context.save();
+    if *_no_use {
+        *_no_use = false;
+        context.set_ret(v);
+        yield_now();
+    }
+}
+
+/// yiled with something and return the passed in para
+#[inline]
+pub fn get_yield_with<A: Any, T: Any>(v: T) -> Option<A> {
+    let context = ContextStack::current().top();
+    let _no_use = context.get_flag();
+    context.save();
+    if *_no_use {
+        *_no_use = false;
+        context.set_ret(v);
+        yield_now();
+    }
+    ContextStack::current().top().get_para()
+}
+
 /// create generator
 #[macro_export]
 macro_rules! generator {
@@ -85,10 +112,7 @@ macro_rules! _yield {
     // `(para)`
     // val: the value that need to be yield
     // and got the send para from context
-    ($val:expr) => ({
-        _yield_!($val);
-        generator::ContextStack::current().top().get_para().unwrap()
-    });
+    ($val:expr) => (generator::get_yield_with($val).unwrap());
 
     () => (_yield!(()));
 }
@@ -99,21 +123,8 @@ macro_rules! _yield_ {
     // `(para)`
     // val: the value that need to be yield
     // and got the send para from context
-    ($val:expr) => ({
-        let context = generator::ContextStack::current().top();
-        let _no_use = context.get_flag();
-        context.save();
-        if *_no_use {
-            *_no_use = false;
-            context.set_ret($val);
-            // don't use the return instruction
-            generator::yield_now();
-            // context.load();
-            return $val;
-        }
-    });
+    ($val:expr) => (generator::yield_with($val));
 
     () => (_yield_!(()));
 }
-
 
