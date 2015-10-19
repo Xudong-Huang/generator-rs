@@ -15,21 +15,21 @@ use std::mem;
 use context::Context as RegContext;
 
 /// FnGenerator
-pub struct FnGenerator<A, T> {
+pub struct FnGenerator<'a, A: Any, T: Any> {
     context: Context,
     // save the input
     para: Option<A>,
     // save the output
     ret: Option<T>,
     // boxed functor
-    f: Option<Box<FnBox()->T>>
+    f: Option<Box<FnBox()->T + 'a>>
 }
 
 
-impl<A: Any, T: Any> FnGenerator<A, T> {
+impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
     /// create a new generator
-    pub fn new<F>(f: F) -> Box<Generator<A, Output=T>>
-        where F: FnOnce()->T + 'static
+    pub fn new<F>(f: F) -> Box<Generator<A, Output=T> + 'a>
+        where F: FnOnce()->T + 'a
     {
         let mut g = Box::new(FnGenerator {
            para: None, ret: None, f: Some(Box::new(f)),
@@ -78,7 +78,7 @@ impl<A: Any, T: Any> FnGenerator<A, T> {
 
 }
 
-impl<A: Any, T: Any> Generator<A> for FnGenerator<A, T> {
+impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
     type Output = T;
 
     fn raw_send(&mut self, para: Option<A>) -> Option<T> {
