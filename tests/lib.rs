@@ -64,3 +64,18 @@ fn test_scoped_1() {
 
     assert!(x == 5);
 }
+
+#[test]
+fn test_drop() {
+    let mut x = 10;
+    {
+        FnGenerator::<(), _>::new( || {
+           x = 1;
+           _yield_!();
+           x = 5;
+        });
+    }
+
+    assert!(x == 5);
+}
+

@@ -78,6 +78,14 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
 
 }
 
+impl<'a, A: Any, T: Any> Drop for FnGenerator<'a, A, T> {
+    fn drop(&mut self){
+        while !self.is_done() {
+            self.raw_send(None);
+        }
+    }
+}
+
 impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
     type Output = T;
 
