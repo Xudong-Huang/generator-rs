@@ -43,20 +43,10 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
             let ptr = Box::into_raw(g);
 
             //let start = Box::new(||{g.ret = Some((g.f.take().unwrap())())});
-            let start: Box<FnBox()> = Box::new(move||{
-                let ptr = ptr as usize;
-                let clo = move || {
-                    let ptr = ptr as *mut FnGenerator<'a, A, T>; 
-                    let ref mut g = *ptr;
-                    g.ret = Some((g.f.take().unwrap())());
-                };
-
-                let e = thread::catch_panic(clo);
-                println!("{:?}", e);
-
-                if let Err(cause) = e {
-                    error!("Panicked inside: {:?}", cause.downcast::<&str>());
-                }
+            let start: Box<FnBox()> = Box::new(move || {
+                let ptr = ptr as *mut FnGenerator<'a, A, T>; 
+                let ref mut g = *ptr;
+                g.ret = Some((g.f.take().unwrap())());
             });
 
             let stk = &mut (*ptr).context.stack;
@@ -122,11 +112,17 @@ impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
 
 #[allow(unused_variables)]
 extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) -> ! {
-    let func: Box<Box<FnBox()>> = unsafe {
-        Box::from_raw(f as *mut Box<FnBox()>)
+    let f = f as usize;
+    let clo = move || {
+        let func: Box<Box<FnBox()>> = unsafe {
+            Box::from_raw(f as *mut Box<FnBox()>)
+        };
+        func();
     };
 
-    func();
+    if let Err(cause) = thread::catch_panic(clo){
+        error!("Panicked inside: {:?}", cause.downcast::<&str>());
+    }
 
     yield_now();
 
