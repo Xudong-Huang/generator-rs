@@ -110,3 +110,16 @@ fn test_drop() {
     assert!(x == 5);
 }
 
+#[test]
+fn test_panic_inside() {
+    let mut x = 10;
+    {
+        FnGenerator::<(), _>::new(||{
+            x = 5;
+            panic!("panic inside!");
+        });
+    }
+
+    assert!(x == 5);
+}
+

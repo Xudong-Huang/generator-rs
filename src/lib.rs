@@ -5,8 +5,9 @@
 
 #![feature(fnbox)]
 #![feature(rustc_private)]
-#![feature(rt)]
+#![feature(catch_panic)]
 #![feature(box_raw)]
+#![feature(rt)] // remove this
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
 

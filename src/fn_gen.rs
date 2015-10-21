@@ -5,10 +5,10 @@
 
 use rt::Context;
 use rt::ContextStack;
-use super::{Generator, yield_now};
+use {Generator, yield_now};
 
 use libc;
-use std::rt::unwind::try;
+use std::thread;
 use std::boxed::FnBox;
 use std::any::Any;
 use std::mem;
@@ -44,10 +44,19 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
 
             //let start = Box::new(||{g.ret = Some((g.f.take().unwrap())())});
             let start: Box<FnBox()> = Box::new(move||{
-                let mut g = Box::from_raw(ptr);
-                g.ret = Some((g.f.take().unwrap())());
-                // don't free the box here
-                Box::into_raw(g);
+                let ptr = ptr as usize;
+                let clo = move || {
+                    let ptr = ptr as *mut FnGenerator<'a, A, T>; 
+                    let ref mut g = *ptr;
+                    g.ret = Some((g.f.take().unwrap())());
+                };
+
+                let e = thread::catch_panic(clo);
+                println!("{:?}", e);
+
+                if let Err(cause) = e {
+                    error!("Panicked inside: {:?}", cause.downcast::<&str>());
+                }
             });
 
             let stk = &mut (*ptr).context.stack;
@@ -75,7 +84,6 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
         // when the f is consumed we think it's running
         self.f.is_none()
     }
-
 }
 
 impl<'a, A: Any, T: Any> Drop for FnGenerator<'a, A, T> {
@@ -114,15 +122,11 @@ impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
 
 #[allow(unused_variables)]
 extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) -> ! {
-    {
-        let func: Box<Box<FnBox()>> = unsafe {
-            Box::from_raw(f as *mut Box<FnBox()>)
-        };
+    let func: Box<Box<FnBox()>> = unsafe {
+        Box::from_raw(f as *mut Box<FnBox()>)
+    };
 
-        if let Err(cause) = unsafe { try(move|| func()) } {
-            error!("Panicked inside: {:?}", cause.downcast::<&str>());
-        }
-    }
+    func();
 
     yield_now();
 
