@@ -42,11 +42,14 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
         unsafe {
             let ptr = Box::into_raw(g);
 
-            //let start = Box::new(||{g.ret = Some((g.f.take().unwrap())())});
             let start: Box<FnBox()> = Box::new(move || {
-                let ptr = ptr as *mut FnGenerator<'a, A, T>; 
-                let ref mut g = *ptr;
-                g.ret = Some((g.f.take().unwrap())());
+                // here seems that rust test --release has bug!!
+                // comment out the following would crash
+                // error!("{:?}", ptr);
+                // let ref mut g = *ptr;
+                // g.ret = Some((g.f.take().unwrap())());
+                let f = (*ptr).f.take().unwrap();
+                (*ptr).ret = Some(f());
             });
 
             let stk = &mut (*ptr).context.stack;
