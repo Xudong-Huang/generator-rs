@@ -57,8 +57,12 @@ impl<'a, A, T> Iterator for Generator<A, Output=T> + 'a {
     }
 }
 
-struct Cancel;
-struct StackErr;
+#[allow(dead_code)]
+enum Error {
+    Cancel,
+    StackErr,
+    ContextErr,
+}
 
 /// switch back to parent context
 fn yield_now() {
@@ -85,7 +89,7 @@ fn raw_yield<T: Any>(context: &mut Context, v: T) {
 
     // here we just panic to exit the func
     if context._ref > 1 {
-        panic!(Cancel);
+        panic!(Error::Cancel);
     }
 }
 

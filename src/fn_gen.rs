@@ -5,7 +5,7 @@
 
 use rt::Context;
 use rt::ContextStack;
-use {Generator, yield_now, Cancel, StackErr};
+use {Generator, yield_now, Error};
 
 use libc;
 use std::thread;
@@ -136,11 +136,12 @@ extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) -> ! {
     };
 
     if let Err(cause) = thread::catch_panic(clo){
-        if cause.downcast_ref::<Cancel>().is_some() {
-            // we cancel the generator, do nothing
-        } else if cause.downcast_ref::<StackErr>().is_some() {
-            // the stack is exceeded
-            panic!("Stack overflow detected!");
+        if cause.downcast_ref::<Error>().is_some() {
+            match cause.downcast_ref::<Error>().unwrap() {
+                & Error::Cancel => {},
+                & Error::StackErr => { panic!("Stack overflow detected!"); },
+                & Error::ContextErr => { panic!("Context error detected!"); },
+            }
         } else {
             error!("Panicked inside: {:?}", cause.downcast::<&str>());
         }
