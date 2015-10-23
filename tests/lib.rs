@@ -147,3 +147,10 @@ fn test_cancel() {
     assert!(g.is_done());
 }
 
+#[test]
+#[should_panic]
+fn test_yield_from_functor_context() {
+    // this is not run from generator
+    yield_with(0);
+}
+

@@ -33,6 +33,11 @@ pub fn yield_now() {
 /// yiled something without catch passed in para
 #[inline]
 fn raw_yield<T: Any>(context: &mut Context, v: T) {
+    // check the context
+    if !context.is_generator() {
+        panic!(Error::ContextErr);
+    }
+
     let _no_use = context.get_flag();
     context.save();
     if *_no_use {

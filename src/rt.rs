@@ -53,9 +53,15 @@ impl Context {
             stack: unsafe { Stack::dummy_stack() },
             para: unsafe { mem::transmute(&0 as &Any) },
             ret: unsafe { mem::transmute(&0 as &Any) },
-            _ref: 0,
+            _ref: 100, // any number that is bigger than 2
             _flag: false,
         }
+    }
+
+    /// judge it's generator context
+    pub fn is_generator(&self) -> bool {
+        // TODO use stack empty to check
+        self._ref < 2
     }
 
     /// save current generator context
@@ -124,6 +130,18 @@ impl ContextStack {
     #[inline]
     pub fn top(&self) -> &'static mut Context {
         unsafe {&mut **self.stack.last().unwrap()}
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::ContextStack;
+
+    #[test]
+    fn test_is_context() {
+        // this is the root context
+        let ctx = ContextStack::current().top();
+        assert!(!ctx.is_generator());
     }
 }
 
