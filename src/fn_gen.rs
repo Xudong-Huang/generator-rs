@@ -5,7 +5,8 @@
 
 use rt::Context;
 use rt::ContextStack;
-use {Generator, yield_now, Error};
+use yield_::{yield_now, Error};
+use Generator;
 
 use libc;
 use std::thread;
