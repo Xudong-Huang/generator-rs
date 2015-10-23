@@ -57,6 +57,9 @@ impl<'a, A, T> Iterator for Generator<A, Output=T> + 'a {
     }
 }
 
+struct Cancel;
+struct StackErr;
+
 /// switch back to parent context
 fn yield_now() {
     let env = ContextStack::current();
@@ -82,7 +85,7 @@ fn raw_yield<T: Any>(context: &mut Context, v: T) {
 
     // here we just panic to exit the func
     if context._ref > 1 {
-        panic!("cancel request");
+        panic!(Cancel);
     }
 }
 

@@ -5,7 +5,7 @@
 
 use rt::Context;
 use rt::ContextStack;
-use {Generator, yield_now};
+use {Generator, yield_now, Cancel, StackErr};
 
 use libc;
 use std::thread;
@@ -24,7 +24,6 @@ pub struct FnGenerator<'a, A: Any, T: Any> {
     // boxed functor
     f: Option<Box<FnBox()->T + 'a>>
 }
-
 
 impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
     /// create a new generator
@@ -137,7 +136,14 @@ extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) -> ! {
     };
 
     if let Err(cause) = thread::catch_panic(clo){
-        error!("Panicked inside: {:?}", cause.downcast::<&str>());
+        if cause.downcast_ref::<Cancel>().is_some() {
+            // we cancel the generator, do nothing
+        } else if cause.downcast_ref::<StackErr>().is_some() {
+            // the stack is exceeded
+            panic!("Stack overflow detected!");
+        } else {
+            error!("Panicked inside: {:?}", cause.downcast::<&str>());
+        }
     }
 
     yield_now();
