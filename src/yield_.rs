@@ -47,7 +47,7 @@ fn raw_yield<T: Any>(context: &mut Context, v: T) {
     }
 
     // here we just panic to exit the func
-    if context._ref > 1 {
+    if context._ref != 1 {
         panic!(Error::Cancel);
     }
 }

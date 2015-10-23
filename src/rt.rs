@@ -6,7 +6,6 @@
 use std::mem;
 use std::any::Any;
 use std::cell::UnsafeCell;
-use std::rt::util::min_stack;
 use context::Stack;
 use context::Context as RegContext;
 
@@ -35,10 +34,10 @@ pub struct Context {
 
 impl Context {
     /// return a default generator context
-    pub fn new() -> Context {
+    pub fn new(size: usize) -> Context {
         Context {
             regs: RegContext::empty(),
-            stack: Stack::new(min_stack()),
+            stack: Stack::new(size),
             para: unsafe { mem::transmute(&0 as &Any) },
             ret: unsafe { mem::transmute(&0 as &Any) },
             _ref: 0,
@@ -53,7 +52,7 @@ impl Context {
             stack: unsafe { Stack::dummy_stack() },
             para: unsafe { mem::transmute(&0 as &Any) },
             ret: unsafe { mem::transmute(&0 as &Any) },
-            _ref: 100, // any number that is bigger than 2
+            _ref: 0xDEAD,
             _flag: false,
         }
     }
@@ -61,7 +60,7 @@ impl Context {
     /// judge it's generator context
     pub fn is_generator(&self) -> bool {
         // TODO use stack empty to check
-        self._ref < 2
+        self._ref != 0xDEAD
     }
 
     /// save current generator context

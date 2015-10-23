@@ -33,7 +33,8 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
     {
         let mut g = Box::new(FnGenerator {
            para: None, ret: None, f: Some(Box::new(f)),
-           context: Context::new()
+           // default stack size is 16k bytes
+           context: Context::new(0x4000)
         });
 
         g.context.para = &mut g.para as &mut Any;
