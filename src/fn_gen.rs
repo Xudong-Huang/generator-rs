@@ -23,18 +23,20 @@ pub struct FnGenerator<'a, A: Any, T: Any> {
     // save the output
     ret: Option<T>,
     // boxed functor
-    f: Option<Box<FnBox()->T + 'a>>
+    f: Option<Box<FnBox() -> T + 'a>>,
 }
 
 impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
     /// create a new generator
-    pub fn new<F>(f: F) -> Box<Generator<A, Output=T> + 'a>
-        where F: FnOnce()->T + 'a
+    pub fn new<F>(f: F) -> Box<Generator<A, Output = T> + 'a>
+        where F: FnOnce() -> T + 'a
     {
         let mut g = Box::new(FnGenerator {
-           para: None, ret: None, f: Some(Box::new(f)),
-           // default stack size is 16k bytes
-           context: Context::new(0x4000)
+            para: None,
+            ret: None,
+            f: Some(Box::new(f)),
+            // default stack size is 16k bytes
+            context: Context::new(0x4000),
         });
 
         g.context.para = &mut g.para as &mut Any;
@@ -55,7 +57,8 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
 
             let stk = &mut (*ptr).context.stack;
             let reg = &mut (*ptr).context.regs;
-            reg.init_with(gen_init, ptr as usize,
+            reg.init_with(gen_init,
+                          ptr as usize,
                           Box::into_raw(Box::new(start)) as *mut libc::c_void,
                           stk);
             Box::from_raw(ptr)
@@ -66,7 +69,7 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
         let env = ContextStack::current();
         let cur = &mut env.top().regs;
         let ctx = &mut self.context as *mut Context;
-        let to = unsafe {&mut (*ctx).regs};
+        let to = unsafe { &mut (*ctx).regs };
         // save current generator context on stack
         env.push(ctx);
         // switch context
@@ -81,7 +84,7 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
 }
 
 impl<'a, A: Any, T: Any> Drop for FnGenerator<'a, A, T> {
-    fn drop(&mut self){
+    fn drop(&mut self) {
         while !self.is_done() {
             self.raw_send(None);
         }
@@ -123,7 +126,7 @@ impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
     }
 
     fn is_done(&self) -> bool {
-       self.is_started() && self.context._ref != 0
+        self.is_started() && self.context._ref != 0
     }
 }
 
@@ -131,18 +134,20 @@ impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
 extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) -> ! {
     let f = f as usize;
     let clo = move || {
-        let func: Box<Box<FnBox()>> = unsafe {
-            Box::from_raw(f as *mut Box<FnBox()>)
-        };
+        let func: Box<Box<FnBox()>> = unsafe { Box::from_raw(f as *mut Box<FnBox()>) };
         func();
     };
 
-    if let Err(cause) = thread::catch_panic(clo){
+    if let Err(cause) = thread::catch_panic(clo) {
         if cause.downcast_ref::<Error>().is_some() {
             match cause.downcast_ref::<Error>().unwrap() {
-                & Error::Cancel => {},
-                & Error::StackErr => { panic!("Stack overflow detected!"); },
-                & Error::ContextErr => { panic!("Context error detected!"); },
+                &Error::Cancel => {}
+                &Error::StackErr => {
+                    panic!("Stack overflow detected!");
+                }
+                &Error::ContextErr => {
+                    panic!("Context error detected!");
+                }
             }
         } else {
             error!("Panicked inside: {:?}", cause.downcast::<&str>());
@@ -153,4 +158,3 @@ extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) -> ! {
 
     unreachable!("Should never comeback");
 }
-

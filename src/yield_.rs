@@ -55,7 +55,7 @@ fn raw_yield<T: Any>(context: &mut Context, v: T) {
 /// yiled something without catch passed in para
 #[inline]
 pub fn yield_with<T: Any>(v: T) {
-    raw_yield(ContextStack::current().top(), v); 
+    raw_yield(ContextStack::current().top(), v);
 }
 
 /// yiled with something and return the passed in para
@@ -87,4 +87,3 @@ macro_rules! _yield_ {
 
     () => (_yield_!(()));
 }
-

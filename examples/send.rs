@@ -1,4 +1,4 @@
-#[macro_use]                                                               
+#[macro_use]
 extern crate generator;
 use generator::Generator;
 
@@ -21,4 +21,4 @@ fn main() {
         i = s.send(i);
         println!("{}", i);
     }
-} 
+}

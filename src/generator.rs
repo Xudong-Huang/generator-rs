@@ -46,4 +46,3 @@ macro_rules! generator {
 
     ($func:expr) => (generator!($func, <()>));
 }
-

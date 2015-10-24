@@ -25,7 +25,7 @@ pub struct Context {
     /// passed in para for send
     pub para: *mut Any,
     /// this is just a buffer for the return value
-    pub ret:  *mut Any,
+    pub ret: *mut Any,
     /// track generator ref, yield will -1, send will +1
     pub _ref: u32,
     /// priave flag that control the execution flow
@@ -73,13 +73,15 @@ impl Context {
 
     /// generator involke flag, save it along with context
     #[inline]
-    pub fn get_flag(&mut self)-> &'static mut bool {
-        unsafe {mem::transmute(&mut self._flag)}
+    pub fn get_flag(&mut self) -> &'static mut bool {
+        unsafe { mem::transmute(&mut self._flag) }
     }
 
     /// get current generator send para
     #[inline]
-    pub fn get_para<T>(&self) -> Option<T> where T: Any {
+    pub fn get_para<T>(&self) -> Option<T>
+        where T: Any
+    {
         let para = unsafe { &mut *self.para };
         let val = para.downcast_mut::<Option<T>>().unwrap();
         val.take()
@@ -87,7 +89,9 @@ impl Context {
 
     /// set current generator return value
     #[inline]
-    pub fn set_ret<T>(&mut self, v: T) where T: Any {
+    pub fn set_ret<T>(&mut self, v: T)
+        where T: Any
+    {
         let ret = unsafe { &mut *self.ret };
         // add type check and panic with message
         let val = ret.downcast_mut::<Option<T>>().unwrap();
@@ -97,12 +101,12 @@ impl Context {
 
 /// Coroutine managing environment
 pub struct ContextStack {
-    stack: Vec<*mut Context>
+    stack: Vec<*mut Context>,
 }
 
 impl ContextStack {
     fn new() -> Box<ContextStack> {
-        let mut r = Box::new(ContextStack {stack: Vec::new()});
+        let mut r = Box::new(ContextStack { stack: Vec::new() });
         r.push(ROOT_CONTEXT.with(|env| env.get()));
         r
     }
@@ -110,7 +114,7 @@ impl ContextStack {
     /// get current thread's generator context stack
     #[inline]
     pub fn current() -> &'static mut ContextStack {
-        CONTEXT_STACK.with(|env| unsafe {&mut *env.get()})
+        CONTEXT_STACK.with(|env| unsafe { &mut *env.get() })
     }
 
     /// push generator context
@@ -128,7 +132,7 @@ impl ContextStack {
     /// get current generator context
     #[inline]
     pub fn top(&self) -> &'static mut Context {
-        unsafe {&mut **self.stack.last().unwrap()}
+        unsafe { &mut **self.stack.last().unwrap() }
     }
 }
 
@@ -143,4 +147,3 @@ mod test {
         assert!(!ctx.is_generator());
     }
 }
-

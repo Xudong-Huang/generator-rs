@@ -1,5 +1,5 @@
-#[macro_use]                                                               
-extern crate generator;                                                    
+#[macro_use]
+extern crate generator;
 
 fn fib(a: u32, b: u32) -> u32 {
     let (mut a, mut b) = (a, b);
@@ -20,4 +20,3 @@ fn main() {
         println!("{}", i);
     }
 }
-
