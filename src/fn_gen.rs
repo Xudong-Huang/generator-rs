@@ -108,6 +108,19 @@ impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
         self.ret.take()
     }
 
+    fn cancel(&mut self) {
+        // consume the fun if it's not started
+        if !self.is_started() {
+            self.f.take();
+            self.context._ref = 1;
+        } else {
+            // tell the func to panic
+            // so that we can stop the inner func
+            self.context._ref = 2;
+            self.resume_gen();
+        }
+    }
+
     fn is_done(&self) -> bool {
        self.is_started() && self.context._ref != 0
     }

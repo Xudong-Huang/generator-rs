@@ -123,3 +123,27 @@ fn test_panic_inside() {
     assert!(x == 5);
 }
 
+
+#[test]
+#[allow(unreachable_code)]
+fn test_cancel() {
+    let mut g = FnGenerator::<(), _>::new(||{
+        let mut i = 0;
+        loop {
+            _yield_!(i);
+            i += 1;
+        }
+        i
+    });
+
+    loop {
+        let i = g.next().unwrap();
+        if i > 10 {
+            g.cancel();
+            break;
+        }
+    }
+    
+    assert!(g.is_done());
+}
+
