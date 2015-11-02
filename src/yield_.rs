@@ -4,6 +4,7 @@
 //!
 
 use std::any::Any;
+use generator::Generator;
 use rt::{Context, ContextStack};
 use reg_context::Context as RegContext;
 
@@ -59,6 +60,17 @@ pub fn get_yield<A: Any, T: Any>(v: T) -> Option<A> {
     let context = ContextStack::current().top();
     raw_yield(context, v);
     context.get_para()
+}
+
+/// yiled_from
+pub fn yield_from<'a, A: Any, T: Any>(g: Box<Generator<A, Output = T> + 'a>) {
+    let context = ContextStack::current().top();
+    let mut g = g;
+    while !g.is_done() {
+        let p = context.get_para();
+        let r = g.raw_send(p).unwrap();
+        raw_yield(context, r);
+    }
 }
 
 /// yiled and get the send para

@@ -37,10 +37,10 @@ fn test_scoped() {
     let x = Rc::new(RefCell::new(10));
 
     let x1 = x.clone();
-    let mut g = FnGenerator::<(), _>::new(move|| {
-         *x1.borrow_mut() = 20;
-         _yield_!();
-         *x1.borrow_mut() = 5;
+    let mut g = FnGenerator::<(), _>::new(move || {
+        *x1.borrow_mut() = 20;
+        _yield_!();
+        *x1.borrow_mut() = 5;
     });
 
     g.next();
@@ -56,8 +56,8 @@ fn test_scoped() {
 fn test_scoped_1() {
     let mut x = 10;
     {
-        let mut g = FnGenerator::<(), _>::new( || {
-           x = 5;
+        let mut g = FnGenerator::<(), _>::new(|| {
+            x = 5;
         });
         g.next();
     }
@@ -67,11 +67,11 @@ fn test_scoped_1() {
 
 
 #[test]
-fn test_inner_ref(){
+fn test_inner_ref() {
     use std::mem;
-    let mut g = FnGenerator::<(), &mut u32>::new(||{
+    let mut g = FnGenerator::<(), &mut u32>::new(|| {
         // setup something
-        let mut x:u32 = 10;
+        let mut x: u32 = 10;
 
         // the x memory remains on heap even returned!
         // the life time of x is assosiated with the generator
@@ -100,10 +100,10 @@ fn test_inner_ref(){
 fn test_drop() {
     let mut x = 10;
     {
-        FnGenerator::<(), _>::new( || {
-           x = 1;
-           _yield_!();
-           x = 5;
+        FnGenerator::<(), _>::new(|| {
+            x = 1;
+            _yield_!();
+            x = 5;
         });
     }
 
@@ -114,7 +114,7 @@ fn test_drop() {
 fn test_panic_inside() {
     let mut x = 10;
     {
-        FnGenerator::<(), _>::new(||{
+        FnGenerator::<(), _>::new(|| {
             x = 5;
             panic!("panic inside!");
         });
@@ -127,7 +127,7 @@ fn test_panic_inside() {
 #[test]
 #[allow(unreachable_code)]
 fn test_cancel() {
-    let mut g = FnGenerator::<(), _>::new(||{
+    let mut g = FnGenerator::<(), _>::new(|| {
         let mut i = 0;
         loop {
             _yield_!(i);
@@ -143,7 +143,7 @@ fn test_cancel() {
             break;
         }
     }
-    
+
     assert!(g.is_done());
 }
 
@@ -154,3 +154,43 @@ fn test_yield_from_functor_context() {
     yield_with(0);
 }
 
+#[test]
+fn test_yield_from_generator_context() {
+    let mut g = FnGenerator::<(), _>::new(|| {
+        let mut g1 = FnGenerator::<(), _>::new(|| {
+            yield_with(5);
+            10
+        });
+
+        let i = g1.send(());
+        yield_with(i);
+        0
+    });
+
+    let n = g.send(());
+    assert!(n == 5);
+
+    let n = g.send(());
+    assert!(n == 0);
+}
+
+#[test]
+fn test_yield_from() {
+    let mut g = FnGenerator::<(), _>::new(|| {
+        let g1 = FnGenerator::<(), _>::new(|| {
+            yield_with(5);
+            10
+        });
+
+        yield_from(g1);
+        0
+    });
+
+    let n = g.send(());
+    assert!(n == 5);
+    let n = g.send(());
+    assert!(n == 10);
+    let n = g.send(());
+    assert!(n == 0);
+    assert!(g.is_done());
+}

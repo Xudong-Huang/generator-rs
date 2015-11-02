@@ -3,12 +3,13 @@
 //! Rust generator library
 //!
 
-#![feature(fnbox)]
 #![feature(asm)]
 #![feature(alloc)]
+#![feature(fnbox)]
 #![feature(repr_simd)]
-#![feature(rustc_private)]
 #![feature(catch_panic)]
+#![feature(rustc_private)]
+
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
 
@@ -26,4 +27,4 @@ mod reg_context;
 
 pub use generator::Generator;
 pub use fn_gen::FnGenerator;
-pub use yield_::{yield_with, get_yield};
+pub use yield_::{yield_with, get_yield, yield_from};
