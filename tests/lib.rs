@@ -194,3 +194,28 @@ fn test_yield_from() {
     assert!(n == 0);
     assert!(g.is_done());
 }
+
+#[test]
+fn test_yield_from_send() {
+    let mut g = FnGenerator::<u32, u32>::new(|| {
+        let g1 = FnGenerator::<u32, u32>::new(|| {
+            let mut i: u32 = _yield!(1u32);
+            i = _yield!(i * 2);
+            i * 2
+        });
+
+        yield_from(g1);
+        0
+    });
+
+    let n = g.send(3);
+    assert!(n == 1);
+    let n = g.send(4);
+    assert!(n == 6);
+    let n = g.send(10);
+    assert!(n == 8);
+    // the last send has no meaning for the return
+    let n = g.send(0);
+    assert!(n == 0);
+    assert!(g.is_done());
+}

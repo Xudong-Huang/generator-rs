@@ -98,15 +98,15 @@ impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
             return None;
         }
 
-        // every time we call the function, increase the ref count
-        // yiled will decrease it and return will not
-        self.context._ref += 1;
-        self.resume_gen();
-
         // this is the passed in value of the send primitive
         // the yield part would read out this value in the next round
         // use the replace is would drop the old value
         mem::replace(&mut self.para, para);
+
+        // every time we call the function, increase the ref count
+        // yiled will decrease it and return will not
+        self.context._ref += 1;
+        self.resume_gen();
 
         self.ret.take()
     }

@@ -58,8 +58,9 @@ pub fn yield_with<T: Any>(v: T) {
 #[inline]
 pub fn get_yield<A: Any, T: Any>(v: T) -> Option<A> {
     let context = ContextStack::current().top();
+    let p = context.get_para();
     raw_yield(context, v);
-    context.get_para()
+    p
 }
 
 /// yiled_from
