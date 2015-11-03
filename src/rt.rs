@@ -58,7 +58,7 @@ impl Context {
 
     /// judge it's generator context
     pub fn is_generator(&self) -> bool {
-        !self.stack.is_empty()
+        self.stack.size() > 0
     }
 
     /// get current generator send para

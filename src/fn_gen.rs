@@ -14,6 +14,9 @@ use yield_::yield_now;
 use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
 
+// default stack size is 1k * sizeof(usize)
+const DEFAULT_STACK_SIZE: usize = 1024;
+
 /// FnGenerator
 pub struct FnGenerator<'a, A: Any, T: Any> {
     context: Context,
@@ -34,8 +37,7 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
             para: None,
             ret: None,
             f: Some(Box::new(f)),
-            // default stack size is 16k bytes
-            context: Context::new(0x4000),
+            context: Context::new(DEFAULT_STACK_SIZE),
         });
 
         g.context.para = &mut g.para as &mut Any;
@@ -99,6 +101,16 @@ impl<'a, A: Any, T: Any> Drop for FnGenerator<'a, A, T> {
             }
             self.raw_send(None);
             i += 1;
+        }
+
+        let used_stack = self.context.stack.get_used_size();
+        if used_stack < self.context.stack.size() {
+            // here we should record the stack in the class
+            // next time will just use
+            info!("used stack size is: {} words", used_stack)
+        } else {
+            error!("stack overflow detected!");
+            panic!(Error::StackErr);
         }
     }
 }

@@ -15,7 +15,7 @@ pub fn yield_now() {
     let mut cur = env.top();
     let ref sp = cur.stack;
     // judge if this is root context
-    if !sp.is_empty() {
+    if sp.size() > 0 {
         env.pop();
         let parent = env.top();
         RegContext::swap(&mut cur.regs, &parent.regs);
