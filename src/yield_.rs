@@ -54,13 +54,11 @@ pub fn yield_with<T: Any>(v: T) {
     raw_yield(ContextStack::current().top(), v);
 }
 
-/// yiled with something and return the passed in para
+/// get the passed in para
 #[inline]
-pub fn get_yield<A: Any, T: Any>(v: T) -> Option<A> {
+pub fn get_yield<A: Any>() -> Option<A> {
     let context = ContextStack::current().top();
-    let p = context.get_para();
-    raw_yield(context, v);
-    p
+    context.get_para()
 }
 
 /// yiled_from
@@ -80,7 +78,11 @@ macro_rules! _yield {
     // `(para)`
     // val: the value that need to be yield
     // and got the send para from context
-    ($val:expr) => (generator::get_yield($val).unwrap());
+    ($val:expr) => ({
+        let p = generator::get_yield().unwrap();
+        generator::yield_with($val);
+        p
+    });
 
     () => (_yield!(()));
 }

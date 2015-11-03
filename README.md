@@ -56,7 +56,7 @@ fn main() {
 
 - [x] basic send/yield support
 - [x] generator cancel support
-- [ ] yield_from support
+- [x] yield_from support
 - [x] panic inside genertor support
 - [x] Basic single threaded support
 - [ ] compact stack support
