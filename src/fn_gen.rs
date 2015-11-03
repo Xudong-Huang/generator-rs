@@ -29,16 +29,38 @@ pub struct FnGenerator<'a, A: Any, T: Any> {
 }
 
 impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
-    /// create a new generator
+    /// create a new generator with default stack size
     pub fn new<F>(f: F) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce() -> T + 'a
     {
-        let mut g = Box::new(FnGenerator {
+        let g = FnGenerator {
             para: None,
             ret: None,
             f: Some(Box::new(f)),
             context: Context::new(DEFAULT_STACK_SIZE),
-        });
+        };
+
+        g.final_init()
+    }
+
+    /// create a new generator with specified stack size
+    pub fn new_opt<F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
+        where F: FnOnce() -> T + 'a
+    {
+        let g = FnGenerator {
+            para: None,
+            ret: None,
+            f: Some(Box::new(f)),
+            context: Context::new(size),
+        };
+
+        g.final_init()
+    }
+
+    /// create a boxed generator
+    fn final_init(self) -> Box<Generator<A, Output = T> + 'a> {
+
+        let mut g = Box::new(self);
 
         g.context.para = &mut g.para as &mut Any;
         g.context.ret = &mut g.ret as &mut Any;

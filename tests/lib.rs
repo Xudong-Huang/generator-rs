@@ -285,3 +285,15 @@ fn test_yield_from_send() {
     assert!(n == 0);
     assert!(g.is_done());
 }
+
+
+#[test]
+#[should_panic]
+fn test_stack_overflow() {
+    // here the stack size is not big enough
+    // and will panic when get detected in drop
+    let clo = || {
+        println!("this would overflow the stack");
+    };
+    FnGenerator::<(), _>::new_opt(clo, 100);
+}
