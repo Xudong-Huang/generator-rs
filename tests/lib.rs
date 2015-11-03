@@ -161,6 +161,22 @@ fn test_ill_drop() {
 }
 
 #[test]
+fn test_loop_drop() {
+    let mut x = 10u32;
+    {
+        FnGenerator::<(), _>::new(|| {
+            x = 5;
+            loop {
+                _yield_!();
+            }
+        });
+        // here the generator drop will cancel the loop
+    }
+
+    assert!(x == 5);
+}
+
+#[test]
 fn test_panic_inside() {
     let mut x = 10;
     {

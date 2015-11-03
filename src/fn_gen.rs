@@ -91,8 +91,14 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
 
 impl<'a, A: Any, T: Any> Drop for FnGenerator<'a, A, T> {
     fn drop(&mut self) {
+        let mut i = 0;
         while !self.is_done() {
+            if i > 2 {
+                self.cancel();
+                break;
+            }
             self.raw_send(None);
+            i += 1;
         }
     }
 }
