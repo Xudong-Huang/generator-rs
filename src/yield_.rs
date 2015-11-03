@@ -5,16 +5,8 @@
 
 use std::any::Any;
 use generator::Generator;
-use rt::{Context, ContextStack};
+use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
-
-/// yield error types
-#[allow(dead_code)]
-pub enum Error {
-    Cancel,
-    StackErr,
-    ContextErr,
-}
 
 /// switch back to parent context
 #[inline]
@@ -35,6 +27,7 @@ pub fn yield_now() {
 fn raw_yield<T: Any>(context: &mut Context, v: T) {
     // check the context
     if !context.is_generator() {
+        error!("yield run at none generator context");
         panic!(Error::ContextErr);
     }
 

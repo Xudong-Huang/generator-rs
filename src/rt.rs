@@ -6,6 +6,7 @@
 use std::mem;
 use std::any::Any;
 use std::cell::UnsafeCell;
+
 use stack::Stack;
 use reg_context::Context as RegContext;
 
@@ -15,6 +16,16 @@ thread_local!(static CONTEXT_STACK: UnsafeCell<Box<ContextStack>>
 
 thread_local!(static ROOT_CONTEXT: UnsafeCell<Context>
                                  = UnsafeCell::new(Context::new(0)));
+
+/// yield error types
+#[allow(dead_code)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Error {
+    Cancel,
+    TypeErr,
+    StackErr,
+    ContextErr,
+}
 
 /// generator context
 pub struct Context {
@@ -28,6 +39,8 @@ pub struct Context {
     pub ret: *mut Any,
     /// track generator ref, yield will -1, send will +1
     pub _ref: u32,
+    /// propagate panic
+    pub err: Option<Error>,
 }
 
 impl Context {
@@ -39,6 +52,7 @@ impl Context {
             para: unsafe { mem::transmute(&0 as &Any) },
             ret: unsafe { mem::transmute(&0 as &Any) },
             _ref: 0,
+            err: None,
         }
     }
 
@@ -53,8 +67,12 @@ impl Context {
         where T: Any
     {
         let para = unsafe { &mut *self.para };
-        let val = para.downcast_mut::<Option<T>>().unwrap();
-        val.take()
+        let val = para.downcast_mut::<Option<T>>();
+        if val.is_none() {
+            error!("get yield type error detected");
+            panic!(Error::TypeErr);
+        }
+        val.unwrap().take()
     }
 
     /// set current generator return value
@@ -64,8 +82,12 @@ impl Context {
     {
         let ret = unsafe { &mut *self.ret };
         // add type check and panic with message
-        let val = ret.downcast_mut::<Option<T>>().unwrap();
-        mem::replace(val, Some(v));
+        let val = ret.downcast_mut::<Option<T>>();
+        if val.is_none() {
+            error!("yield type error detected");
+            panic!(Error::TypeErr);
+        }
+        mem::replace(val.unwrap(), Some(v));
     }
 }
 

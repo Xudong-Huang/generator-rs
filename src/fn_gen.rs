@@ -3,15 +3,15 @@
 //! Rust generator implementation
 //!
 
-use rt::Context;
-use rt::ContextStack;
-use yield_::{yield_now, Error};
-use Generator;
 
-use std::thread;
-use std::boxed::FnBox;
-use std::any::Any;
 use std::mem;
+use std::thread;
+use std::any::Any;
+use std::boxed::FnBox;
+
+use Generator;
+use yield_::yield_now;
+use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
 
 /// FnGenerator
@@ -73,6 +73,13 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
         env.push(ctx);
         // switch context
         RegContext::swap(cur, to);
+
+        // check the panic status
+        // this would propagate the panic until root context
+        let err = self.context.err;
+        if err.is_some() {
+            panic!(err.unwrap());
+        }
     }
 
     #[inline]
@@ -130,22 +137,22 @@ impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
 }
 
 fn gen_init(_: usize, f: *mut usize) -> ! {
-    let f = f as usize;
     {
+        let f = f as usize;
         let clo = move || {
             let func: Box<Box<FnBox()>> = unsafe { Box::from_raw(f as *mut Box<FnBox()>) };
             func();
         };
 
+        // we can't panic inside the generator context
+        // need to propagate the panic to the main thread
         if let Err(cause) = thread::catch_panic(clo) {
             if cause.downcast_ref::<Error>().is_some() {
                 match cause.downcast_ref::<Error>().unwrap() {
                     &Error::Cancel => {}
-                    &Error::StackErr => {
-                        panic!("Stack overflow detected!");
-                    }
-                    &Error::ContextErr => {
-                        panic!("Context error detected!");
+                    err => {
+                        let ctx = ContextStack::current().top();
+                        ctx.err = Some(*err);
                     }
                 }
             } else {

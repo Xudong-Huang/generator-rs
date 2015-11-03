@@ -31,6 +31,41 @@ fn test_yield() {
 }
 
 #[test]
+#[should_panic]
+fn test_yield_with_type_error() {
+    let mut g = FnGenerator::<(), _>::new(|| {
+        // yield_with::<i32>(10);
+        yield_with(10u32);
+        20i32
+    });
+
+    g.next();
+}
+
+#[test]
+#[should_panic]
+fn test_get_yield_type_error() {
+    let mut g = FnGenerator::<u32, _>::new(|| {
+        get_yield::<i32>();
+    });
+
+    g.send(10);
+}
+
+#[test]
+#[should_panic]
+fn test_deep_yield_with_type_error() {
+    let mut g = FnGenerator::<(), _>::new(|| {
+        let mut g = FnGenerator::<(), _>::new(|| {
+            yield_with(0);
+        });
+        g.next();
+    });
+
+    g.next();
+}
+
+#[test]
 fn test_scoped() {
     use std::rc::Rc;
     use std::cell::RefCell;
