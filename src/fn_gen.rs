@@ -131,25 +131,28 @@ impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
 
 fn gen_init(_: usize, f: *mut usize) -> ! {
     let f = f as usize;
-    let clo = move || {
-        let func: Box<Box<FnBox()>> = unsafe { Box::from_raw(f as *mut Box<FnBox()>) };
-        func();
-    };
+    {
+        let clo = move || {
+            let func: Box<Box<FnBox()>> = unsafe { Box::from_raw(f as *mut Box<FnBox()>) };
+            func();
+        };
 
-    if let Err(cause) = thread::catch_panic(clo) {
-        if cause.downcast_ref::<Error>().is_some() {
-            match cause.downcast_ref::<Error>().unwrap() {
-                &Error::Cancel => {}
-                &Error::StackErr => {
-                    panic!("Stack overflow detected!");
+        if let Err(cause) = thread::catch_panic(clo) {
+            if cause.downcast_ref::<Error>().is_some() {
+                match cause.downcast_ref::<Error>().unwrap() {
+                    &Error::Cancel => {}
+                    &Error::StackErr => {
+                        panic!("Stack overflow detected!");
+                    }
+                    &Error::ContextErr => {
+                        panic!("Context error detected!");
+                    }
                 }
-                &Error::ContextErr => {
-                    panic!("Context error detected!");
-                }
+            } else {
+                error!("Panicked inside: {:?}", cause.downcast::<&str>());
             }
-        } else {
-            error!("Panicked inside: {:?}", cause.downcast::<&str>());
         }
+        // drop the clo here
     }
 
     yield_now();

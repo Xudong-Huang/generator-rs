@@ -38,6 +38,7 @@ fn raw_yield<T: Any>(context: &mut Context, v: T) {
     }
 
     context.set_ret(v);
+    context._ref -= 1;
     yield_now();
 
     // here we just panic to exit the func

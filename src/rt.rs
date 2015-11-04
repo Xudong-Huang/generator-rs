@@ -14,7 +14,7 @@ thread_local!(static CONTEXT_STACK: UnsafeCell<Box<ContextStack>>
                                   = UnsafeCell::new(ContextStack::new()));
 
 thread_local!(static ROOT_CONTEXT: UnsafeCell<Context>
-                                 = UnsafeCell::new(Context::empty()));
+                                 = UnsafeCell::new(Context::new(0)));
 
 /// generator context
 pub struct Context {
@@ -42,21 +42,9 @@ impl Context {
         }
     }
 
-    /// empty context used for the normal thread
-    pub fn empty() -> Context {
-        Context {
-            regs: RegContext::empty(),
-            stack: Stack::new(0),
-            para: unsafe { mem::transmute(&0 as &Any) },
-            ret: unsafe { mem::transmute(&0 as &Any) },
-            _ref: 0xDEAD,
-        }
-    }
-
     /// judge it's generator context
     pub fn is_generator(&self) -> bool {
-        // TODO use stack empty to check
-        self._ref != 0xDEAD
+        !self.stack.is_empty()
     }
 
     /// get current generator send para
