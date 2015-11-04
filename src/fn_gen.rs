@@ -18,25 +18,27 @@ use reg_context::Context as RegContext;
 const DEFAULT_STACK_SIZE: usize = 1024;
 
 /// FnGenerator
-pub struct FnGenerator<'a, A: Any, T: Any> {
+pub struct FnGenerator<A: Any, T: Any, F>
+    where F: FnOnce() -> T
+{
     context: Context,
     // save the input
     para: Option<A>,
     // save the output
     ret: Option<T>,
     // boxed functor
-    f: Option<Box<FnBox() -> T + 'a>>,
+    f: Option<F>,
 }
 
-impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
+impl<'a, A: Any, T: Any, F> FnGenerator<A, T, F>
+    where F: FnOnce() ->T + 'a
+{
     /// create a new generator with default stack size
-    pub fn new<F>(f: F) -> Box<Generator<A, Output = T> + 'a>
-        where F: FnOnce() -> T + 'a
-    {
+    pub fn new(f: F) -> Box<Generator<A, Output = T> + 'a> {
         let g = FnGenerator {
             para: None,
             ret: None,
-            f: Some(Box::new(f)),
+            f: Some(f),
             context: Context::new(DEFAULT_STACK_SIZE),
         };
 
@@ -44,13 +46,11 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
     }
 
     /// create a new generator with specified stack size
-    pub fn new_opt<F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
-        where F: FnOnce() -> T + 'a
-    {
+    pub fn new_opt(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a> {
         let g = FnGenerator {
             para: None,
             ret: None,
-            f: Some(Box::new(f)),
+            f: Some(f),
             context: Context::new(size),
         };
 
@@ -113,7 +113,9 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
     }
 }
 
-impl<'a, A: Any, T: Any> Drop for FnGenerator<'a, A, T> {
+impl<A: Any, T: Any, F> Drop for FnGenerator<A, T, F>
+    where F: FnOnce() -> T
+{
     fn drop(&mut self) {
         let mut i = 0;
         while !self.is_done() {
@@ -137,7 +139,9 @@ impl<'a, A: Any, T: Any> Drop for FnGenerator<'a, A, T> {
     }
 }
 
-impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
+impl<A: Any, T: Any, F> Generator<A> for FnGenerator<A, T, F>
+    where F: FnOnce() -> T
+{
     type Output = T;
 
     fn raw_send(&mut self, para: Option<A>) -> Option<T> {

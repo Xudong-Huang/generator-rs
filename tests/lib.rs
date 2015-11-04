@@ -33,7 +33,7 @@ fn test_yield() {
 #[test]
 #[should_panic]
 fn test_yield_with_type_error() {
-    let mut g = FnGenerator::<(), _>::new(|| {
+    let mut g = FnGenerator::<(), _, _>::new(|| {
         // yield_with::<i32>(10);
         yield_with(10u32);
         20i32
@@ -45,7 +45,7 @@ fn test_yield_with_type_error() {
 #[test]
 #[should_panic]
 fn test_get_yield_type_error() {
-    let mut g = FnGenerator::<u32, _>::new(|| {
+    let mut g = FnGenerator::<u32, _, _>::new(|| {
         get_yield::<i32>();
     });
 
@@ -55,8 +55,8 @@ fn test_get_yield_type_error() {
 #[test]
 #[should_panic]
 fn test_deep_yield_with_type_error() {
-    let mut g = FnGenerator::<(), _>::new(|| {
-        let mut g = FnGenerator::<(), _>::new(|| {
+    let mut g = FnGenerator::<(), _, _>::new(|| {
+        let mut g = FnGenerator::<(), _, _>::new(|| {
             yield_with(0);
         });
         g.next();
@@ -72,7 +72,7 @@ fn test_scoped() {
     let x = Rc::new(RefCell::new(10));
 
     let x1 = x.clone();
-    let mut g = FnGenerator::<(), _>::new(move || {
+    let mut g = FnGenerator::<(), _, _>::new(move || {
         *x1.borrow_mut() = 20;
         _yield_!();
         *x1.borrow_mut() = 5;
@@ -91,7 +91,7 @@ fn test_scoped() {
 fn test_scoped_1() {
     let mut x = 10;
     {
-        let mut g = FnGenerator::<(), _>::new(|| {
+        let mut g = FnGenerator::<(), _, _>::new(|| {
             x = 5;
         });
         g.next();
@@ -104,7 +104,7 @@ fn test_scoped_1() {
 #[test]
 fn test_inner_ref() {
     use std::mem;
-    let mut g = FnGenerator::<(), &mut u32>::new(|| {
+    let mut g = FnGenerator::<(), &mut u32, _>::new(|| {
         // setup something
         let mut x: u32 = 10;
 
@@ -135,7 +135,7 @@ fn test_inner_ref() {
 fn test_drop() {
     let mut x = 10;
     {
-        FnGenerator::<(), _>::new(|| {
+        FnGenerator::<(), _, _>::new(|| {
             x = 1;
             _yield_!();
             x = 5;
@@ -149,7 +149,7 @@ fn test_drop() {
 fn test_ill_drop() {
     let mut x = 10u32;
     {
-        FnGenerator::<u32, _>::new(|| {
+        FnGenerator::<u32, _, _>::new(|| {
             x = 5;
             // here we got None from drop
             // but should no panic
@@ -164,7 +164,7 @@ fn test_ill_drop() {
 fn test_loop_drop() {
     let mut x = 10u32;
     {
-        FnGenerator::<(), _>::new(|| {
+        FnGenerator::<(), _, _>::new(|| {
             x = 5;
             loop {
                 _yield_!();
@@ -180,7 +180,7 @@ fn test_loop_drop() {
 fn test_panic_inside() {
     let mut x = 10;
     {
-        FnGenerator::<(), _>::new(|| {
+        FnGenerator::<(), _, _>::new(|| {
             x = 5;
             panic!("panic inside!");
         });
@@ -193,7 +193,7 @@ fn test_panic_inside() {
 #[test]
 #[allow(unreachable_code)]
 fn test_cancel() {
-    let mut g = FnGenerator::<(), _>::new(|| {
+    let mut g = FnGenerator::<(), _, _>::new(|| {
         let mut i = 0;
         loop {
             _yield_!(i);
@@ -222,8 +222,8 @@ fn test_yield_from_functor_context() {
 
 #[test]
 fn test_yield_from_generator_context() {
-    let mut g = FnGenerator::<(), _>::new(|| {
-        let mut g1 = FnGenerator::<(), _>::new(|| {
+    let mut g = FnGenerator::<(), _, _>::new(|| {
+        let mut g1 = FnGenerator::<(), _, _>::new(|| {
             yield_with(5);
             10
         });
@@ -242,8 +242,8 @@ fn test_yield_from_generator_context() {
 
 #[test]
 fn test_yield_from() {
-    let mut g = FnGenerator::<(), _>::new(|| {
-        let g1 = FnGenerator::<(), _>::new(|| {
+    let mut g = FnGenerator::<(), _, _>::new(|| {
+        let g1 = FnGenerator::<(), _, _>::new(|| {
             yield_with(5);
             10
         });
@@ -263,8 +263,8 @@ fn test_yield_from() {
 
 #[test]
 fn test_yield_from_send() {
-    let mut g = FnGenerator::<u32, u32>::new(|| {
-        let g1 = FnGenerator::<u32, u32>::new(|| {
+    let mut g = FnGenerator::<u32, u32, _>::new(|| {
+        let g1 = FnGenerator::<u32, u32, _>::new(|| {
             let mut i: u32 = _yield!(1u32);
             i = _yield!(i * 2);
             i * 2
@@ -295,5 +295,5 @@ fn test_stack_overflow() {
     let clo = || {
         println!("this would overflow the stack");
     };
-    FnGenerator::<(), _>::new_opt(clo, 100);
+    FnGenerator::<(), _, _>::new_opt(clo, 100);
 }

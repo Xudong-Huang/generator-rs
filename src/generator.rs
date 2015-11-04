@@ -41,7 +41,7 @@ macro_rules! generator {
     // func: the expression for unsafe async function which contains yiled
     // para: default send para type to the generator
     ($func:expr, <$para:ty>) => (
-        generator::FnGenerator::<$para, _>::new(move|| {$func})
+        generator::FnGenerator::<$para, _, _>::new(move|| {$func})
     );
 
     ($func:expr) => (generator!($func, <()>));
