@@ -6,7 +6,6 @@
 #![feature(fnbox)]
 #![feature(asm)]
 #![feature(alloc)]
-#![feature(libc)]
 #![feature(repr_simd)]
 #![feature(rustc_private)]
 #![feature(catch_panic)]
@@ -15,7 +14,6 @@
 
 #[macro_use]
 extern crate log;
-extern crate libc;
 extern crate alloc;
 
 mod rt;
