@@ -55,9 +55,9 @@ fn main() {
 ## Goals
 
 - [x] basic send/yield support
-- [ ] generator cancel support
+- [x] generator cancel support
 - [ ] yield_from support
-- [ ] panic inside genertor support
+- [x] panic inside genertor support
 - [x] Basic single threaded support
 - [ ] compact stack support
 - [ ] Multithreaded support
@@ -73,8 +73,5 @@ fn main() {
 
 * This crate supports platforms in
 
-    - x86_64
-
-* It depends on the contex libaray, currently the context library need
-  some patch to compile the generator lib
+    - x86_64 linux
 
