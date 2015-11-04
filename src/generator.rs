@@ -4,7 +4,7 @@
 //!
 
 use std::any::Any;
-use fn_gen::FnGenerator;
+use gen_impl::GeneratorImpl;
 
 // default stack size is 1k * sizeof(usize)
 const DEFAULT_STACK_SIZE: usize = 1024;
@@ -32,7 +32,7 @@ pub trait Generator<A> {
 
 #[allow(dead_code)]
 /// Generator helper
-/// this is equal with FnGenerator::<A, _, _>
+/// this is equal with GeneratorImpl::<A, _, _>
 /// but save some typing
 pub struct Gn<A> {
     dummy: A,
@@ -43,14 +43,14 @@ impl <A: Any> Gn<A> {
     pub fn new<'a, T: Any, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce() -> T + 'a
     {
-        FnGenerator::<A, T, F>::new_opt(f, DEFAULT_STACK_SIZE)
+        GeneratorImpl::<A, T, F>::new_opt(f, DEFAULT_STACK_SIZE)
     }
 
     /// create a new generator with specified stack size
     pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce() -> T + 'a
     {
-        FnGenerator::<A, T, F>::new_opt(f, size)
+        GeneratorImpl::<A, T, F>::new_opt(f, size)
     }
 }
 

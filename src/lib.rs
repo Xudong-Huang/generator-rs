@@ -20,11 +20,10 @@ extern crate alloc;
 mod rt;
 mod stack;
 mod detail;
-mod fn_gen;
 mod yield_;
+mod gen_impl;
 mod generator;
 mod reg_context;
 
 pub use generator::{Generator, Gn};
-pub use fn_gen::FnGenerator;
 pub use yield_::{yield_with, get_yield, yield_from};

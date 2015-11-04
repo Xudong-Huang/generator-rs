@@ -9,13 +9,13 @@ use std::thread;
 use std::any::Any;
 use std::boxed::FnBox;
 
-use Generator;
 use yield_::yield_now;
+use generator::Generator;
 use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
 
-/// FnGenerator
-pub struct FnGenerator<A: Any, T: Any, F>
+/// GeneratorImpl
+pub struct GeneratorImpl<A: Any, T: Any, F>
     where F: FnOnce() -> T
 {
     context: Context,
@@ -27,12 +27,12 @@ pub struct FnGenerator<A: Any, T: Any, F>
     f: Option<F>,
 }
 
-impl<'a, A: Any, T: Any, F> FnGenerator<A, T, F>
+impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
     where F: FnOnce() ->T + 'a
 {
     /// create a new generator with default stack size
     pub fn new_opt(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a> {
-        let mut g = Box::new(FnGenerator {
+        let mut g = Box::new(GeneratorImpl {
             para: None,
             ret: None,
             f: Some(f),
@@ -90,7 +90,7 @@ impl<'a, A: Any, T: Any, F> FnGenerator<A, T, F>
     }
 }
 
-impl<A: Any, T: Any, F> Drop for FnGenerator<A, T, F>
+impl<A: Any, T: Any, F> Drop for GeneratorImpl<A, T, F>
     where F: FnOnce() -> T
 {
     fn drop(&mut self) {
@@ -116,7 +116,7 @@ impl<A: Any, T: Any, F> Drop for FnGenerator<A, T, F>
     }
 }
 
-impl<A: Any, T: Any, F> Generator<A> for FnGenerator<A, T, F>
+impl<A: Any, T: Any, F> Generator<A> for GeneratorImpl<A, T, F>
     where F: FnOnce() -> T
 {
     type Output = T;

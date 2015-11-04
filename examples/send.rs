@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate generator;
-use generator::Generator;
 
 fn sum(a: u32) -> u32 {
     let mut sum = a;
