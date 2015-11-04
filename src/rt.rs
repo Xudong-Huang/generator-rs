@@ -6,8 +6,8 @@
 use std::mem;
 use std::any::Any;
 use std::cell::UnsafeCell;
-use context::Stack;
-use context::Context as RegContext;
+use stack::Stack;
+use reg_context::Context as RegContext;
 
 /// each thread has it's own generator context stack
 thread_local!(static CONTEXT_STACK: UnsafeCell<Box<ContextStack>>
@@ -28,8 +28,6 @@ pub struct Context {
     pub ret: *mut Any,
     /// track generator ref, yield will -1, send will +1
     pub _ref: u32,
-    /// priave flag that control the execution flow
-    pub _flag: bool,
 }
 
 impl Context {
@@ -41,7 +39,6 @@ impl Context {
             para: unsafe { mem::transmute(&0 as &Any) },
             ret: unsafe { mem::transmute(&0 as &Any) },
             _ref: 0,
-            _flag: false,
         }
     }
 
@@ -49,11 +46,10 @@ impl Context {
     pub fn empty() -> Context {
         Context {
             regs: RegContext::empty(),
-            stack: unsafe { Stack::dummy_stack() },
+            stack: Stack::new(0),
             para: unsafe { mem::transmute(&0 as &Any) },
             ret: unsafe { mem::transmute(&0 as &Any) },
             _ref: 0xDEAD,
-            _flag: false,
         }
     }
 
@@ -61,20 +57,6 @@ impl Context {
     pub fn is_generator(&self) -> bool {
         // TODO use stack empty to check
         self._ref != 0xDEAD
-    }
-
-    /// save current generator context
-    #[inline(always)]
-    pub fn save(&mut self) {
-        self._ref -= 1;
-        self._flag = true;
-        RegContext::save(&mut self.regs);
-    }
-
-    /// generator involke flag, save it along with context
-    #[inline]
-    pub fn get_flag(&mut self) -> &'static mut bool {
-        unsafe { mem::transmute(&mut self._flag) }
     }
 
     /// get current generator send para

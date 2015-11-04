@@ -3,10 +3,9 @@
 //! generator yield implmentation
 //!
 
-use std::ptr;
 use std::any::Any;
 use rt::{Context, ContextStack};
-use context::Context as RegContext;
+use reg_context::Context as RegContext;
 
 /// yield error types
 #[allow(dead_code)]
@@ -20,17 +19,17 @@ pub enum Error {
 #[inline]
 pub fn yield_now() {
     let env = ContextStack::current();
-    let ctx = env.top();
-    let sp = ctx.stack.start();
+    let mut cur = env.top();
+    let ref sp = cur.stack;
     // judge if this is root context
-    if sp != ptr::null() {
+    if !sp.is_empty() {
         env.pop();
-        let ctx = env.top();
-        RegContext::load(&ctx.regs);
+        let parent = env.top();
+        RegContext::swap(&mut cur.regs, &parent.regs);
     }
 }
 
-/// yiled something without catch passed in para
+/// raw yiled without catch passed in para
 #[inline]
 fn raw_yield<T: Any>(context: &mut Context, v: T) {
     // check the context
@@ -38,13 +37,8 @@ fn raw_yield<T: Any>(context: &mut Context, v: T) {
         panic!(Error::ContextErr);
     }
 
-    let _no_use = context.get_flag();
-    context.save();
-    if *_no_use {
-        *_no_use = false;
-        context.set_ret(v);
-        yield_now();
-    }
+    context.set_ret(v);
+    yield_now();
 
     // here we just panic to exit the func
     if context._ref != 1 {

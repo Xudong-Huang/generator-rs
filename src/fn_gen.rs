@@ -8,12 +8,11 @@ use rt::ContextStack;
 use yield_::{yield_now, Error};
 use Generator;
 
-use libc;
 use std::thread;
 use std::boxed::FnBox;
 use std::any::Any;
 use std::mem;
-use context::Context as RegContext;
+use reg_context::Context as RegContext;
 
 /// FnGenerator
 pub struct FnGenerator<'a, A: Any, T: Any> {
@@ -59,8 +58,8 @@ impl<'a, A: Any, T: Any> FnGenerator<'a, A, T> {
             let reg = &mut (*ptr).context.regs;
             reg.init_with(gen_init,
                           ptr as usize,
-                          Box::into_raw(Box::new(start)) as *mut libc::c_void,
-                          stk);
+                          Box::into_raw(Box::new(start)) as *mut usize,
+                          stk.end());
             Box::from_raw(ptr)
         }
     }
@@ -130,8 +129,7 @@ impl<'a, A: Any, T: Any> Generator<A> for FnGenerator<'a, A, T> {
     }
 }
 
-#[allow(unused_variables)]
-extern "C" fn gen_init(arg: usize, f: *mut libc::c_void) -> ! {
+fn gen_init(_: usize, f: *mut usize) -> ! {
     let f = f as usize;
     let clo = move || {
         let func: Box<Box<FnBox()>> = unsafe { Box::from_raw(f as *mut Box<FnBox()>) };
