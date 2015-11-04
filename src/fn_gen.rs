@@ -14,9 +14,6 @@ use yield_::yield_now;
 use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
 
-// default stack size is 1k * sizeof(usize)
-const DEFAULT_STACK_SIZE: usize = 1024;
-
 /// FnGenerator
 pub struct FnGenerator<A: Any, T: Any, F>
     where F: FnOnce() -> T
@@ -34,33 +31,13 @@ impl<'a, A: Any, T: Any, F> FnGenerator<A, T, F>
     where F: FnOnce() ->T + 'a
 {
     /// create a new generator with default stack size
-    pub fn new(f: F) -> Box<Generator<A, Output = T> + 'a> {
-        let g = FnGenerator {
-            para: None,
-            ret: None,
-            f: Some(f),
-            context: Context::new(DEFAULT_STACK_SIZE),
-        };
-
-        g.final_init()
-    }
-
-    /// create a new generator with specified stack size
     pub fn new_opt(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a> {
-        let g = FnGenerator {
+        let mut g = Box::new(FnGenerator {
             para: None,
             ret: None,
             f: Some(f),
             context: Context::new(size),
-        };
-
-        g.final_init()
-    }
-
-    /// create a boxed generator
-    fn final_init(self) -> Box<Generator<A, Output = T> + 'a> {
-
-        let mut g = Box::new(self);
+        });
 
         g.context.para = &mut g.para as &mut Any;
         g.context.ret = &mut g.ret as &mut Any;

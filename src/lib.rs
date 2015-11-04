@@ -25,6 +25,6 @@ mod yield_;
 mod generator;
 mod reg_context;
 
-pub use generator::Generator;
+pub use generator::{Generator, Gn};
 pub use fn_gen::FnGenerator;
 pub use yield_::{yield_with, get_yield, yield_from};

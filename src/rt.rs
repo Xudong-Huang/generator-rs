@@ -70,8 +70,9 @@ impl Context {
         if !para.is::<Option<A>>() {
             error!("get yield type error detected");
             panic!(Error::TypeErr);
+        } else {
+            para.downcast_mut::<Option<A>>().unwrap().take()
         }
-        para.downcast_mut::<Option<A>>().unwrap().take()
     }
 
     /// set current generator return value
@@ -83,9 +84,10 @@ impl Context {
         if !ret.is::<Option<T>>() {
             error!("yield type error detected");
             panic!(Error::TypeErr);
+        } else {
+            let val = ret.downcast_mut::<Option<T>>();
+            mem::replace(val.unwrap(), Some(v));
         }
-        let val = ret.downcast_mut::<Option<T>>();
-        mem::replace(val.unwrap(), Some(v));
     }
 }
 
