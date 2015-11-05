@@ -46,10 +46,6 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
             let ptr = Box::into_raw(g);
 
             let start: Box<FnBox()> = Box::new(move || {
-                // here seems that rust test --release has bug!!
-                // comment out the following would crash
-                // error!("{:?}", ptr);
-                // let ref mut g = *ptr;
                 // g.ret = Some((g.f.take().unwrap())());
                 let f = (*ptr).f.take().unwrap();
                 (*ptr).ret = Some(f());
@@ -94,6 +90,11 @@ impl<A: Any, T: Any, F> Drop for GeneratorImpl<A, T, F>
     where F: FnOnce() -> T
 {
     fn drop(&mut self) {
+        // when the thread is already panic, do nothing
+        if thread::panicking() {
+            return;
+        }
+
         let mut i = 0;
         while !self.is_done() {
             if i > 2 {

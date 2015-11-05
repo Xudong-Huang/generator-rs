@@ -287,6 +287,33 @@ fn test_yield_from_send() {
 
 #[test]
 #[should_panic]
+fn test_yield_from_send_type_miss_match() {
+    let mut g = Gn::<u32>::new(|| {
+        let g1 = Gn::<u32>::new(|| {
+            let mut i: u32 = _yield!(1u32);
+            i = _yield!(i * 2);
+            i * 2
+        });
+
+        yield_from(g1);
+        // here the return type should be 0u32
+        0
+    });
+
+    let n = g.send(3);
+    assert!(n == 1);
+    let n = g.send(4);
+    assert!(n == 6);
+    let n = g.send(10);
+    assert!(n == 8);
+    // the last send has no meaning for the return
+    let n = g.send(0);
+    assert!(n == 0);
+    assert!(g.is_done());
+}
+
+#[test]
+#[should_panic]
 fn test_stack_overflow() {
     // here the stack size is not big enough
     // and will panic when get detected in drop
