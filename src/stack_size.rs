@@ -32,9 +32,9 @@ fn align_stack(size: usize) -> usize {
 }
 
 /// get the stack size for type
-pub fn get_stack_size<'a, F: Any>(f: &'a F) -> usize {
+pub fn get_stack_size<F: Any>() -> usize {
     let map = get_stack_map();
-    let id = (f as &Any).get_type_id();
+    let id = TypeId::of::<F>();
     let rlock = map.read().unwrap();
     let size = match rlock.get(&id).map(|n| *n) {
         Some(s) => s,
@@ -44,9 +44,19 @@ pub fn get_stack_size<'a, F: Any>(f: &'a F) -> usize {
 }
 
 /// set the stack size for type
-pub fn set_stack_size<'a, F: Any>(f: &'a F, size: usize) {
+pub fn set_stack_size<F: Any>(size: usize) {
     let map = get_stack_map();
-    let id = (f as &Any).get_type_id();
+    let id = TypeId::of::<F>();
     let mut wlock = map.write().unwrap();
-    wlock.insert(id, align_stack(size));
+
+    let saved_size = match wlock.get(&id).map(|n| *n) {
+        Some(s) => s,
+        None => 0,
+    };
+
+    let size = align_stack(size);
+
+    if size > saved_size {
+        wlock.insert(id, align_stack(size));
+    }
 }

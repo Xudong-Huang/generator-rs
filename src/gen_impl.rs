@@ -120,7 +120,7 @@ impl<A: Any, T: Any, F> Drop for GeneratorImpl<A, T, F>
         if used_stack < total_stack {
             // here we should record the stack in the class
             // next time will just use
-            // set_stack_size(&self.f, used_stack);
+            // set_stack_size::<F>(used_stack);
         } else {
             error!("stack overflow detected!");
             panic!(Error::StackErr);
