@@ -53,7 +53,6 @@ pub fn initialize_call_frame(regs: &mut Registers,
     const RUSTRT_R12: usize = 4;
     const RUSTRT_R13: usize = 5;
     const RUSTRT_R14: usize = 6;
-    // static RUSTRT_R15: usize = 7;
 
     let sp = align_down(sp);
     let sp = mut_offset(sp, -2);

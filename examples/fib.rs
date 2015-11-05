@@ -9,7 +9,7 @@ fn fib(a: u32, b: u32) -> u32 {
         _yield_!(b);
     }
 
-    10000
+    a + b
 }
 
 fn main() {
