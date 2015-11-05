@@ -27,6 +27,10 @@ fn get_stack_map() -> SMap {
     unsafe { (*MAP).clone() }
 }
 
+fn align_stack(size: usize) -> usize {
+    (size + 0xF) & !0xF
+}
+
 /// get the stack size for type
 pub fn get_stack_size<'a, F: Any>(f: &'a F) -> usize {
     let map = get_stack_map();
@@ -44,5 +48,5 @@ pub fn set_stack_size<'a, F: Any>(f: &'a F, size: usize) {
     let map = get_stack_map();
     let id = (f as &Any).get_type_id();
     let mut wlock = map.write().unwrap();
-    wlock.insert(id, size);
+    wlock.insert(id, align_stack(size));
 }

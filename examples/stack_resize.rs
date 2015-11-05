@@ -19,17 +19,17 @@ fn get_gen() -> Box<Generator<(), Output = u32>> {
 }
 
 fn main() {
-    let g = get_gen();
-    println!("stack size is: {}", g.get_stack_size());
+    let mut g = get_gen();
 
-    for i in g {
-        println!("{}", i);
+    while !g.is_done() {
+        println!("{}", g.send(()));
     }
+    println!("stack size is: {:?}", g.stack_usage());
 
-    let g = get_gen();
-    println!("new stack size is: {}", g.get_stack_size());
 
-    for i in g {
-        println!("{}", i);
+    let mut g = get_gen();
+    while !g.is_done() {
+        println!("{}", g.send(()));
     }
+    println!("stack size is: {:?}", g.stack_usage());
 }

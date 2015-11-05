@@ -6,8 +6,6 @@
 use std::any::Any;
 use gen_impl::GeneratorImpl;
 
-// default stack size is 1k * sizeof(usize)
-const DEFAULT_STACK_SIZE: usize = 1024;
 
 /// generator trait
 pub trait Generator<A> {
@@ -44,14 +42,14 @@ pub struct Gn<A> {
 impl <A: Any> Gn<A> {
     /// create a new generator with default stack size
     pub fn new<'a, T: Any, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
-        where F: FnOnce() -> T + 'a + Any
+        where F: FnOnce() -> T + 'a
     {
-        GeneratorImpl::<A, T, F>::new_opt(f, DEFAULT_STACK_SIZE)
+        GeneratorImpl::<A, T, F>::new_opt(f, 0)
     }
 
     /// create a new generator with specified stack size
     pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
-        where F: FnOnce() -> T + 'a + Any
+        where F: FnOnce() -> T + 'a
     {
         GeneratorImpl::<A, T, F>::new_opt(f, size)
     }

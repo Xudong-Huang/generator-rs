@@ -8,7 +8,6 @@
 #![feature(fnbox)]
 #![feature(repr_simd)]
 #![feature(catch_panic)]
-#![feature(get_type_id)]
 #![feature(rustc_private)]
 
 #![cfg_attr(test, deny(warnings))]
@@ -24,7 +23,7 @@ mod detail;
 mod yield_;
 mod gen_impl;
 mod generator;
-mod stack_size;
+// mod stack_size;
 mod reg_context;
 
 pub use generator::{Generator, Gn};
