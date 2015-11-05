@@ -29,8 +29,8 @@ pub trait Generator<A> {
     /// is finished
     fn is_done(&self) -> bool;
 
-    /// get stack size in word
-    fn get_stack_size(&self) -> usize;
+    /// get stack total size and used size in word
+    fn stack_usage(&self) -> (usize, usize);
 }
 
 #[allow(dead_code)]

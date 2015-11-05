@@ -118,8 +118,7 @@ impl<A: Any, T: Any, F> Drop for GeneratorImpl<A, T, F>
             i += 1;
         }
 
-        let used_stack = self.context.stack.get_used_size();
-        let total_stack = self.context.stack.size();
+        let (total_stack, used_stack)  = self.stack_usage();
         if used_stack < total_stack {
             // here we should record the stack in the class
             // next time will just use
@@ -173,8 +172,9 @@ impl<A: Any, T: Any, F> Generator<A> for GeneratorImpl<A, T, F>
         self.is_started() && self.context._ref != 0
     }
 
-    fn get_stack_size(&self) -> usize {
-        self.context.stack.size()
+    fn stack_usage(&self) -> (usize, usize) {
+        (self.context.stack.size(),
+         self.context.stack.get_used_size())
     }
 }
 
