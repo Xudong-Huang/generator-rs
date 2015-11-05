@@ -13,10 +13,11 @@ use yield_::yield_now;
 use generator::Generator;
 use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
+use stack_size::{get_stack_size, set_stack_size};
 
 /// GeneratorImpl
 pub struct GeneratorImpl<A: Any, T: Any, F>
-    where F: FnOnce() -> T
+    where F: FnOnce() -> T + Any
 {
     context: Context,
     // save the input
@@ -28,16 +29,28 @@ pub struct GeneratorImpl<A: Any, T: Any, F>
 }
 
 impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
-    where F: FnOnce() ->T + 'a
+    where F: FnOnce() -> T + 'a + Any
 {
     /// create a new generator with default stack size
     pub fn new_opt(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a> {
+        let f = Some(f);
+
+        let mut size = size;
+        if size == 1024 {
+            size = get_stack_size(&f);
+            if size == 0{
+                size = 1024;
+            };
+        }
+
         let mut g = Box::new(GeneratorImpl {
             para: None,
             ret: None,
-            f: Some(f),
+            f: f,
             context: Context::new(size),
         });
+
+        error!("stack size is {}", size);
 
         g.context.para = &mut g.para as &mut Any;
         g.context.ret = &mut g.ret as &mut Any;
@@ -87,7 +100,7 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
 }
 
 impl<A: Any, T: Any, F> Drop for GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T
+    where F: FnOnce() -> T + Any
 {
     fn drop(&mut self) {
         // when the thread is already panic, do nothing
@@ -106,10 +119,13 @@ impl<A: Any, T: Any, F> Drop for GeneratorImpl<A, T, F>
         }
 
         let used_stack = self.context.stack.get_used_size();
-        if used_stack < self.context.stack.size() {
+        let total_stack = self.context.stack.size();
+        if used_stack < total_stack {
             // here we should record the stack in the class
             // next time will just use
-            info!("used stack size is: {} words", used_stack)
+            error!("total stack size is: {} words", total_stack);
+            error!("used stack size is: {} words", used_stack);
+            set_stack_size(&self.f, used_stack + 100);
         } else {
             error!("stack overflow detected!");
             panic!(Error::StackErr);
@@ -118,7 +134,7 @@ impl<A: Any, T: Any, F> Drop for GeneratorImpl<A, T, F>
 }
 
 impl<A: Any, T: Any, F> Generator<A> for GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T
+    where F: FnOnce() -> T + Any
 {
     type Output = T;
 
@@ -155,6 +171,10 @@ impl<A: Any, T: Any, F> Generator<A> for GeneratorImpl<A, T, F>
 
     fn is_done(&self) -> bool {
         self.is_started() && self.context._ref != 0
+    }
+
+    fn get_stack_size(&self) -> usize {
+        self.context.stack.size()
     }
 }
 

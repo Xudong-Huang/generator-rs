@@ -28,6 +28,9 @@ pub trait Generator<A> {
 
     /// is finished
     fn is_done(&self) -> bool;
+
+    /// get stack size in word
+    fn get_stack_size(&self) -> usize;
 }
 
 #[allow(dead_code)]
@@ -41,14 +44,14 @@ pub struct Gn<A> {
 impl <A: Any> Gn<A> {
     /// create a new generator with default stack size
     pub fn new<'a, T: Any, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
-        where F: FnOnce() -> T + 'a
+        where F: FnOnce() -> T + 'a + Any
     {
         GeneratorImpl::<A, T, F>::new_opt(f, DEFAULT_STACK_SIZE)
     }
 
     /// create a new generator with specified stack size
     pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
-        where F: FnOnce() -> T + 'a
+        where F: FnOnce() -> T + 'a + Any
     {
         GeneratorImpl::<A, T, F>::new_opt(f, size)
     }
