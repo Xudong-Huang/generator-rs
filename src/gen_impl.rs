@@ -18,8 +18,6 @@ use reg_context::Context as RegContext;
 
 
 /// Generator helper
-/// this is equal with GeneratorImpl::<A, _, _>
-/// but save some typing
 pub struct Gn<A> {
     dummy: PhantomData<A>,
 }
