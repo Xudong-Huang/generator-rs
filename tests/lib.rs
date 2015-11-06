@@ -146,6 +146,21 @@ fn test_drop() {
 }
 
 #[test]
+fn test_ill_drop() {
+    let mut x = 10u32;
+    {
+        FnGenerator::<u32, _>::new(|| {
+            x = 5;
+            // here we got None from drop
+            // but should no panic
+            x = _yield!();
+        });
+    }
+
+    assert!(x == 5);
+}
+
+#[test]
 fn test_panic_inside() {
     let mut x = 10;
     {

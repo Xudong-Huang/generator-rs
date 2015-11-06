@@ -63,16 +63,15 @@ impl Context {
 
     /// get current generator send para
     #[inline]
-    pub fn get_para<T>(&self) -> Option<T>
-        where T: Any
+    pub fn get_para<A>(&self) -> Option<A>
+        where A: Any
     {
         let para = unsafe { &mut *self.para };
-        let val = para.downcast_mut::<Option<T>>();
-        if val.is_none() {
+        if !para.is::<Option<A>>() {
             error!("get yield type error detected");
             panic!(Error::TypeErr);
         }
-        val.unwrap().take()
+        para.downcast_mut::<Option<A>>().unwrap().take()
     }
 
     /// set current generator return value
@@ -81,12 +80,11 @@ impl Context {
         where T: Any
     {
         let ret = unsafe { &mut *self.ret };
-        // add type check and panic with message
-        let val = ret.downcast_mut::<Option<T>>();
-        if val.is_none() {
+        if !ret.is::<Option<T>>() {
             error!("yield type error detected");
             panic!(Error::TypeErr);
         }
+        let val = ret.downcast_mut::<Option<T>>();
         mem::replace(val.unwrap(), Some(v));
     }
 }
