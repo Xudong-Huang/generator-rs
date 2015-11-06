@@ -44,7 +44,7 @@ impl <A: Any> Gn<A> {
     pub fn new<'a, T: Any, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce() -> T + 'a
     {
-        GeneratorImpl::<A, T, F>::new_opt(f, 0)
+        GeneratorImpl::<A, T, F>::new_opt(f, super::stack::DEFAULT_STACK_SIZE)
     }
 
     /// create a new generator with specified stack size

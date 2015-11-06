@@ -6,7 +6,6 @@
 //!
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::mem::transmute;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::{Once, ONCE_INIT};
@@ -21,7 +20,7 @@ fn get_stack_map() -> SMap {
     ONCE.call_once(|| {
         unsafe {
             let b: Box<SMap> = Box::new(Arc::new(RwLock::new(HashMap::new())));
-            MAP = transmute::<Box<SMap>, *const SMap>(b);
+            MAP = Box::into_raw(b);
         }
     });
     unsafe { (*MAP).clone() }

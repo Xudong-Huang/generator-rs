@@ -5,6 +5,9 @@
 use std::ptr;
 use alloc::raw_vec::RawVec;
 
+// default stack size is 1k * sizeof(usize)
+pub const DEFAULT_STACK_SIZE: usize = 1024;
+
 /// generator stack
 pub struct Stack {
     buf: RawVec<usize>,
@@ -15,6 +18,14 @@ impl Stack {
     /// `dummy_stack` if you want a zero-sized stack.
     pub fn new(size: usize) -> Stack {
         let stk = Stack { buf: RawVec::with_capacity(size) };
+
+        // if size is bigger than DEFAULT_STACK_SIZE
+        // then we only check the last few words
+        let mut size = size;
+        if (8 < size) && (size < DEFAULT_STACK_SIZE) {
+            size = 8;
+        }
+
         unsafe {
             let buf = stk.buf.ptr();
             ptr::write_bytes(buf, 0xEE, size);
