@@ -4,6 +4,7 @@
 //!
 
 use std::any::Any;
+use std::marker::PhantomData;
 use gen_impl::GeneratorImpl;
 
 
@@ -31,12 +32,11 @@ pub trait Generator<A> {
     fn stack_usage(&self) -> (usize, usize);
 }
 
-#[allow(dead_code)]
 /// Generator helper
 /// this is equal with GeneratorImpl::<A, _, _>
 /// but save some typing
 pub struct Gn<A> {
-    dummy: A,
+    dummy: PhantomData<A>,
 }
 
 impl <A: Any> Gn<A> {
