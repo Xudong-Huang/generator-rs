@@ -37,15 +37,3 @@ impl<'a, A, T> Iterator for Generator<A, Output=T> + 'a {
     }
 }
 
-/// create generator
-#[macro_export]
-macro_rules! generator {
-    // `(func, <type>)`
-    // func: the expression for unsafe async function which contains yiled
-    // para: default send para type to the generator
-    ($func:expr, <$para:ty>) => (
-        generator::Gn::<$para>::new(move|| {$func})
-    );
-
-    ($func:expr) => (generator!($func, <()>));
-}

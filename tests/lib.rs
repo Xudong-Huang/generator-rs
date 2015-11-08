@@ -5,7 +5,7 @@ use generator::*;
 
 #[test]
 fn generator_is_done() {
-    let mut g = generator!({
+    let mut g = Gn::<()>::new(||{
         _yield_!();
     });
 

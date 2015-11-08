@@ -14,7 +14,7 @@ fn fib(a: u32, b: u32) -> u32 {
 
 fn main() {
 
-    let g = generator!(fib(0, 1));
+    let g = generator::Gn::<()>::new(||fib(0, 1));
 
     for i in g {
         println!("{}", i);
