@@ -16,6 +16,8 @@ use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
 // use stack_size::{get_stack_size, set_stack_size};
 
+// default stack size is 1k * sizeof(usize)
+pub const DEFAULT_STACK_SIZE: usize = 1024;
 
 /// Generator helper
 pub struct Gn<A> {
@@ -27,7 +29,7 @@ impl <A: Any> Gn<A> {
     pub fn new<'a, T: Any, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce() -> T + 'a
     {
-        Self::new_opt(f, super::stack::DEFAULT_STACK_SIZE)
+        Self::new_opt(f, DEFAULT_STACK_SIZE)
     }
 
     /// create a new generator with specified stack size

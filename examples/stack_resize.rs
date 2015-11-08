@@ -15,7 +15,7 @@ fn fib(a: u32, b: u32) -> u32 {
 }
 
 fn get_gen() -> Box<Generator<(), Output = u32>> {
-    Gn::<()>::new(|| fib(0, 1))
+    Gn::<()>::new_opt(|| fib(0, 1), 1001)
 }
 
 fn main() {
