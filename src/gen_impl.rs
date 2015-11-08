@@ -68,6 +68,7 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
         }
     }
 
+    /// init a heap based generator
     pub fn init(&mut self) {
         self.context.para = &mut self.para as &mut Any;
         self.context.ret = &mut self.ret as &mut Any;

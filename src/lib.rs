@@ -26,5 +26,5 @@ mod generator;
 mod reg_context;
 
 pub use generator::Generator;
-pub use gen_impl::Gn;
+pub use gen_impl::{Gn, GeneratorImpl};
 pub use yield_::{yield_with, get_yield, yield_from, yield_};
