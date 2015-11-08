@@ -14,7 +14,7 @@ fn sum(a: u32) -> u32 {
 
 fn main() {
     // we specify the send type is u32
-    let mut s = generator!(sum(0), <u32>);
+    let mut s = generator::Gn::<u32>::new(||sum(0));
     let mut i = 1u32;
     while !s.is_done() {
         i = s.send(i);
