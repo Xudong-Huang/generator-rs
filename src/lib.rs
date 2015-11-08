@@ -23,11 +23,8 @@ mod detail;
 mod yield_;
 mod gen_impl;
 mod generator;
-mod coroutine;
-mod stack_size;
 mod reg_context;
 
 pub use generator::Generator;
 pub use gen_impl::Gn;
-pub use coroutine::Co;
 pub use yield_::{yield_with, get_yield, yield_from};
