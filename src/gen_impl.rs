@@ -36,28 +36,8 @@ impl <A: Any> Gn<A> {
     pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce() -> T + 'a
     {
-        let mut g = Box::new(GeneratorImpl::<A, T, F>::new_opt(f, size));
-
-        g.context.para = &mut g.para as &mut Any;
-        g.context.ret = &mut g.ret as &mut Any;
-
-        unsafe {
-            let ptr = Box::into_raw(g);
-
-            let start: Box<FnBox()> = Box::new(move || {
-                // g.ret = Some((g.f.take().unwrap())());
-                let f = (*ptr).f.take().unwrap();
-                (*ptr).ret = Some(f());
-            });
-
-            let stk = &mut (*ptr).context.stack;
-            let reg = &mut (*ptr).context.regs;
-            reg.init_with(gen_init,
-                          ptr as usize,
-                          Box::into_raw(Box::new(start)) as *mut usize,
-                          stk.end());
-            Box::from_raw(ptr)
-        }
+        let g = Box::new(GeneratorImpl::<A, T, F>::new(f, size));
+        g.init()
     }
 }
 
@@ -78,12 +58,34 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
     where F: FnOnce() -> T + 'a
 {
     /// create a new generator with default stack size
-    fn new_opt(f: F, size: usize) -> Self {
+    fn new(f: F, size: usize) -> Self {
         GeneratorImpl {
             para: None,
             ret: None,
             f: Some(f),
             context: Context::new(size),
+        }
+    }
+
+    fn init(mut self: Box<Self>) -> Box<Self> {
+        self.context.para = &mut self.para as &mut Any;
+        self.context.ret = &mut self.ret as &mut Any;
+
+        unsafe {
+            let ptr = Box::into_raw(self);
+
+            let start: Box<FnBox()> = Box::new(move || {
+                let f = (*ptr).f.take().unwrap();
+                (*ptr).ret = Some(f());
+            });
+
+            let stk = &mut (*ptr).context.stack;
+            let reg = &mut (*ptr).context.regs;
+            reg.init_with(gen_init,
+                          ptr as usize,
+                          Box::into_raw(Box::new(start)) as *mut usize,
+                          stk.end());
+            Box::from_raw(ptr)
         }
     }
 
