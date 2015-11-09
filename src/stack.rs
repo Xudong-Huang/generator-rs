@@ -15,10 +15,15 @@ impl Stack {
     /// Allocate a new stack of `size`. If size = 0, this will fail. Use
     /// `dummy_stack` if you want a zero-sized stack.
     pub fn new(size: usize) -> Stack {
+        let mut size = size;
+        // the minimal size
+        if size != 0 && size < 8 {
+            size = 8;
+        }
+
         let stk = Stack { buf: RawVec::with_capacity(size) };
 
         // if size is not even we do the full foot print test
-        let mut size = size;
         if (size & 1) == 0 && (size > 8) {
             // we only check the last few words
             size = 8;

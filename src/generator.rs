@@ -36,4 +36,3 @@ impl<'a, A, T> Iterator for Generator<A, Output=T> + 'a {
         self.raw_send(None)
     }
 }
-

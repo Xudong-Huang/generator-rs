@@ -56,6 +56,6 @@ pub fn set_stack_size<F: Any>(size: usize) {
     let size = align_stack(size);
 
     if size > saved_size {
-        wlock.insert(id, align_stack(size));
+        wlock.insert(id, size);
     }
 }

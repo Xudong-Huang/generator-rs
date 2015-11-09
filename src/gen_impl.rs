@@ -14,7 +14,6 @@ use yield_::yield_now;
 use generator::Generator;
 use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
-// use stack_size::{get_stack_size, set_stack_size};
 
 // default stack size is 1k * sizeof(usize)
 pub const DEFAULT_STACK_SIZE: usize = 1024;
@@ -42,9 +41,10 @@ impl <A: Any> Gn<A> {
 }
 
 /// GeneratorImpl
-struct GeneratorImpl<A: Any, T: Any, F>
+pub struct GeneratorImpl<A: Any, T: Any, F>
     where F: FnOnce() -> T
 {
+    // run time context
     context: Context,
     // save the input
     para: Option<A>,
@@ -58,7 +58,7 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
     where F: FnOnce() -> T + 'a
 {
     /// create a new generator with default stack size
-    fn new(f: F, size: usize) -> Self {
+    pub fn new(f: F, size: usize) -> Self {
         GeneratorImpl {
             para: None,
             ret: None,
@@ -67,7 +67,7 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
         }
     }
 
-    fn init(mut self: Box<Self>) -> Box<Self> {
+    pub fn init(mut self: Box<Self>) -> Box<Self> {
         self.context.para = &mut self.para as &mut Any;
         self.context.ret = &mut self.ret as &mut Any;
 
