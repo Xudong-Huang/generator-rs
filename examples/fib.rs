@@ -1,20 +1,17 @@
 #[macro_use]
 extern crate generator;
 
-fn fib(a: u32, b: u32) -> u32 {
-    let (mut a, mut b) = (a, b);
-    while b < 200 {
-        std::mem::swap(&mut a, &mut b);
-        b = a + b;
-        _yield_!(b);
-    }
-
-    a + b
-}
-
 fn main() {
 
-    let g = generator::Gn::<()>::new(||fib(0, 1));
+    let g = generator::Gn::<()>::new(|| {
+        let (mut a, mut b) = (0, 1);
+        while b < 200 {
+            std::mem::swap(&mut a, &mut b);
+            b = a + b;
+            _yield_!(b);
+        }
+        a + b
+    });
 
     for i in g {
         println!("{}", i);
