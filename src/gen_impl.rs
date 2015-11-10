@@ -35,8 +35,9 @@ impl <A: Any> Gn<A> {
     pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce() -> T + 'a
     {
-        let g = Box::new(GeneratorImpl::<A, T, F>::new(f, size));
-        g.init()
+        let mut g = Box::new(GeneratorImpl::<A, T, F>::new(f, size));
+        g.init();
+        g
     }
 }
 
@@ -67,12 +68,12 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
         }
     }
 
-    pub fn init(mut self: Box<Self>) -> Box<Self> {
+    pub fn init(&mut self) {
         self.context.para = &mut self.para as &mut Any;
         self.context.ret = &mut self.ret as &mut Any;
 
         unsafe {
-            let ptr = Box::into_raw(self);
+            let ptr = self as *mut Self;
 
             let start: Box<FnBox()> = Box::new(move || {
                 let f = (*ptr).f.take().unwrap();
@@ -85,7 +86,6 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
                           ptr as usize,
                           Box::into_raw(Box::new(start)) as *mut usize,
                           stk.end());
-            Box::from_raw(ptr)
         }
     }
 
