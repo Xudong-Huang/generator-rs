@@ -26,5 +26,6 @@ mod generator;
 // mod stack_size;
 mod reg_context;
 
-pub use generator::{Generator, Gn};
+pub use generator::Generator;
+pub use gen_impl::Gn;
 pub use yield_::{yield_with, get_yield, yield_from};

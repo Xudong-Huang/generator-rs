@@ -3,11 +3,6 @@
 //! generator trait
 //!
 
-use std::any::Any;
-use std::marker::PhantomData;
-use gen_impl::GeneratorImpl;
-
-
 /// generator trait
 pub trait Generator<A> {
     /// Output type
@@ -30,29 +25,6 @@ pub trait Generator<A> {
 
     /// get stack total size and used size in word
     fn stack_usage(&self) -> (usize, usize);
-}
-
-/// Generator helper
-/// this is equal with GeneratorImpl::<A, _, _>
-/// but save some typing
-pub struct Gn<A> {
-    dummy: PhantomData<A>,
-}
-
-impl <A: Any> Gn<A> {
-    /// create a new generator with default stack size
-    pub fn new<'a, T: Any, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
-        where F: FnOnce() -> T + 'a
-    {
-        GeneratorImpl::<A, T, F>::new_opt(f, super::stack::DEFAULT_STACK_SIZE)
-    }
-
-    /// create a new generator with specified stack size
-    pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
-        where F: FnOnce() -> T + 'a
-    {
-        GeneratorImpl::<A, T, F>::new_opt(f, size)
-    }
 }
 
 impl<'a, A, T> Iterator for Generator<A, Output=T> + 'a {

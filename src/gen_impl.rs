@@ -8,6 +8,7 @@ use std::mem;
 use std::thread;
 use std::any::Any;
 use std::boxed::FnBox;
+use std::marker::PhantomData;
 
 use yield_::yield_now;
 use generator::Generator;
@@ -16,32 +17,26 @@ use reg_context::Context as RegContext;
 // use stack_size::{get_stack_size, set_stack_size};
 
 
-/// GeneratorImpl
-pub struct GeneratorImpl<A: Any, T: Any, F>
-    where F: FnOnce() -> T
-{
-    context: Context,
-    // save the input
-    para: Option<A>,
-    // save the output
-    ret: Option<T>,
-    // boxed functor
-    f: Option<F>,
+/// Generator helper
+/// this is equal with GeneratorImpl::<A, _, _>
+/// but save some typing
+pub struct Gn<A> {
+    dummy: PhantomData<A>,
 }
 
-impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T + 'a
-{
+impl <A: Any> Gn<A> {
     /// create a new generator with default stack size
-    pub fn new_opt(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a> {
-        let f = Some(f);
+    pub fn new<'a, T: Any, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
+        where F: FnOnce() -> T + 'a
+    {
+        Self::new_opt(f, super::stack::DEFAULT_STACK_SIZE)
+    }
 
-        let mut g = Box::new(GeneratorImpl {
-            para: None,
-            ret: None,
-            f: f,
-            context: Context::new(size),
-        });
+    /// create a new generator with specified stack size
+    pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
+        where F: FnOnce() -> T + 'a
+    {
+        let mut g = Box::new(GeneratorImpl::<A, T, F>::new_opt(f, size));
 
         g.context.para = &mut g.para as &mut Any;
         g.context.ret = &mut g.ret as &mut Any;
@@ -64,7 +59,35 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
             Box::from_raw(ptr)
         }
     }
+}
 
+/// GeneratorImpl
+struct GeneratorImpl<A: Any, T: Any, F>
+    where F: FnOnce() -> T
+{
+    context: Context,
+    // save the input
+    para: Option<A>,
+    // save the output
+    ret: Option<T>,
+    // boxed functor
+    f: Option<F>,
+}
+
+impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
+    where F: FnOnce() -> T + 'a
+{
+    /// create a new generator with default stack size
+    fn new_opt(f: F, size: usize) -> Self {
+        GeneratorImpl {
+            para: None,
+            ret: None,
+            f: Some(f),
+            context: Context::new(size),
+        }
+    }
+
+    /// resume the generator
     fn resume_gen(&mut self) {
         let env = ContextStack::current();
         let cur = &mut env.top().regs;
