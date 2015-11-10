@@ -71,14 +71,3 @@ pub fn yield_from<'a, A: Any, T: Any>(mut g: Box<Generator<A, Output = T> + 'a>)
         raw_yield(context, r);
     }
 }
-
-/// yield without get the passed in para
-#[macro_export]
-macro_rules! _yield_ {
-    // `(para)`
-    // val: the value that need to be yield
-    // and got the send para from context
-    ($val:expr) => (generator::yield_with($val));
-
-    () => (_yield_!(()));
-}

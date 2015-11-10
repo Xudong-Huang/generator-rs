@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate generator;
 
 use generator::*;
@@ -6,7 +5,7 @@ use generator::*;
 #[test]
 fn generator_is_done() {
     let mut g = Gn::<()>::new(|| {
-        _yield_!();
+        yield_with(());
     });
 
     g.next();
@@ -18,7 +17,7 @@ fn generator_is_done() {
 #[test]
 fn test_yield() {
     let mut g = Gn::new(|| {
-        _yield_!(10);
+        yield_with(10);
         20
     });
 
@@ -74,7 +73,7 @@ fn test_scoped() {
     let x1 = x.clone();
     let mut g = Gn::<()>::new(move || {
         *x1.borrow_mut() = 20;
-        _yield_!();
+        yield_with(());
         *x1.borrow_mut() = 5;
     });
 
@@ -115,7 +114,7 @@ fn test_inner_ref() {
         {
             // mut borrow block
             let y: &mut u32 = unsafe { mem::transmute(&mut x) };
-            _yield_!(y);
+            yield_with(y);
         }
         // this was modified by the invoker
         assert!(x == 5);
@@ -136,7 +135,7 @@ fn test_drop() {
     {
         Gn::<()>::new(|| {
             x = 1;
-            _yield_!();
+            yield_with(());
             x = 5;
         });
     }
@@ -166,7 +165,7 @@ fn test_loop_drop() {
         Gn::<()>::new(|| {
             x = 5;
             loop {
-                _yield_!();
+                yield_with(());
             }
         });
         // here the generator drop will cancel the loop
@@ -195,7 +194,7 @@ fn test_cancel() {
     let mut g = Gn::<()>::new(|| {
         let mut i = 0;
         loop {
-            _yield_!(i);
+            yield_with(i);
             i += 1;
         }
         i
