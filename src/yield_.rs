@@ -54,6 +54,14 @@ pub fn get_yield<A: Any>() -> Option<A> {
     context.get_para()
 }
 
+/// yiled and get the send para
+#[inline]
+pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
+    let p = get_yield();
+    yield_with(v);
+    p
+}
+
 /// yiled_from
 pub fn yield_from<'a, A: Any, T: Any>(mut g: Box<Generator<A, Output = T> + 'a>) {
     let context = ContextStack::current().top();
@@ -62,21 +70,6 @@ pub fn yield_from<'a, A: Any, T: Any>(mut g: Box<Generator<A, Output = T> + 'a>)
         let r = g.raw_send(p).unwrap();
         raw_yield(context, r);
     }
-}
-
-/// yiled and get the send para
-#[macro_export]
-macro_rules! _yield {
-    // `(para)`
-    // val: the value that need to be yield
-    // and got the send para from context
-    ($val:expr) => ({
-        let p = generator::get_yield().unwrap();
-        generator::yield_with($val);
-        p
-    });
-
-    () => (_yield!(()));
 }
 
 /// yield without get the passed in para

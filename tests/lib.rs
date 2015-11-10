@@ -5,7 +5,7 @@ use generator::*;
 
 #[test]
 fn generator_is_done() {
-    let mut g = Gn::<()>::new(||{
+    let mut g = Gn::<()>::new(|| {
         _yield_!();
     });
 
@@ -152,7 +152,7 @@ fn test_ill_drop() {
             x = 5;
             // here we got None from drop
             // but should no panic
-            x = _yield!();
+            x = get_yield().unwrap();
         });
     }
 
@@ -264,8 +264,8 @@ fn test_yield_from() {
 fn test_yield_from_send() {
     let mut g = Gn::<u32>::new(|| {
         let g1 = Gn::<u32>::new(|| {
-            let mut i: u32 = _yield!(1u32);
-            i = _yield!(i * 2);
+            let mut i: u32 = yield_(1u32).unwrap();
+            i = yield_(i * 2).unwrap();
             i * 2
         });
 
@@ -290,8 +290,8 @@ fn test_yield_from_send() {
 fn test_yield_from_send_type_miss_match() {
     let mut g = Gn::<u32>::new(|| {
         let g1 = Gn::<u32>::new(|| {
-            let mut i: u32 = _yield!(1u32);
-            i = _yield!(i * 2);
+            let mut i: u32 = yield_(1u32).unwrap();
+            i = yield_(i * 2).unwrap();
             i * 2
         });
 
