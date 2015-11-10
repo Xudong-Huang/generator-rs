@@ -136,33 +136,3 @@ pub unsafe fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers
       "{rdi}", "{xmm0}", "{xmm1}", "{xmm2}", "{xmm3}", "{xmm4}", "{xmm5}"
     : "volatile");
 }
-
-#[inline(never)]
-#[cfg(not(windows))]
-pub unsafe fn load_registers(in_regs: *const Registers) {
-    asm!("
-        mov (0*8)(%rdi), %rbx
-        mov (1*8)(%rdi), %rsp
-        mov (2*8)(%rdi), %rbp
-        mov (4*8)(%rdi), %r12
-        mov (5*8)(%rdi), %r13
-        mov (6*8)(%rdi), %r14
-        mov (7*8)(%rdi), %r15
-
-        movapd (10*8)(%rdi), %xmm0
-        movapd (12*8)(%rdi), %xmm1
-        movapd (14*8)(%rdi), %xmm2
-        movapd (16*8)(%rdi), %xmm3
-        movapd (18*8)(%rdi), %xmm4
-        movapd (20*8)(%rdi), %xmm5
-    "
-    :
-    : "{rdi}"(in_regs)
-    : "{rbx}", "{rsp}", "{rbp}",
-      "{r12}", "{r13}", "{r14}", "{r15}",
-      "{xmm0}", "{xmm1}", "{xmm2}", "{xmm3}",
-      "{xmm4}", "{xmm5}"
-    : "volatile");
-
-    // Just return
-}

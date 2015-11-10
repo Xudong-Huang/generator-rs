@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use detail::{Registers, initialize_call_frame, swap_registers, load_registers};
+use detail::{Registers, initialize_call_frame, swap_registers};
 
 #[derive(Debug)]
 pub struct Context {
@@ -72,11 +72,10 @@ impl Context {
     #[inline(always)]
     #[allow(dead_code)]
     pub fn load(to_context: &Context) {
+        let mut cur = Registers::new();
         let regs: &Registers = &to_context.regs;
 
-        unsafe {
-            load_registers(regs);
-        }
+        unsafe { swap_registers(&mut cur, regs) }
     }
 }
 

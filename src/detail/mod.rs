@@ -24,7 +24,7 @@
 
 #[cfg(target_arch = "x86_64")]
 #[cfg(not(windows))]
-pub use self::x86_64_unix::{Registers, swap_registers, load_registers, initialize_call_frame};
+pub use self::x86_64_unix::{Registers, swap_registers, initialize_call_frame};
 
 #[cfg(target_arch = "x86_64")]
 #[cfg(not(windows))]
