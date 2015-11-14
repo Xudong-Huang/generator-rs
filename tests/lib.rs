@@ -215,6 +215,12 @@ fn test_cancel() {
 #[should_panic]
 fn test_yield_from_functor_context() {
     // this is not run from generator
+    yield_::<(), _>(0);
+}
+
+#[test]
+fn test_yield_with_from_functor_context() {
+    // this is not run from generator
     yield_with(0);
 }
 

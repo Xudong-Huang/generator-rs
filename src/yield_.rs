@@ -27,8 +27,10 @@ pub fn yield_now() {
 fn raw_yield<T: Any>(context: &mut Context, v: T) {
     // check the context
     if !context.is_generator() {
-        error!("yield run at none generator context");
-        panic!(Error::ContextErr);
+        info!("yield from none generator context");
+        // do nothing, just return
+        return;
+        // panic!(Error::ContextErr);
     }
 
     context.set_ret(v);
@@ -51,6 +53,13 @@ pub fn yield_with<T: Any>(v: T) {
 #[inline]
 pub fn get_yield<A: Any>() -> Option<A> {
     let context = ContextStack::current().top();
+
+    // check the context
+    if !context.is_generator() {
+        error!("get yield from none generator context");
+        panic!(Error::ContextErr);
+    }
+
     context.get_para()
 }
 
