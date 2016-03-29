@@ -112,7 +112,7 @@ mod test {
         let stk = Stack::new(MIN_STACK);
         let ctx = Context::new(init_fn,
                                unsafe { transmute(&cur) },
-                               unsafe { transmute(callback) },
+                               unsafe { transmute(callback as usize)},
                                stk.end());
 
         Context::swap(&mut cur, &ctx);
