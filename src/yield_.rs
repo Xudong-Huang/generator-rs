@@ -13,7 +13,7 @@ use reg_context::Context as RegContext;
 pub fn yield_now() {
     let env = ContextStack::current();
     let mut cur = env.top();
-    let ref sp = cur.stack;
+    let sp = &cur.stack;
     // judge if this is root context
     if sp.size() > 0 {
         env.pop();
@@ -72,7 +72,7 @@ pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
 }
 
 /// yiled_from
-pub fn yield_from<'a, A: Any, T: Any>(mut g: Box<Generator<A, Output = T> + 'a>) {
+pub fn yield_from<A: Any, T: Any>(mut g: Box<Generator<A, Output = T>>) {
     let context = ContextStack::current().top();
     while !g.is_done() {
         let p = context.get_para();

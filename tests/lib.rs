@@ -325,5 +325,5 @@ fn test_stack_overflow() {
     let clo = || {
         println!("this would overflow the stack");
     };
-    Gn::<()>::new_opt(clo, 100);
+    Gn::<()>::new_opt(clo, 10);
 }

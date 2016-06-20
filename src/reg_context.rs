@@ -54,11 +54,11 @@ impl Context {
     #[inline(always)]
     pub fn swap(out_context: &mut Context, in_context: &Context) {
         debug!("swapping contexts");
-        let out_regs: &mut Registers = match out_context {
-            &mut Context { regs: ref mut r, .. } => r,
+        let out_regs: &mut Registers = match *out_context {
+            Context { regs: ref mut r, .. } => r,
         };
-        let in_regs: &Registers = match in_context {
-            &Context { regs: ref r, .. } => r,
+        let in_regs: &Registers = match *in_context {
+            Context { regs: ref r, .. } => r,
         };
 
         debug!("register raw swap");
@@ -112,7 +112,7 @@ mod test {
         let stk = Stack::new(MIN_STACK);
         let ctx = Context::new(init_fn,
                                unsafe { transmute(&cur) },
-                               unsafe { transmute(callback as usize)},
+                               unsafe { transmute(callback as usize) },
                                stk.end());
 
         Context::swap(&mut cur, &ctx);

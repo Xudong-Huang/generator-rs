@@ -204,7 +204,7 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
 
         // we can't panic inside the generator context
         // need to propagate the panic to the main thread
-        if let Err(cause) = panic::recover(clo) {
+        if let Err(cause) = panic::catch_unwind(clo) {
             if cause.downcast_ref::<Error>().is_some() {
                 match cause.downcast_ref::<Error>().unwrap() {
                     &Error::Cancel => {}

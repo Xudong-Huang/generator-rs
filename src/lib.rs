@@ -6,8 +6,6 @@
 #![feature(asm)]
 #![feature(alloc)]
 #![feature(fnbox)]
-#![feature(std_panic)]
-#![feature(recover)]
 #![feature(repr_simd)]
 #![feature(rustc_private)]
 
