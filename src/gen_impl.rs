@@ -24,7 +24,7 @@ pub struct Gn<A> {
     dummy: PhantomData<A>,
 }
 
-impl <A: Any> Gn<A> {
+impl<A: Any> Gn<A> {
     /// create a new generator with default stack size
     pub fn new<'a, T: Any, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce() -> T + 'a
@@ -189,8 +189,7 @@ impl<A: Any, T: Any, F> Generator<A> for GeneratorImpl<A, T, F>
     }
 
     fn stack_usage(&self) -> (usize, usize) {
-        (self.context.stack.size(),
-         self.context.stack.get_used_size())
+        (self.context.stack.size(), self.context.stack.get_used_size())
     }
 }
 

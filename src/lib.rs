@@ -6,7 +6,6 @@
 #![feature(asm)]
 #![feature(alloc)]
 #![feature(fnbox)]
-#![feature(repr_simd)]
 #![feature(rustc_private)]
 
 #![cfg_attr(test, deny(warnings))]

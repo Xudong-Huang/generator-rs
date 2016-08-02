@@ -27,7 +27,7 @@ pub trait Generator<A> {
     fn stack_usage(&self) -> (usize, usize);
 }
 
-impl<'a, A, T> Iterator for Generator<A, Output=T> + 'a {
+impl<'a, A, T> Iterator for Generator<A, Output = T> + 'a {
     type Item = T;
     // The 'Iterator' trait only requires the 'next' method to be defined. The
     // return type is 'Option<T>', 'None' is returned when the 'Iterator' is

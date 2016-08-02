@@ -22,13 +22,27 @@
 // the `rust_swap_registers` function, but that's only because for now segmented
 // stacks are disabled.
 
-#[cfg(target_arch = "x86_64")]
-#[cfg(not(windows))]
-pub use self::x86_64_unix::{Registers, swap_registers, initialize_call_frame};
+#[cfg(all(unix, target_arch = "x86_64"))]
+#[path = "x86_64_unix.rs"]
+pub mod asm;
 
-#[cfg(target_arch = "x86_64")]
-#[cfg(not(windows))]
-pub mod x86_64_unix;
+#[cfg(all(windows, target_arch = "x86_64"))]
+#[path = "x86_64_windows.rs"]
+pub mod asm;
+
+pub use self::asm::{swap_registers, initialize_call_frame};
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct Registers {
+    gpr: [usize; 16],
+}
+
+impl Registers {
+    pub fn new() -> Registers {
+        Registers { gpr: [0; 16] }
+    }
+}
 
 #[inline]
 fn align_down(sp: *mut usize) -> *mut usize {
