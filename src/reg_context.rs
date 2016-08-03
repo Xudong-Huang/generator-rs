@@ -53,7 +53,7 @@ impl Context {
     /// then loading the registers from a previously saved Context.
     #[inline]
     pub fn swap(out_context: &mut Context, in_context: &Context) {
-        debug!("swapping contexts");
+        // debug!("swapping contexts");
         let out_regs: &mut Registers = match *out_context {
             Context { regs: ref mut r, .. } => r,
         };
@@ -61,7 +61,7 @@ impl Context {
             Context { regs: ref r, .. } => r,
         };
 
-        debug!("register raw swap");
+        // debug!("register raw swap");
 
         unsafe { swap_registers(out_regs, in_regs) }
     }

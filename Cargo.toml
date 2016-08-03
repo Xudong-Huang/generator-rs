@@ -9,3 +9,6 @@ readme = "README.md"
 homepage = "https://github.com/Xudong-Huang/generator-rs.git"
 keywords = ["generator", "coroutine", "green", "thread", "fiber"]
 
+[profile.release]
+opt-level=3
+lto=true
