@@ -69,6 +69,7 @@ impl Stack {
     }
 
     /// Point to the low end of the allocated stack
+    #[allow(dead_code)]
     pub fn begin(&self) -> *mut usize {
         self.buf.ptr()
     }

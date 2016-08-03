@@ -1,5 +1,6 @@
 use detail::{align_down, mut_offset};
 use reg_context::InitFn;
+use stack::Stack;
 
 use super::Registers;
 
@@ -7,7 +8,7 @@ pub fn initialize_call_frame(regs: &mut Registers,
                              fptr: InitFn,
                              arg: usize,
                              arg2: *mut usize,
-                             sp: *mut usize) {
+                             stack: &Stack) {
 
     #[inline(never)]
     unsafe fn bootstrap_green_task() {
@@ -29,7 +30,7 @@ pub fn initialize_call_frame(regs: &mut Registers,
     const RUSTRT_R13: usize = 5;
     const RUSTRT_R14: usize = 6;
 
-    let sp = align_down(sp);
+    let sp = align_down(stack.end());
 
     // These registers are frobbed by rust_bootstrap_green_task into the right
     // location so we can invoke the "real init function", `fptr`.
