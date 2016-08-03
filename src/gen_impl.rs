@@ -43,7 +43,7 @@ impl<A: Any> Gn<A> {
     }
 }
 
-/// GeneratorImpl
+/// `GeneratorImpl`
 pub struct GeneratorImpl<A: Any, T: Any, F>
     where F: FnOnce() -> T
 {

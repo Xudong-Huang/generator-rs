@@ -51,7 +51,7 @@ impl Context {
     /// Suspend the current execution context and resume another by
     /// saving the registers values of the executing thread to a Context
     /// then loading the registers from a previously saved Context.
-    #[inline(always)]
+    #[inline]
     pub fn swap(out_context: &mut Context, in_context: &Context) {
         debug!("swapping contexts");
         let out_regs: &mut Registers = match *out_context {
@@ -69,7 +69,7 @@ impl Context {
     /// Load the context and switch. This function will never return.
     ///
     /// It is equivalent to `Context::swap(&mut dummy_context, &to_context)`.
-    #[inline(always)]
+    #[inline]
     #[allow(dead_code)]
     pub fn load(to_context: &Context) {
         let mut cur = Registers::new();

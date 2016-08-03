@@ -71,7 +71,7 @@ pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
     p
 }
 
-/// yiled_from
+/// `yiled_from`
 pub fn yield_from<A: Any, T: Any>(mut g: Box<Generator<A, Output = T>>) {
     let context = ContextStack::current().top();
     while !g.is_done() {
