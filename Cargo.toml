@@ -11,4 +11,3 @@ keywords = ["generator", "coroutine", "green", "thread", "fiber"]
 
 [profile.release]
 opt-level=3
-lto=true
