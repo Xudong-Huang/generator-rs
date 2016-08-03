@@ -11,7 +11,7 @@ use stack::Stack;
 use reg_context::Context as RegContext;
 
 /// each thread has it's own generator context stack
-thread_local!(static CONTEXT_STACK: UnsafeCell<Box<ContextStack>>
+thread_local!(static CONTEXT_STACK: UnsafeCell<ContextStack>
                                   = UnsafeCell::new(ContextStack::new()));
 
 thread_local!(static ROOT_CONTEXT: UnsafeCell<Context>
@@ -97,8 +97,8 @@ pub struct ContextStack {
 }
 
 impl ContextStack {
-    fn new() -> Box<ContextStack> {
-        let mut r = Box::new(ContextStack { stack: Vec::new() });
+    fn new() -> Self {
+        let mut r = ContextStack { stack: Vec::with_capacity(16) };
         r.push(ROOT_CONTEXT.with(|env| env.get()));
         r
     }

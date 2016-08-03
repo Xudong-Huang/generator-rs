@@ -18,8 +18,7 @@ pub struct Stack {
 }
 
 impl Stack {
-    /// Allocate a new stack of `size`. If size = 0, this will fail. Use
-    /// `dummy_stack` if you want a zero-sized stack.
+    /// Allocate a new stack of `size`. If size = 0, this is a `dummy_stack`
     pub fn new(size: usize) -> Stack {
         let mut size = size;
         // the minimal size

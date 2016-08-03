@@ -6,7 +6,8 @@ use std::panic;
 use generator::*;
 use test::Bencher;
 
-#[bench]
+// #[bench]
+#[allow(dead_code)]
 fn yield_bench(b: &mut Bencher) {
     // don't print any panic info
     panic::set_hook(Box::new(|_| {}));

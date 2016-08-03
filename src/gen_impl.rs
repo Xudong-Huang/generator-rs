@@ -93,6 +93,7 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
     }
 
     /// resume the generator
+    #[inline]
     fn resume_gen(&mut self) {
         let env = ContextStack::current();
         let cur = &mut env.top().regs;
@@ -154,8 +155,9 @@ impl<A: Any, T: Any, F> Generator<A> for GeneratorImpl<A, T, F>
 {
     type Output = T;
 
+    #[inline]
     fn raw_send(&mut self, para: Option<A>) -> Option<T> {
-        if self.is_started() && self.context._ref != 0 {
+        if self.is_done() {
             return None;
         }
 
@@ -185,6 +187,7 @@ impl<A: Any, T: Any, F> Generator<A> for GeneratorImpl<A, T, F>
         }
     }
 
+    #[inline]
     fn is_done(&self) -> bool {
         self.is_started() && self.context._ref != 0
     }
