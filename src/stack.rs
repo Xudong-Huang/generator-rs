@@ -5,6 +5,12 @@
 use std::ptr;
 use alloc::raw_vec::RawVec;
 
+#[cfg(windows)]
+const MIN_STACK_SIZE: usize = 0x4b0;
+
+#[cfg(unix)]
+const MIN_STACK_SIZE: usize = 0x100;
+
 
 /// generator stack
 pub struct Stack {
@@ -17,8 +23,8 @@ impl Stack {
     pub fn new(size: usize) -> Stack {
         let mut size = size;
         // the minimal size
-        if size != 0 && size < 8 {
-            size = 8;
+        if size != 0 && size < MIN_STACK_SIZE {
+            size = MIN_STACK_SIZE;
         }
 
         let stk = Stack { buf: RawVec::with_capacity(size) };
@@ -50,7 +56,6 @@ impl Stack {
 
         }
         self.buf.cap() - offset
-
     }
 
     /// get the stack cap
@@ -61,5 +66,10 @@ impl Stack {
     /// Point to the high end of the allocated stack
     pub fn end(&self) -> *mut usize {
         unsafe { self.buf.ptr().offset(self.buf.cap() as isize) as *mut usize }
+    }
+
+    /// Point to the low end of the allocated stack
+    pub fn begin(&self) -> *mut usize {
+        self.buf.ptr()
     }
 }

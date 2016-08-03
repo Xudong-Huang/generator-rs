@@ -9,6 +9,7 @@
 // except according to those terms.
 
 use detail::{Registers, initialize_call_frame, swap_registers};
+use stack::Stack;
 
 #[derive(Debug)]
 pub struct Context {
@@ -33,17 +34,16 @@ impl Context {
     ///        this is to reduce the number of allocations made when a green
     ///        task is spawned as much as possible
     #[allow(dead_code)]
-    pub fn new(init: InitFn, arg: usize, start: *mut usize, stack: *const usize) -> Context {
+    pub fn new(init: InitFn, arg: usize, start: *mut usize, stack: &Stack) -> Context {
         let mut ctx = Context::empty();
         ctx.init_with(init, arg, start, stack);
         ctx
     }
 
-    pub fn init_with(&mut self, init: InitFn, arg: usize, start: *mut usize, stack: *const usize) {
-        let sp: *mut usize = stack as *mut usize;
+    pub fn init_with(&mut self, init: InitFn, arg: usize, start: *mut usize, stack: &Stack) {
         // Save and then immediately load the current context,
         // which we will then modify to call the given function when restoredtack
-        initialize_call_frame(&mut self.regs, init, arg, start, sp);
+        initialize_call_frame(&mut self.regs, init, arg, start, stack);
     }
 
     /// Switch contexts
@@ -113,7 +113,7 @@ mod test {
         let ctx = Context::new(init_fn,
                                unsafe { transmute(&cur) },
                                unsafe { transmute(callback as usize) },
-                               stk.end());
+                               &stk);
 
         Context::swap(&mut cur, &ctx);
         unsafe {

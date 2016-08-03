@@ -16,8 +16,9 @@ use generator::Generator;
 use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
 
-// default stack size is 1k * sizeof(usize)
-pub const DEFAULT_STACK_SIZE: usize = 1024;
+// default stack size, in usize
+// windows has a minimal size as 0x4a8!!!!
+pub const DEFAULT_STACK_SIZE: usize = 0x800;
 
 /// Generator helper
 pub struct Gn<A> {
@@ -82,12 +83,12 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
                 (*ptr).ret = Some(f());
             });
 
-            let stk = &mut (*ptr).context.stack;
+            let stk = &(*ptr).context.stack;
             let reg = &mut (*ptr).context.regs;
             reg.init_with(gen_init,
                           ptr as usize,
                           Box::into_raw(Box::new(start)) as *mut usize,
-                          stk.end());
+                          stk);
         }
     }
 
@@ -203,6 +204,7 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
 
         // we can't panic inside the generator context
         // need to propagate the panic to the main thread
+        // It is currently undefined behavior to unwind from Rust code into foreign code
         if let Err(cause) = panic::catch_unwind(clo) {
             if cause.downcast_ref::<Error>().is_some() {
                 match cause.downcast_ref::<Error>().unwrap() {
