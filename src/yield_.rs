@@ -22,9 +22,20 @@ pub fn yield_now() {
     }
 }
 
+#[inline]
+fn raw_yield_now(env: &mut ContextStack, cur: &mut Context) {
+    let sp = &cur.stack;
+    // judge if this is root context
+    if sp.size() > 0 {
+        env.pop();
+        let parent = env.top();
+        RegContext::swap(&mut cur.regs, &parent.regs);
+    }
+}
+
 /// raw yiled without catch passed in para
 #[inline]
-fn raw_yield<T: Any>(context: &mut Context, v: T) {
+fn raw_yield<T: Any>(env: &mut ContextStack, context: &mut Context, v: T) {
     // check the context
     if !context.is_generator() {
         info!("yield from none generator context");
@@ -35,7 +46,7 @@ fn raw_yield<T: Any>(context: &mut Context, v: T) {
 
     context.set_ret(v);
     context._ref -= 1;
-    yield_now();
+    raw_yield_now(env, context);
 
     // here we just panic to exit the func
     if context._ref != 1 {
@@ -46,7 +57,9 @@ fn raw_yield<T: Any>(context: &mut Context, v: T) {
 /// yiled something without catch passed in para
 #[inline]
 pub fn yield_with<T: Any>(v: T) {
-    raw_yield(ContextStack::current().top(), v);
+    let env = ContextStack::current();
+    let context = env.top();
+    raw_yield(env, context, v);
 }
 
 /// get the passed in para
@@ -71,18 +84,20 @@ fn raw_get_yield<A: Any>(context: &mut Context) -> Option<A> {
 /// yiled and get the send para
 #[inline]
 pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
-    let context = ContextStack::current().top();
+    let env = ContextStack::current();
+    let context = env.top();
     let p = raw_get_yield(context);
-    raw_yield(context, v);
+    raw_yield(env, context, v);
     p
 }
 
 /// `yiled_from`
 pub fn yield_from<A: Any, T: Any>(mut g: Box<Generator<A, Output = T>>) {
-    let context = ContextStack::current().top();
+    let env = ContextStack::current();
+    let context = env.top();
     while !g.is_done() {
         let p = context.get_para();
         let r = g.raw_send(p).unwrap();
-        raw_yield(context, r);
+        raw_yield(env, context, r);
     }
 }
