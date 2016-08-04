@@ -63,8 +63,9 @@ impl Context {
         where A: Any
     {
         let para = unsafe { &mut *self.para };
-        if para.is::<Option<A>>() {
-            para.downcast_mut::<Option<A>>().unwrap().take()
+        let val = para.downcast_mut::<Option<A>>();
+        if val.is_some() {
+            val.unwrap().take()
         } else {
             error!("get yield type error detected");
             panic!(Error::TypeErr);
@@ -77,8 +78,8 @@ impl Context {
         where T: Any
     {
         let ret = unsafe { &mut *self.ret };
-        if ret.is::<Option<T>>() {
-            let val = ret.downcast_mut::<Option<T>>();
+        let val = ret.downcast_mut::<Option<T>>();
+        if val.is_some() {
             mem::replace(val.unwrap(), Some(v));
         } else {
             error!("yield type error detected");
