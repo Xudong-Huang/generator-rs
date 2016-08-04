@@ -53,7 +53,12 @@ pub fn yield_with<T: Any>(v: T) {
 #[inline]
 pub fn get_yield<A: Any>() -> Option<A> {
     let context = ContextStack::current().top();
+    raw_get_yield(context)
+}
 
+/// get the passed in para from context
+#[inline]
+fn raw_get_yield<A: Any>(context: &mut Context) -> Option<A> {
     // check the context
     if !context.is_generator() {
         error!("get yield from none generator context");
@@ -66,8 +71,9 @@ pub fn get_yield<A: Any>() -> Option<A> {
 /// yiled and get the send para
 #[inline]
 pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
-    let p = get_yield();
-    yield_with(v);
+    let context = ContextStack::current().top();
+    let p = raw_get_yield(context);
+    raw_yield(context, v);
     p
 }
 
