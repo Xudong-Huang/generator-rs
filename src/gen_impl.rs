@@ -218,7 +218,10 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
                     }
                 }
             } else {
-                error!("Panicked inside: {:?}", cause.downcast::<&str>());
+                // we hope all other panic could covert to a string
+                // here we forget the panic to avoid shutdown the whole thread
+                let e = cause.downcast::<&str>().unwrap_or(Box::new("unkown panic"));
+                error!("Panicked inside: {:?}", e);
             }
         }
         // drop the clo here
