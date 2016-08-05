@@ -86,18 +86,19 @@ fn raw_get_yield<A: Any>(context: &mut Context) -> Option<A> {
 pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
     let env = ContextStack::current();
     let context = env.top();
-    let p = raw_get_yield(context);
     raw_yield(env, context, v);
-    p
+    raw_get_yield(context)
 }
 
 /// `yiled_from`
-pub fn yield_from<A: Any, T: Any>(mut g: Box<Generator<A, Output = T>>) {
+pub fn yield_from<A: Any, T: Any>(mut g: Box<Generator<A, Output = T>>) -> Option<A> {
     let env = ContextStack::current();
     let context = env.top();
+    let mut p = context.get_para();
     while !g.is_done() {
-        let p = context.get_para();
         let r = g.raw_send(p).unwrap();
         raw_yield(env, context, r);
+        p = context.get_para();
     }
+    p
 }

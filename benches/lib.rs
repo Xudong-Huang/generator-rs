@@ -51,8 +51,10 @@ fn single_yield_with_bench(b: &mut Bencher) {
 #[bench]
 fn single_yield_bench(b: &mut Bencher) {
     let mut g = Gn::new(|| {
-        for i in 0usize.. {
+        let mut i = 0;
+        loop {
             let v: Option<usize> = yield_(i);
+            i += 1;
             match v {
                 Some(x) => {
                     assert_eq!(x, i);
@@ -66,7 +68,10 @@ fn single_yield_bench(b: &mut Bencher) {
         20usize
     });
 
-    let mut i: usize = 0;
+    // start g
+    g.raw_send(None);
+
+    let mut i: usize = 1;
     b.iter(|| {
         let data: usize = g.send(i);
         assert_eq!(data, i);

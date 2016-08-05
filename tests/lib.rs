@@ -15,7 +15,22 @@ fn generator_is_done() {
 }
 
 #[test]
-fn test_yield() {
+fn test_yield_a() {
+    let mut g = Gn::<i32>::new(|| {
+        let r: i32 = yield_(10).unwrap();
+        r * 2
+    });
+
+    // first start the generator
+    let i = g.raw_send(None).unwrap();
+    assert_eq!(i, 10);
+    let i = g.send(3);
+    assert_eq!(i, 6);
+    assert!(g.is_done());
+}
+
+#[test]
+fn test_yield_with() {
     let mut g = Gn::new(|| {
         yield_with(10);
         20
@@ -275,6 +290,8 @@ fn test_yield_from_send() {
         });
 
         yield_from(g1);
+
+        // here we need a unused return to indicate this function's return type
         0u32
     });
 

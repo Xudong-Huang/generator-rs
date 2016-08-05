@@ -1,23 +1,32 @@
 extern crate generator;
+use std::mem;
 use generator::{Gn, yield_};
 
 fn sum(a: u32) -> u32 {
     let mut sum = a;
-    let mut recv = 1u32;
+    let mut recv;
     while sum < 200 {
-        sum += recv;
+        // println!("sum={} ", sum);
         recv = yield_(sum).unwrap();
+        // println!("recv={}", recv);
+        sum += recv;
     }
-
-    sum + recv
+    sum
 }
 
 fn main() {
     // we specify the send type is u32
     let mut s = Gn::<u32>::new(|| sum(0));
-    let mut i = 1u32;
+    // first start the generator
+    assert_eq!(s.raw_send(None).unwrap(), 0);
+    let mut cur = 1;
+    let mut last = 1;
+
     while !s.is_done() {
-        i = s.send(i);
-        println!("{}", i);
+        // println!("send={}", last);
+        mem::swap(&mut cur, &mut last);
+        cur = s.send(cur); // s += cur
+        // println!("cur={} last={}", cur, last);
+        println!("{}", cur);
     }
 }
