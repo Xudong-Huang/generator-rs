@@ -5,6 +5,7 @@
 
 use std::mem;
 use std::any::Any;
+use std::intrinsics::type_name;
 
 use stack::Stack;
 use reg_context::Context as RegContext;
@@ -67,7 +68,8 @@ impl Context {
         if val.is_some() {
             val.unwrap().take()
         } else {
-            error!("get yield type error detected");
+            let t = unsafe { type_name::<A>() };
+            error!("get yield type error detected, expected type: {}", t);
             panic!(Error::TypeErr);
         }
     }
@@ -82,7 +84,8 @@ impl Context {
         if val.is_some() {
             mem::replace(val.unwrap(), Some(v));
         } else {
-            error!("yield type error detected");
+            let t = unsafe { type_name::<T>() };
+            error!("yield type error detected, expected type: {}", t);
             panic!(Error::TypeErr);
         }
     }

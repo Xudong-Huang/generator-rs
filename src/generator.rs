@@ -3,6 +3,9 @@
 //! generator trait
 //!
 
+use std::fmt;
+use std::intrinsics::type_name;
+
 /// generator trait
 pub trait Generator<A> {
     /// Output type
@@ -34,5 +37,16 @@ impl<'a, A, T> Iterator for Generator<A, Output = T> + 'a {
     // over, otherwise the next value is returned wrapped in 'Some'
     fn next(&mut self) -> Option<T> {
         self.raw_send(None)
+    }
+}
+
+impl<A, T> fmt::Debug for Box<Generator<A, Output = T>> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            write!(f,
+                   "Generator<{}, Output={}> {{ ... }}",
+                   type_name::<A>(),
+                   type_name::<T>())
+        }
     }
 }
