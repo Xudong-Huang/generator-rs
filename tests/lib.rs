@@ -289,20 +289,22 @@ fn test_yield_from_send() {
             i * 2
         });
 
-        yield_from(g1);
+        let i = yield_from(g1).unwrap();
+        assert_eq!(i, 10);
 
         // here we need a unused return to indicate this function's return type
         0u32
     });
 
-    let n = g.send(3);
+    // first start the generator
+    let n = g.raw_send(None).unwrap();
     assert!(n == 1);
-    let n = g.send(4);
+
+    let n = g.send(3);
     assert!(n == 6);
-    let n = g.send(10);
+    let n = g.send(4);
     assert!(n == 8);
-    // the last send has no meaning for the return
-    let n = g.send(0);
+    let n = g.send(10);
     assert!(n == 0);
     assert!(g.is_done());
 }
