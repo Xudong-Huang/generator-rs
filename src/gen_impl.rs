@@ -27,7 +27,7 @@ pub struct Gn<A> {
 
 impl<A> Gn<A> {
     /// create a scoped generator
-    pub fn new_scope<'a, T, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
+    pub fn new_scoped<'a, T, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce(Scope<A, T>) -> T + 'a,
               T: 'a,
               A: 'a

@@ -348,3 +348,44 @@ fn test_stack_overflow() {
     };
     Gn::<()>::new_opt(clo, 10);
 } */
+
+#[test]
+fn test_scope_gen() {
+    // now we can even deduce the input para type
+    let mut g = Gn::new_scoped(|mut s| {
+        let i = s.yield_(0).unwrap();
+        // below would have a compile error, nice!
+        // s.yield_(Box::new(0));
+        i * 2
+    });
+
+    assert_eq!(g.raw_send(None), Some(0));
+    assert_eq!(g.raw_send(Some(3)), Some(6));
+    assert_eq!(g.raw_send(None), None);
+}
+
+#[test]
+fn test_scope_yield_from_send() {
+    let mut g = Gn::new_scoped(|mut s| {
+        let g1 = Gn::new_scoped(|mut s| {
+            let mut i: u32 = s.yield_(1u32).unwrap();
+            i = s.yield_(i * 2).unwrap();
+            i * 2
+        });
+
+        let i = s.yield_from(g1).unwrap();
+        // here the return type should be 0u32
+        i * 2
+    });
+
+    let n = g.send(3);
+    assert_eq!(n, 1);
+    let n = g.send(4);
+    assert_eq!(n, 8);
+    let n = g.send(10);
+    assert_eq!(n, 20);
+    // the last send has no meaning for the return
+    let n = g.send(7);
+    assert!(n == 14);
+    assert!(g.is_done());
+}

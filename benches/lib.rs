@@ -78,3 +78,35 @@ fn single_yield_bench(b: &mut Bencher) {
         i += 1;
     });
 }
+
+
+#[bench]
+fn scoped_yield_bench(b: &mut Bencher) {
+    let mut g = Gn::new_scoped(|mut s| {
+        let mut i = 0;
+        loop {
+            let v = s.yield_(i);
+            i += 1;
+            match v {
+                Some(x) => {
+                    assert_eq!(x, i);
+                }
+                None => {
+                    // for elegant exit
+                    break;
+                }
+            }
+        }
+        20usize
+    });
+
+    // start g
+    g.raw_send(None);
+
+    let mut i: usize = 1;
+    b.iter(|| {
+        let data: usize = g.send(i);
+        assert_eq!(data, i);
+        i += 1;
+    });
+}
