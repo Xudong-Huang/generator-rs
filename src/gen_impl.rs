@@ -3,7 +3,6 @@
 //! Rust generator implementation
 //!
 
-
 use std::mem;
 use std::panic;
 use std::thread;
@@ -11,6 +10,7 @@ use std::any::Any;
 use std::boxed::FnBox;
 use std::marker::PhantomData;
 
+use scope::Scope;
 use yield_::yield_now;
 use generator::Generator;
 use rt::{Error, Context, ContextStack};
@@ -25,6 +25,20 @@ pub struct Gn<A> {
     dummy: PhantomData<A>,
 }
 
+impl<A> Gn<A> {
+    /// create a scoped generator
+    pub fn new_scope<'a, T, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
+        where F: FnOnce(Scope<A, T>) -> T + 'a,
+              T: 'a,
+              A: 'a
+    {
+        let (mut g, s) = GeneratorImpl::<A, T, _>::new_scope(DEFAULT_STACK_SIZE);
+        g.f = Some(move || f(s));
+        g.init();
+        g
+    }
+}
+
 impl<A: Any> Gn<A> {
     /// create a new generator with default stack size
     pub fn new<'a, T: Any, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
@@ -37,14 +51,14 @@ impl<A: Any> Gn<A> {
     pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce() -> T + 'a
     {
-        let mut g = Box::new(GeneratorImpl::<A, T, F>::new(f, size));
+        let mut g = GeneratorImpl::<A, T, F>::new(f, size);
         g.init();
         g
     }
 }
 
 /// `GeneratorImpl`
-pub struct GeneratorImpl<A: Any, T: Any, F>
+pub struct GeneratorImpl<A, T, F>
     where F: FnOnce() -> T
 {
     // run time context
@@ -57,24 +71,47 @@ pub struct GeneratorImpl<A: Any, T: Any, F>
     f: Option<F>,
 }
 
+impl<'a, A, T, F> GeneratorImpl<A, T, F>
+    where F: FnOnce() -> T + 'a
+{
+    /// create a new generator with scope
+    pub fn new_scope(size: usize) -> (Box<Self>, Scope<A, T>) {
+        let mut g = Box::new(GeneratorImpl {
+            para: None,
+            ret: None,
+            f: None,
+            context: Context::new(size),
+        });
+
+        let scope = Scope::new(&mut g.para, &mut g.ret);
+
+        (g, scope)
+    }
+}
+
 impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
     where F: FnOnce() -> T + 'a
 {
     /// create a new generator with default stack size
-    pub fn new(f: F, size: usize) -> Self {
-        GeneratorImpl {
+    pub fn new(f: F, size: usize) -> Box<Self> {
+        let mut g = Box::new(GeneratorImpl {
             para: None,
             ret: None,
             f: Some(f),
             context: Context::new(size),
-        }
+        });
+
+        g.context.para = &mut g.para as &mut Any;
+        g.context.ret = &mut g.ret as &mut Any;
+        g
     }
+}
 
+impl<A, T, F> GeneratorImpl<A, T, F>
+    where F: FnOnce() -> T
+{
     /// init a heap based generator
-    pub fn init(&mut self) {
-        self.context.para = &mut self.para as &mut Any;
-        self.context.ret = &mut self.ret as &mut Any;
-
+    fn init(&mut self) {
         unsafe {
             let ptr = self as *mut Self;
 
@@ -117,43 +154,6 @@ impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
         // when the f is consumed we think it's running
         self.f.is_none()
     }
-}
-
-impl<A: Any, T: Any, F> Drop for GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T
-{
-    fn drop(&mut self) {
-        // when the thread is already panic, do nothing
-        if thread::panicking() {
-            return;
-        }
-
-        let mut i = 0;
-        while !self.is_done() {
-            if i > 2 {
-                self.cancel();
-                break;
-            }
-            self.raw_send(None);
-            i += 1;
-        }
-
-        let (total_stack, used_stack) = self.stack_usage();
-        if used_stack < total_stack {
-            // here we should record the stack in the class
-            // next time will just use
-            // set_stack_size::<F>(used_stack);
-        } else {
-            error!("stack overflow detected!");
-            panic!(Error::StackErr);
-        }
-    }
-}
-
-impl<A: Any, T: Any, F> Generator<A> for GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T
-{
-    type Output = T;
 
     #[inline]
     fn raw_send(&mut self, para: Option<A>) -> Option<T> {
@@ -194,6 +194,63 @@ impl<A: Any, T: Any, F> Generator<A> for GeneratorImpl<A, T, F>
 
     fn stack_usage(&self) -> (usize, usize) {
         (self.context.stack.size(), self.context.stack.get_used_size())
+    }
+}
+
+impl<A, T, F> Drop for GeneratorImpl<A, T, F>
+    where F: FnOnce() -> T
+{
+    fn drop(&mut self) {
+        // when the thread is already panic, do nothing
+        if thread::panicking() {
+            return;
+        }
+
+        let mut i = 0;
+        while !self.is_done() {
+            if i > 2 {
+                self.cancel();
+                break;
+            }
+            self.raw_send(None);
+            i += 1;
+        }
+
+        let (total_stack, used_stack) = self.stack_usage();
+        if used_stack < total_stack {
+            // here we should record the stack in the class
+            // next time will just use
+            // set_stack_size::<F>(used_stack);
+        } else {
+            error!("stack overflow detected!");
+            panic!(Error::StackErr);
+        }
+    }
+}
+
+impl<A, T, F> Generator<A> for GeneratorImpl<A, T, F>
+    where F: FnOnce() -> T
+{
+    type Output = T;
+
+    #[inline]
+    fn raw_send(&mut self, para: Option<A>) -> Option<T> {
+        self.raw_send(para)
+    }
+
+    #[inline]
+    fn cancel(&mut self) {
+        self.cancel();
+    }
+
+    #[inline]
+    fn is_done(&self) -> bool {
+        self.is_done()
+    }
+
+    #[inline]
+    fn stack_usage(&self) -> (usize, usize) {
+        self.stack_usage()
     }
 }
 

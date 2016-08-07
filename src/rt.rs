@@ -46,8 +46,8 @@ impl Context {
         Context {
             regs: RegContext::empty(),
             stack: Stack::new(size),
-            para: unsafe { mem::transmute(&0 as *const Any) },
-            ret: unsafe { mem::transmute(&0 as *const Any) },
+            para: unsafe { mem::uninitialized() },
+            ret: unsafe { mem::uninitialized() },
             _ref: 0,
             err: None,
         }

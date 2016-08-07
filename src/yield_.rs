@@ -13,17 +13,11 @@ use reg_context::Context as RegContext;
 pub fn yield_now() {
     let env = ContextStack::current();
     let mut cur = env.top();
-    let sp = &cur.stack;
-    // judge if this is root context
-    if sp.size() > 0 {
-        env.pop();
-        let parent = env.top();
-        RegContext::swap(&mut cur.regs, &parent.regs);
-    }
+    raw_yield_now(env, cur);
 }
 
 #[inline]
-fn raw_yield_now(env: &mut ContextStack, cur: &mut Context) {
+pub fn raw_yield_now(env: &mut ContextStack, cur: &mut Context) {
     let sp = &cur.stack;
     // judge if this is root context
     if sp.size() > 0 {
@@ -82,6 +76,9 @@ fn raw_get_yield<A: Any>(context: &mut Context) -> Option<A> {
 }
 
 /// yiled and get the send para
+// here yield need to return a static lifttime value, which is Any required
+// this is fine, but it's totally safe that we can refer to the function block
+// since we will come back later
 #[inline]
 pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
     let env = ContextStack::current();

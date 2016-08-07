@@ -17,6 +17,7 @@ extern crate log;
 extern crate alloc;
 
 mod rt;
+mod scope;
 mod stack;
 mod detail;
 mod yield_;

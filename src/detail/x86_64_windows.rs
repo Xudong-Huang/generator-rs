@@ -63,7 +63,11 @@ pub fn initialize_call_frame(regs: &mut Registers,
         *mut_offset(sp, -7) = bootstrap_green_task as usize; // release RET
         *mut_offset(sp, -6) = bootstrap_green_task as usize; // debug RET
         *mut_offset(sp, -5) = bootstrap_green_task as usize; // debug RET
-	// leave enough space for RET
+        // leave enough space for RET
+        *mut_offset(sp, -4) = 0;
+        *mut_offset(sp, -3) = 0;
+        *mut_offset(sp, -2) = 0;
+        *mut_offset(sp, -1) = 0;
     }
 }
 
