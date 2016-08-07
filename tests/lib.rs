@@ -116,25 +116,29 @@ fn test_scoped_1() {
 
 #[test]
 fn test_inner_ref() {
-    use std::mem;
-    let mut g = Gn::<()>::new(|| -> &mut u32 {
+    let mut g = Gn::<()>::new_scoped(|mut s| {
+        use std::mem;
+        use std::ptr;
         // setup something
         let mut x: u32 = 10;
+
+        // return interal ref not compiled becuase the
+        // lifetime of interal ref is smaller than the generator
+        // but the generator interface require the return type's
+        // lifetime bigger than the generator
 
         // the x memory remains on heap even returned!
         // the life time of x is assosiated with the generator
         // however modify this interal value is really unsafe
         // but this is useful pattern for setup and teardown
         // which can be put in the same place
-        {
-            // mut borrow block
-            let y: &mut u32 = unsafe { mem::transmute(&mut x) };
-            yield_with(y);
-        }
+        // s.yield_(&mut x);
+        s.yield_(unsafe { mem::transmute(&mut x) });
+
         // this was modified by the invoker
         assert!(x == 5);
         // teardown happened when the generator get dropped
-        unsafe { mem::transmute(&mut x) }
+        unsafe { &mut *ptr::null_mut() }
     });
 
     // use the resource setup from generator
