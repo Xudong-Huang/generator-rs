@@ -393,3 +393,34 @@ fn test_scope_yield_from_send() {
     assert!(n == 14);
     assert!(g.is_done());
 }
+
+#[test]
+fn test_re_init() {
+    let clo = || {
+        |mut s: Scope<(), _>| {
+            s.yield_(0);
+            s.yield_(3);
+            5
+        }
+    };
+
+    let mut g1 = GeneratorImpl::new(0x800);
+    let s = g1.get_scope();
+    g1.init(|| clo()(s));
+    let mut g = g1 as Box<Generator<_, Output = _>>;
+    // let mut g = Gn::new_scoped(clo());
+
+    assert_eq!(g.next(), Some(0));
+    assert_eq!(g.next(), Some(3));
+    assert_eq!(g.next(), Some(5));
+    assert_eq!(g.is_done(), true);
+
+    // re-init generator
+    // let s = g1.get_scope();
+    // g1.init(|| clo()(s));
+    //
+    // assert_eq!(g.next(), Some(0));
+    // assert_eq!(g.next(), Some(3));
+    // assert_eq!(g.next(), Some(5));
+    // assert_eq!(g.is_done(), true);
+}

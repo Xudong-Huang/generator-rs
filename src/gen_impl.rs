@@ -32,9 +32,9 @@ impl<A> Gn<A> {
               T: 'a,
               A: 'a
     {
-        let (mut g, s) = GeneratorImpl::<A, T, _>::new_scope(DEFAULT_STACK_SIZE);
-        g.f = Some(move || f(s));
-        g.init();
+        let mut g = GeneratorImpl::<A, T, _>::new(DEFAULT_STACK_SIZE);
+        let scope = g.get_scope();
+        g.init(move || f(scope));
         g
     }
 }
@@ -51,8 +51,9 @@ impl<A: Any> Gn<A> {
     pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
         where F: FnOnce() -> T + 'a
     {
-        let mut g = GeneratorImpl::<A, T, F>::new(f, size);
-        g.init();
+        let mut g = GeneratorImpl::<A, T, _>::new(size);
+        g.init_context();
+        g.init(f);
         g
     }
 }
@@ -71,47 +72,38 @@ pub struct GeneratorImpl<A, T, F>
     f: Option<F>,
 }
 
-impl<'a, A, T, F> GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T + 'a
-{
-    /// create a new generator with scope
-    pub fn new_scope(size: usize) -> (Box<Self>, Scope<A, T>) {
-        let mut g = Box::new(GeneratorImpl {
-            para: None,
-            ret: None,
-            f: None,
-            context: Context::new(size),
-        });
-
-        let scope = Scope::new(&mut g.para, &mut g.ret);
-
-        (g, scope)
-    }
-}
-
-impl<'a, A: Any, T: Any, F> GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T + 'a
+impl<A: Any, T: Any, F> GeneratorImpl<A, T, F>
+    where F: FnOnce() -> T
 {
     /// create a new generator with default stack size
-    pub fn new(f: F, size: usize) -> Box<Self> {
-        let mut g = Box::new(GeneratorImpl {
-            para: None,
-            ret: None,
-            f: Some(f),
-            context: Context::new(size),
-        });
-
-        g.context.para = &mut g.para as &mut Any;
-        g.context.ret = &mut g.ret as &mut Any;
-        g
+    pub fn init_context(&mut self) {
+        self.context.para = &mut self.para as &mut Any;
+        self.context.ret = &mut self.ret as &mut Any;
     }
 }
 
 impl<A, T, F> GeneratorImpl<A, T, F>
     where F: FnOnce() -> T
 {
+    /// create a new generator with specified stack size
+    pub fn new(size: usize) -> Box<Self> {
+        Box::new(GeneratorImpl {
+            para: None,
+            ret: None,
+            f: None,
+            context: Context::new(size),
+        })
+    }
+
+    /// get the scope object
+    pub fn get_scope(&mut self) -> Scope<A, T> {
+        Scope::new(&mut self.para, &mut self.ret)
+    }
+
     /// init a heap based generator
-    fn init(&mut self) {
+    // it's can be used to re-init a 'done' generator before it's get dropped
+    pub fn init(&mut self, f: F) {
+        self.f = Some(f);
         unsafe {
             let ptr = self as *mut Self;
 
@@ -277,7 +269,7 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
             } else {
                 // we hope all other panic could covert to a string
                 // here we forget the panic to avoid shutdown the whole thread
-                let e = cause.downcast::<&str>().unwrap_or(Box::new("unkown panic"));
+                let e = cause.downcast::<&str>().unwrap_or_else(|_| Box::new("unkown panic"));
                 error!("Panicked inside: {:?}", e);
             }
         }
