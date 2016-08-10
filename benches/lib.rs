@@ -1,4 +1,5 @@
 #![feature(test)]
+#![feature(fnbox)]
 extern crate generator;
 extern crate test;
 
@@ -131,7 +132,6 @@ fn create_gen(b: &mut Bencher) {
     });
 }
 
-
 #[bench]
 fn init_gen(b: &mut Bencher) {
     let clo_gen = || {
@@ -143,6 +143,7 @@ fn init_gen(b: &mut Bencher) {
                         i += 1;
                     }
                     None => {
+                        i += 1;
                         break;
                     }
                 }
@@ -152,12 +153,31 @@ fn init_gen(b: &mut Bencher) {
     };
 
     let mut g = Gn::<()>::new_scoped(clo_gen());
+    assert_eq!(g.raw_send(None), Some(0)); // start
+    assert_eq!(g.raw_send(None), Some(1)); // cancel
+    assert_eq!(g.is_done(), true);
+
     b.iter(|| {
         let s = g.get_scope();
         let clo = clo_gen();
-        // this cost about 70ns on unix and 150ns on windows
-        unsafe { g.init(move || clo(s)) };
+        // this cost about 20ns on unix and 60ns on windows
+        // because windows Box::new take more time
+        g.init(move || clo(s));
         // this cost about 70ns
         // assert_eq!(g.next(), Some(0));
+    });
+}
+
+
+#[bench]
+fn fnbox_bench(b: &mut Bencher) {
+    use std::boxed::FnBox;
+
+    b.iter(|| {
+        let a: [usize; 100] = [0; 100];
+        let f: Box<FnBox()> = Box::new(|| {
+            test::black_box(a);
+        });
+        test::black_box(f);
     });
 }

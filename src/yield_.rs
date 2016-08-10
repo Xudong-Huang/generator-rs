@@ -39,14 +39,14 @@ fn raw_yield<T: Any>(env: &mut ContextStack, context: &mut Context, v: T) {
         // panic!(Error::ContextErr);
     }
 
-    context.set_ret(v);
-    context._ref -= 1;
-    raw_yield_now(env, context);
-
     // here we just panic to exit the func
     if context._ref != 1 {
         panic!(Error::Cancel);
     }
+
+    context.set_ret(v);
+    context._ref -= 1;
+    raw_yield_now(env, context);
 }
 
 /// yiled something without catch passed in para

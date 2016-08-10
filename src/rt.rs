@@ -48,7 +48,7 @@ impl Context {
             stack: Stack::new(size),
             para: unsafe { mem::uninitialized() },
             ret: unsafe { mem::uninitialized() },
-            _ref: 0,
+            _ref: 1, // none zero means it's not running
             err: None,
         }
     }

@@ -36,7 +36,7 @@ impl<A> Gn<A> {
     {
         let mut g = GeneratorImpl::<A, T>::new(DEFAULT_STACK_SIZE);
         let scope = g.get_scope();
-        unsafe { g.init(move || f(scope)) };
+        g.init(move || f(scope));
         g
     }
 }
@@ -55,7 +55,7 @@ impl<A: Any> Gn<A> {
     {
         let mut g = GeneratorImpl::<A, T>::new(size);
         g.init_context();
-        unsafe { g.init(f) };
+        g.init(f);
         g
     }
 }
@@ -69,7 +69,7 @@ pub struct GeneratorImpl<'a, A, T> {
     // save the output
     ret: Option<T>,
     // boxed functor
-    f: Option<Box<FnBox() -> T + 'a>>,
+    f: Option<Box<FnBox() + 'a>>,
 }
 
 impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
@@ -98,22 +98,23 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// init a heap based generator
     // it's can be used to re-init a 'done' generator before it's get dropped
-    pub unsafe fn init<F: FnOnce() -> T + 'a>(&mut self, f: F) {
-        self.f = Some(Box::new(f));
+    pub fn init<F: FnOnce() -> T + 'a>(&mut self, f: F)
+        where T: 'a
+    {
+        // make sure the last one is finished
+        if self.f.is_none() && self.context._ref == 0 {
+            self.cancel();
+        }
+
+        // init the ref to 0 means that it's ready to start
         self.context._ref = 0;
-        let ptr = self as *mut Self;
+        let ret = &mut self.ret as *mut _;
+        // windows box::new is quite slow than unix
+        self.f = Some(Box::new(move || unsafe { *ret = Some(f()) }));
 
-        let start: Box<FnBox()> = Box::new(move || {
-            let f = (*ptr).f.take().unwrap();
-            (*ptr).ret = Some(f());
-        });
-
-        let stk = &(*ptr).context.stack;
-        let reg = &mut (*ptr).context.regs;
-        reg.init_with(gen_init,
-                      ptr as usize,
-                      Box::into_raw(Box::new(start)) as *mut usize,
-                      stk);
+        let stk = &self.context.stack;
+        let reg = &mut self.context.regs;
+        reg.init_with(gen_init, 0, &mut self.f as *mut _ as *mut usize, stk);
     }
 
     /// resume the generator
@@ -244,35 +245,13 @@ impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
     }
 }
 
-// impl<'a, A, T> Generator<A> for GeneratorImpl<'a, A, T> {
-// type Output = T;
-//
-// #[inline]
-// fn raw_send(&mut self, para: Option<A>) -> Option<T> {
-// self.raw_send(para)
-// }
-//
-// #[inline]
-// fn cancel(&mut self) {
-// self.cancel();
-// }
-//
-// #[inline]
-// fn is_done(&self) -> bool {
-// self.is_done()
-// }
-//
-// #[inline]
-// fn stack_usage(&self) -> (usize, usize) {
-// self.stack_usage()
-// }
-// }
-
+/// the init function passed to reg_context
 fn gen_init(_: usize, f: *mut usize) -> ! {
     {
-        let f = f as usize;
         let clo = move || {
-            let func: Box<Box<FnBox()>> = unsafe { Box::from_raw(f as *mut Box<FnBox()>) };
+            // consume self.f
+            let f: &mut Option<Box<FnBox()>> = unsafe { &mut *(f as *mut _) };
+            let func = f.take().unwrap();
             func();
         };
 
