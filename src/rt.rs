@@ -5,13 +5,14 @@
 
 use std::mem;
 use std::any::Any;
+use std::cell::UnsafeCell;
 use std::intrinsics::type_name;
 
 use stack::Stack;
 use reg_context::Context as RegContext;
 
 /// each thread has it's own generator context stack
-thread_local!(static CONTEXT_STACK: *mut ContextStack = ContextStack::new());
+thread_local!(static CONTEXT_STACK: UnsafeCell<ContextStack> = ContextStack::new());
 thread_local!(static ROOT_CONTEXT: Context = Context::new(0));
 
 /// yield error types
@@ -98,17 +99,18 @@ pub struct ContextStack {
 }
 
 impl ContextStack {
-    fn new() -> *mut ContextStack {
-        let mut env = Box::new(ContextStack { stack: Vec::with_capacity(16) });
-        env.push(ROOT_CONTEXT.with(|env| unsafe { &mut *(env as *const _ as *mut _) }));
+    fn new() -> UnsafeCell<ContextStack> {
+        let env = UnsafeCell::new(ContextStack { stack: Vec::with_capacity(16) });
+        let stack = unsafe { &mut *env.get() };
+        stack.push(ROOT_CONTEXT.with(|env| unsafe { &mut *(env as *const _ as *mut _) }));
         // here we have no changce to drop the context stack
-        Box::into_raw(env)
+        env
     }
 
     /// get current thread's generator context stack
     #[inline]
     pub fn current() -> &'static mut ContextStack {
-        CONTEXT_STACK.with(|env| unsafe { &mut **env })
+        CONTEXT_STACK.with(|env| unsafe { &mut *env.get() })
     }
 
     /// push generator context

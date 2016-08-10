@@ -14,7 +14,6 @@ use std::intrinsics::type_name;
 
 use scope::Scope;
 use yield_::yield_now;
-// use generator::Generator;
 use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
 
@@ -250,34 +249,31 @@ impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
 
 /// the init function passed to reg_context
 fn gen_init(_: usize, f: *mut usize) -> ! {
-    {
-        let clo = move || {
-            // consume self.f
-            let f: &mut Option<Box<FnBox()>> = unsafe { &mut *(f as *mut _) };
-            let func = f.take().unwrap();
-            func();
-        };
+    let clo = move || {
+        // consume self.f
+        let f: &mut Option<Box<FnBox()>> = unsafe { &mut *(f as *mut _) };
+        let func = f.take().unwrap();
+        func();
+    };
 
-        // we can't panic inside the generator context
-        // need to propagate the panic to the main thread
-        // It is currently undefined behavior to unwind from Rust code into foreign code
-        if let Err(cause) = panic::catch_unwind(clo) {
-            if cause.downcast_ref::<Error>().is_some() {
-                match cause.downcast_ref::<Error>().unwrap() {
-                    &Error::Cancel => {}
-                    err => {
-                        let ctx = ContextStack::current().top();
-                        ctx.err = Some(*err);
-                    }
+    // we can't panic inside the generator context
+    // need to propagate the panic to the main thread
+    // It is currently undefined behavior to unwind from Rust code into foreign code
+    if let Err(cause) = panic::catch_unwind(clo) {
+        if cause.downcast_ref::<Error>().is_some() {
+            match cause.downcast_ref::<Error>().unwrap() {
+                &Error::Cancel => {}
+                err => {
+                    let ctx = ContextStack::current().top();
+                    ctx.err = Some(*err);
                 }
-            } else {
-                // we hope all other panic could covert to a string
-                // here we forget the panic to avoid shutdown the whole thread
-                let e = cause.downcast::<&str>().unwrap_or_else(|_| Box::new("unkown panic"));
-                error!("Panicked inside: {:?}", e);
             }
+        } else {
+            // we hope all other panic could covert to a string
+            // here we forget the panic to avoid shutdown the whole thread
+            let e = cause.downcast::<&str>().unwrap_or_else(|_| Box::new("unkown panic"));
+            error!("Panicked inside: {:?}", e);
         }
-        // drop the clo here
     }
 
     yield_now();
