@@ -407,20 +407,18 @@ fn test_re_init() {
     let mut g = GeneratorImpl::new(0x800);
     let s = g.get_scope();
     g.init(|| clo()(s));
-    // let mut g = g1 as Box<Generator<_, Output = _>>;
-    // let mut g = Gn::new_scoped(clo());
 
-    assert_eq!(g.raw_send(None), Some(0));
-    assert_eq!(g.raw_send(None), Some(3));
-    assert_eq!(g.raw_send(None), Some(5));
+    assert_eq!(g.next(), Some(0));
+    assert_eq!(g.next(), Some(3));
+    assert_eq!(g.next(), Some(5));
     assert_eq!(g.is_done(), true);
 
     // re-init generator
     let s = g.get_scope();
     g.init(|| clo()(s));
 
-    assert_eq!(g.raw_send(None), Some(0));
-    assert_eq!(g.raw_send(None), Some(3));
-    assert_eq!(g.raw_send(None), Some(5));
+    assert_eq!(g.next(), Some(0));
+    assert_eq!(g.next(), Some(3));
+    assert_eq!(g.next(), Some(5));
     assert_eq!(g.is_done(), true);
 }

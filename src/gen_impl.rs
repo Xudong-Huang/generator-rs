@@ -27,6 +27,9 @@ pub struct Gn<A> {
     dummy: PhantomData<A>,
 }
 
+/// the generator type
+pub type Generator<'a, A, T> = Box<GeneratorImpl<'a, A, T>>;
+
 impl<A> Gn<A> {
     /// create a scoped generator
     pub fn new_scoped<'a, T, F>(f: F) -> Box<GeneratorImpl<'a, A, T>>
