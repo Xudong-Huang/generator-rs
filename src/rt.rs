@@ -54,6 +54,7 @@ impl Context {
     }
 
     /// judge it's generator context
+    #[inline]
     pub fn is_generator(&self) -> bool {
         self.stack.size() > 0
     }

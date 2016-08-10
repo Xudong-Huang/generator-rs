@@ -40,6 +40,8 @@ impl Context {
         ctx
     }
 
+    /// init the generator register
+    #[inline]
     pub fn init_with(&mut self, init: InitFn, arg: usize, start: *mut usize, stack: &Stack) {
         // Save and then immediately load the current context,
         // which we will then modify to call the given function when restoredtack

@@ -79,7 +79,6 @@ fn single_yield_bench(b: &mut Bencher) {
     });
 }
 
-
 #[bench]
 fn scoped_yield_bench(b: &mut Bencher) {
     let mut g = Gn::new_scoped(|mut s| {
@@ -108,5 +107,57 @@ fn scoped_yield_bench(b: &mut Bencher) {
         let data: usize = g.send(i);
         assert_eq!(data, i);
         i += 1;
+    });
+}
+
+#[bench]
+fn create_gen(b: &mut Bencher) {
+    b.iter(|| {
+        let g = Gn::<()>::new_scoped(|mut s| {
+            let mut i = 0;
+            loop {
+                match s.yield_(i) {
+                    Some(..) => {
+                        i += 1;
+                    }
+                    None => {
+                        break;
+                    }
+                }
+            }
+            i
+        });
+        test::black_box(g)
+    });
+}
+
+
+#[bench]
+fn init_gen(b: &mut Bencher) {
+    let clo_gen = || {
+        |mut s: Scope<(), _>| {
+            let mut i = 0;
+            loop {
+                match s.yield_(i) {
+                    Some(..) => {
+                        i += 1;
+                    }
+                    None => {
+                        break;
+                    }
+                }
+            }
+            i
+        }
+    };
+
+    let mut g = Gn::<()>::new_scoped(clo_gen());
+    b.iter(|| {
+        let s = g.get_scope();
+        let clo = clo_gen();
+        // this cost about 70ns on unix and 150ns on windows
+        unsafe { g.init(move || clo(s)) };
+        // this cost about 70ns
+        // assert_eq!(g.next(), Some(0));
     });
 }

@@ -58,6 +58,7 @@ impl Stack {
     }
 
     /// get the stack cap
+    #[inline]
     pub fn size(&self) -> usize {
         self.buf.cap()
     }

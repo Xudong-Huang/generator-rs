@@ -3,16 +3,18 @@
 //! Rust generator implementation
 //!
 
+use std::fmt;
 use std::mem;
 use std::panic;
 use std::thread;
 use std::any::Any;
 use std::boxed::FnBox;
 use std::marker::PhantomData;
+use std::intrinsics::type_name;
 
 use scope::Scope;
 use yield_::yield_now;
-use generator::Generator;
+// use generator::Generator;
 use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
 
@@ -27,41 +29,39 @@ pub struct Gn<A> {
 
 impl<A> Gn<A> {
     /// create a scoped generator
-    pub fn new_scoped<'a, T, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
+    pub fn new_scoped<'a, T, F>(f: F) -> Box<GeneratorImpl<'a, A, T>>
         where F: FnOnce(Scope<A, T>) -> T + 'a,
               T: 'a,
               A: 'a
     {
-        let mut g = GeneratorImpl::<A, T, _>::new(DEFAULT_STACK_SIZE);
+        let mut g = GeneratorImpl::<A, T>::new(DEFAULT_STACK_SIZE);
         let scope = g.get_scope();
-        g.init(move || f(scope));
+        unsafe { g.init(move || f(scope)) };
         g
     }
 }
 
 impl<A: Any> Gn<A> {
     /// create a new generator with default stack size
-    pub fn new<'a, T: Any, F>(f: F) -> Box<Generator<A, Output = T> + 'a>
+    pub fn new<'a, T: Any, F>(f: F) -> Box<GeneratorImpl<'a, A, T>>
         where F: FnOnce() -> T + 'a
     {
         Self::new_opt(f, DEFAULT_STACK_SIZE)
     }
 
     /// create a new generator with specified stack size
-    pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<Generator<A, Output = T> + 'a>
+    pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<GeneratorImpl<'a, A, T>>
         where F: FnOnce() -> T + 'a
     {
-        let mut g = GeneratorImpl::<A, T, _>::new(size);
+        let mut g = GeneratorImpl::<A, T>::new(size);
         g.init_context();
-        g.init(f);
+        unsafe { g.init(f) };
         g
     }
 }
 
 /// `GeneratorImpl`
-pub struct GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T
-{
+pub struct GeneratorImpl<'a, A, T> {
     // run time context
     context: Context,
     // save the input
@@ -69,12 +69,10 @@ pub struct GeneratorImpl<A, T, F>
     // save the output
     ret: Option<T>,
     // boxed functor
-    f: Option<F>,
+    f: Option<Box<FnBox() -> T + 'a>>,
 }
 
-impl<A: Any, T: Any, F> GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T
-{
+impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
     /// create a new generator with default stack size
     pub fn init_context(&mut self) {
         self.context.para = &mut self.para as &mut Any;
@@ -82,9 +80,7 @@ impl<A: Any, T: Any, F> GeneratorImpl<A, T, F>
     }
 }
 
-impl<A, T, F> GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T
-{
+impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// create a new generator with specified stack size
     pub fn new(size: usize) -> Box<Self> {
         Box::new(GeneratorImpl {
@@ -102,23 +98,22 @@ impl<A, T, F> GeneratorImpl<A, T, F>
 
     /// init a heap based generator
     // it's can be used to re-init a 'done' generator before it's get dropped
-    pub fn init(&mut self, f: F) {
-        self.f = Some(f);
-        unsafe {
-            let ptr = self as *mut Self;
+    pub unsafe fn init<F: FnOnce() -> T + 'a>(&mut self, f: F) {
+        self.f = Some(Box::new(f));
+        self.context._ref = 0;
+        let ptr = self as *mut Self;
 
-            let start: Box<FnBox()> = Box::new(move || {
-                let f = (*ptr).f.take().unwrap();
-                (*ptr).ret = Some(f());
-            });
+        let start: Box<FnBox()> = Box::new(move || {
+            let f = (*ptr).f.take().unwrap();
+            (*ptr).ret = Some(f());
+        });
 
-            let stk = &(*ptr).context.stack;
-            let reg = &mut (*ptr).context.regs;
-            reg.init_with(gen_init,
-                          ptr as usize,
-                          Box::into_raw(Box::new(start)) as *mut usize,
-                          stk);
-        }
+        let stk = &(*ptr).context.stack;
+        let reg = &mut (*ptr).context.regs;
+        reg.init_with(gen_init,
+                      ptr as usize,
+                      Box::into_raw(Box::new(start)) as *mut usize,
+                      stk);
     }
 
     /// resume the generator
@@ -147,8 +142,9 @@ impl<A, T, F> GeneratorImpl<A, T, F>
         self.f.is_none()
     }
 
+    /// `raw_send`
     #[inline]
-    fn raw_send(&mut self, para: Option<A>) -> Option<T> {
+    pub fn raw_send(&mut self, para: Option<A>) -> Option<T> {
         if self.is_done() {
             return None;
         }
@@ -166,7 +162,14 @@ impl<A, T, F> GeneratorImpl<A, T, F>
         self.ret.take()
     }
 
-    fn cancel(&mut self) {
+    /// send interface
+    pub fn send(&mut self, para: A) -> T {
+        let ret = self.raw_send(Some(para));
+        ret.unwrap()
+    }
+
+    /// cancel the generator
+    pub fn cancel(&mut self) {
         // consume the fun if it's not started
         if !self.is_started() {
             self.f.take();
@@ -179,19 +182,19 @@ impl<A, T, F> GeneratorImpl<A, T, F>
         }
     }
 
+    /// is finished
     #[inline]
-    fn is_done(&self) -> bool {
+    pub fn is_done(&self) -> bool {
         self.is_started() && self.context._ref != 0
     }
 
-    fn stack_usage(&self) -> (usize, usize) {
+    /// get stack total size and used size in word
+    pub fn stack_usage(&self) -> (usize, usize) {
         (self.context.stack.size(), self.context.stack.get_used_size())
     }
 }
 
-impl<A, T, F> Drop for GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T
-{
+impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
     fn drop(&mut self) {
         // when the thread is already panic, do nothing
         if thread::panicking() {
@@ -220,31 +223,50 @@ impl<A, T, F> Drop for GeneratorImpl<A, T, F>
     }
 }
 
-impl<A, T, F> Generator<A> for GeneratorImpl<A, T, F>
-    where F: FnOnce() -> T
-{
-    type Output = T;
-
-    #[inline]
-    fn raw_send(&mut self, para: Option<A>) -> Option<T> {
-        self.raw_send(para)
-    }
-
-    #[inline]
-    fn cancel(&mut self) {
-        self.cancel();
-    }
-
-    #[inline]
-    fn is_done(&self) -> bool {
-        self.is_done()
-    }
-
-    #[inline]
-    fn stack_usage(&self) -> (usize, usize) {
-        self.stack_usage()
+impl<'a, A, T> Iterator for GeneratorImpl<'a, A, T> {
+    type Item = T;
+    // The 'Iterator' trait only requires the 'next' method to be defined. The
+    // return type is 'Option<T>', 'None' is returned when the 'Iterator' is
+    // over, otherwise the next value is returned wrapped in 'Some'
+    fn next(&mut self) -> Option<T> {
+        self.raw_send(None)
     }
 }
+
+impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            write!(f,
+                   "Generator<{}, Output={}> {{ ... }}",
+                   type_name::<A>(),
+                   type_name::<T>())
+        }
+    }
+}
+
+// impl<'a, A, T> Generator<A> for GeneratorImpl<'a, A, T> {
+// type Output = T;
+//
+// #[inline]
+// fn raw_send(&mut self, para: Option<A>) -> Option<T> {
+// self.raw_send(para)
+// }
+//
+// #[inline]
+// fn cancel(&mut self) {
+// self.cancel();
+// }
+//
+// #[inline]
+// fn is_done(&self) -> bool {
+// self.is_done()
+// }
+//
+// #[inline]
+// fn stack_usage(&self) -> (usize, usize) {
+// self.stack_usage()
+// }
+// }
 
 fn gen_init(_: usize, f: *mut usize) -> ! {
     {

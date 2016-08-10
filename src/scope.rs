@@ -3,7 +3,8 @@
 //! generator yield implmentation
 //!
 
-use generator::Generator;
+// use generator::Generator;
+use gen_impl::GeneratorImpl;
 use rt::{Error, Context, ContextStack};
 use yield_::raw_yield_now;
 
@@ -73,7 +74,7 @@ impl<A, T> Scope<A, T> {
 
     /// `yiled_from`
     /// the from generator must has the same type as itself
-    pub fn yield_from(&mut self, mut g: Box<Generator<A, Output = T>>) -> Option<A> {
+    pub fn yield_from(&mut self, mut g: Box<GeneratorImpl<A, T>>) -> Option<A> {
         let env = ContextStack::current();
         let context = env.top();
         let mut p = self.get_para();

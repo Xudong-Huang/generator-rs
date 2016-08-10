@@ -4,7 +4,8 @@
 //!
 
 use std::any::Any;
-use generator::Generator;
+// use generator::Generator;
+use gen_impl::GeneratorImpl;
 use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
 
@@ -88,7 +89,7 @@ pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
 }
 
 /// `yiled_from`
-pub fn yield_from<A: Any, T: Any>(mut g: Box<Generator<A, Output = T>>) -> Option<A> {
+pub fn yield_from<A: Any, T: Any>(mut g: Box<GeneratorImpl<A, T>>) -> Option<A> {
     let env = ContextStack::current();
     let context = env.top();
     let mut p = context.get_para();
