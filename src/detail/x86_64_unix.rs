@@ -11,7 +11,8 @@ pub fn initialize_call_frame(regs: &mut Registers,
                              stack: &Stack) {
 
     #[inline(never)]
-    unsafe fn bootstrap_green_task() {
+    #[naked]
+    unsafe extern "C" fn bootstrap_green_task() {
         asm!("
             mov %r12, %rdi     // setup the function arg
             mov %r13, %rsi     // setup the function arg
@@ -44,10 +45,13 @@ pub fn initialize_call_frame(regs: &mut Registers,
     // rust_bootstrap_green_task to do that.
     regs.gpr[RUSTRT_RSP] = mut_offset(sp, -4) as usize;
 
+    // setup the init stack
     // this is prepared for the swap context
+    // different platform/debug has different offset between sp and ret
     unsafe {
         *mut_offset(sp, -4) = bootstrap_green_task as usize;
         *mut_offset(sp, -3) = bootstrap_green_task as usize;
+        // leave enough space for RET
         *mut_offset(sp, -2) = 0;
         *mut_offset(sp, -1) = 0;
     }
@@ -57,7 +61,8 @@ pub fn initialize_call_frame(regs: &mut Registers,
 }
 
 #[inline(never)]
-pub unsafe fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
+#[naked]
+pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
     // The first argument is in %rdi, and the second one is in %rsi
     // Save registers
     asm!("

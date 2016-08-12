@@ -7,6 +7,7 @@
 #![feature(alloc)]
 #![feature(fnbox)]
 #![feature(rustc_private)]
+#![feature(naked_functions)]
 #![feature(core_intrinsics)]
 
 #![cfg_attr(test, deny(warnings))]

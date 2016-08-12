@@ -10,9 +10,9 @@ pub fn initialize_call_frame(regs: &mut Registers,
                              arg2: *mut usize,
                              stack: &Stack) {
 
-    // windows can't catch_unwind this boundery!!
     #[inline(never)]
-    unsafe fn bootstrap_green_task() {
+    #[naked]
+    unsafe extern "C" fn bootstrap_green_task() {
         asm!("
             mov %r12, %rcx     // setup the function arg
             mov %r13, %rdx     // setup the function arg
@@ -46,7 +46,7 @@ pub fn initialize_call_frame(regs: &mut Registers,
     // will put us in "mostly the right context" except for frobbing all the
     // arguments to the right place. We have the small trampoline code inside of
     // rust_bootstrap_green_task to do that.
-    regs.gpr[RUSTRT_RSP] = mut_offset(sp, -8) as usize;
+    regs.gpr[RUSTRT_RSP] = mut_offset(sp, -4) as usize;
 
     // Last base pointer on the stack should be 0
     regs.gpr[RUSTRT_RBP] = 0;
@@ -59,20 +59,17 @@ pub fn initialize_call_frame(regs: &mut Registers,
     // this is prepared for the swap context
     // different platform/debug has different offset between sp and ret
     unsafe {
-        *mut_offset(sp, -8) = bootstrap_green_task as usize; // release RET
-        *mut_offset(sp, -7) = bootstrap_green_task as usize; // release RET
-        *mut_offset(sp, -6) = bootstrap_green_task as usize; // debug RET
-        *mut_offset(sp, -5) = bootstrap_green_task as usize; // debug RET
+        *mut_offset(sp, -4) = bootstrap_green_task as usize;
+        *mut_offset(sp, -3) = bootstrap_green_task as usize;
         // leave enough space for RET
-        *mut_offset(sp, -4) = 0;
-        *mut_offset(sp, -3) = 0;
         *mut_offset(sp, -2) = 0;
         *mut_offset(sp, -1) = 0;
     }
 }
 
 #[inline(never)]
-pub unsafe fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
+#[naked]
+pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
     // The first argument is in %rcx, and the second one is in %rdx
 
     // Save registers
