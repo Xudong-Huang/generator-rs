@@ -2,7 +2,7 @@
 //!
 //! generator run time context management
 //!
-
+use std::ptr;
 use std::mem;
 use std::any::Any;
 use std::cell::UnsafeCell;
@@ -39,6 +39,8 @@ pub struct Context {
     pub _ref: u32,
     /// propagate panic
     pub err: Option<Error>,
+    /// extra data
+    pub extra: *mut u8,
 }
 
 impl Context {
@@ -51,6 +53,7 @@ impl Context {
             ret: unsafe { mem::uninitialized() },
             _ref: 1, // none zero means it's not running
             err: None,
+            extra: ptr::null_mut(),
         }
     }
 

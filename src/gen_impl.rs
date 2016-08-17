@@ -145,6 +145,34 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.f.is_none()
     }
 
+    /// prepare the para that passed into generator before send
+    #[inline]
+    pub fn set_para(&mut self, para: A) {
+        mem::replace(&mut self.para, Some(para));
+    }
+
+    /// prepare the para that passed into generator before send
+    #[inline]
+    pub fn get_context(&mut self) -> &mut Context {
+        &mut self.context
+    }
+
+    /// resume the generator without touch the para
+    /// you should call `set_para` before this method
+    #[inline]
+    pub fn resume(&mut self) -> Option<T> {
+        if self.is_done() {
+            return None;
+        }
+
+        // every time we call the function, increase the ref count
+        // yiled will decrease it and return will not
+        self.context._ref += 1;
+        self.resume_gen();
+
+        self.ret.take()
+    }
+
     /// `raw_send`
     #[inline]
     pub fn raw_send(&mut self, para: Option<A>) -> Option<T> {
@@ -232,7 +260,7 @@ impl<'a, A, T> Iterator for GeneratorImpl<'a, A, T> {
     // return type is 'Option<T>', 'None' is returned when the 'Iterator' is
     // over, otherwise the next value is returned wrapped in 'Some'
     fn next(&mut self) -> Option<T> {
-        self.raw_send(None)
+        self.resume()
     }
 }
 

@@ -100,3 +100,9 @@ pub fn yield_from<A: Any, T: Any>(mut g: Box<GeneratorImpl<A, T>>) -> Option<A> 
     }
     p
 }
+
+/// get the current context
+pub fn get_context() -> &'static mut Context {
+    let env = ContextStack::current();
+    env.top()
+}
