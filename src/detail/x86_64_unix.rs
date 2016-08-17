@@ -2,7 +2,18 @@ use detail::{align_down, mut_offset};
 use reg_context::InitFn;
 use stack::Stack;
 
-use super::Registers;
+#[repr(C)]
+#[derive(Debug)]
+pub struct Registers {
+    gpr: [usize; 8],
+}
+
+impl Registers {
+    pub fn new() -> Registers {
+        Registers { gpr: [0; 8] }
+    }
+}
+
 
 pub fn initialize_call_frame(regs: &mut Registers,
                              fptr: InitFn,

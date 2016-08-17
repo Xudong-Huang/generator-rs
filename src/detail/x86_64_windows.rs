@@ -2,7 +2,33 @@ use detail::{align_down, mut_offset};
 use reg_context::InitFn;
 use stack::Stack;
 
-use super::Registers;
+#[repr(simd)]
+#[allow(non_camel_case_types)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+struct XMM(u32, u32, u32, u32);
+
+impl XMM {
+    pub fn new(a: u32, b: u32, c: u32, d: u32) -> Self {
+        XMM(a, b, c, d)
+    }
+}
+
+// windows need to restore xmm6~xmm15, for most cases only use two xmm registers
+#[repr(C)]
+#[derive(Debug)]
+pub struct Registers {
+    gpr: [usize; 16],
+    _xmm: [XMM; 2],
+}
+
+impl Registers {
+    pub fn new() -> Registers {
+        Registers {
+            gpr: [0; 16],
+            _xmm: [XMM::new(0, 0, 0, 0); 2],
+        }
+    }
+}
 
 pub fn initialize_call_frame(regs: &mut Registers,
                              fptr: InitFn,
@@ -84,6 +110,10 @@ pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *cons
         mov %rdi, (9*8)(%rcx)
         mov %rsi, (10*8)(%rcx)
 
+        // Save non-volatile XMM registers:
+        movapd %xmm6, (16*8)(%rcx)
+        movapd %xmm7, (18*8)(%rcx)
+
         /* load NT_TIB */
         movq  %gs:(0x30), %r10
         /* save current stack base */
@@ -110,6 +140,10 @@ pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *cons
         mov (7*8)(%rdx), %r15
         mov (9*8)(%rdx), %rdi
         mov (10*8)(%rdx), %rsi
+
+        // Restore non-volatile XMM registers:
+        movapd (16*8)(%rdx), %xmm6
+        movapd (18*8)(%rdx), %xmm7
 
         /* load NT_TIB */
         movq  %gs:(0x30), %r10

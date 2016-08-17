@@ -30,19 +30,7 @@ pub mod asm;
 #[path = "x86_64_windows.rs"]
 pub mod asm;
 
-pub use self::asm::{swap_registers, initialize_call_frame};
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct Registers {
-    gpr: [usize; 16],
-}
-
-impl Registers {
-    pub fn new() -> Registers {
-        Registers { gpr: [0; 16] }
-    }
-}
+pub use self::asm::{Registers, swap_registers, initialize_call_frame};
 
 #[inline]
 fn align_down(sp: *mut usize) -> *mut usize {

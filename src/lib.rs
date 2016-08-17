@@ -9,6 +9,7 @@
 #![feature(rustc_private)]
 #![feature(naked_functions)]
 #![feature(core_intrinsics)]
+#![feature(repr_simd)]
 
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
