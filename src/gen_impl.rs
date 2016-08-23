@@ -151,12 +151,6 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         mem::replace(&mut self.para, Some(para));
     }
 
-    /// prepare the para that passed into generator before send
-    #[inline]
-    pub fn get_context(&mut self) -> &mut Context {
-        &mut self.context
-    }
-
     /// resume the generator without touch the para
     /// you should call `set_para` before this method
     #[inline]

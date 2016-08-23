@@ -29,4 +29,4 @@ mod reg_context;
 
 pub use scope::Scope;
 pub use gen_impl::{Gn, Generator, GeneratorImpl};
-pub use yield_::{yield_, yield_with, yield_from, get_yield, get_context};
+pub use yield_::{yield_, yield_with, yield_from, get_yield};
