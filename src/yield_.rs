@@ -98,3 +98,10 @@ pub fn yield_from<A: Any, T: Any>(mut g: Box<GeneratorImpl<A, T>>) -> Option<A> 
     }
     p
 }
+
+/// coroutine yield
+pub fn co_yield_with<T: Any>(v: T) {
+    let env = ContextStack::current();
+    let context = env.co_ctx();
+    raw_yield(&env, context, v);
+}

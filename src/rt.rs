@@ -124,7 +124,6 @@ impl ContextStack {
 
     /// get the coroutine context
     #[inline]
-    #[allow(dead_code)]
     pub fn co_ctx(&self) -> &'static mut Context {
         let root = unsafe { &mut *self.root };
         // the root's child is used as the coroutine context pointer
@@ -166,6 +165,7 @@ impl ContextStack {
 }
 
 /// check the current context if it's generator
+#[inline]
 pub fn is_generator() -> bool {
     let env = ContextStack::current();
     env.top().is_generator()
