@@ -123,13 +123,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     #[inline]
     fn resume_gen(&mut self) {
         let env = ContextStack::current();
+        // get the current regs
         let cur = &mut env.top().regs;
-        let ctx = &mut self.context as *mut Context;
-        let to = unsafe { &mut (*ctx).regs };
         // save current generator context on stack
-        env.push(ctx);
-        // switch context
-        RegContext::swap(cur, to);
+        env.push_context(&mut self.context);
+        // switch to new context
+        RegContext::swap(cur, &mut self.context.regs);
 
         // check the panic status
         // this would propagate the panic until root context

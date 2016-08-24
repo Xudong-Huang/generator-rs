@@ -3,15 +3,14 @@
 //! generator run time context management
 //!
 use std::mem;
+use std::ptr;
 use std::any::Any;
-use std::cell::UnsafeCell;
 use std::intrinsics::type_name;
 
 use stack::Stack;
 use reg_context::Context as RegContext;
 
 /// each thread has it's own generator context stack
-thread_local!(static CONTEXT_STACK: UnsafeCell<ContextStack> = ContextStack::new());
 thread_local!(static ROOT_CONTEXT: Context = Context::new(0));
 
 /// yield error types
@@ -38,6 +37,11 @@ pub struct Context {
     pub _ref: u32,
     /// propagate panic
     pub err: Option<Error>,
+
+    /// child context
+    child: *mut Context,
+    /// parent context
+    parent: *mut Context,
 }
 
 impl Context {
@@ -50,6 +54,8 @@ impl Context {
             ret: unsafe { mem::uninitialized() },
             _ref: 1, // none zero means it's not running
             err: None,
+            child: ptr::null_mut(),
+            parent: ptr::null_mut(),
         }
     }
 
@@ -94,42 +100,71 @@ impl Context {
 
 /// Coroutine managing environment
 pub struct ContextStack {
-    stack: Vec<*mut Context>,
+    root: *mut Context,
 }
 
 impl ContextStack {
-    fn new() -> UnsafeCell<ContextStack> {
-        let env = UnsafeCell::new(ContextStack { stack: Vec::with_capacity(16) });
-        let stack = unsafe { &mut *env.get() };
-        stack.push(ROOT_CONTEXT.with(|env| unsafe { &mut *(env as *const _ as *mut _) }));
-        // here we have no changce to drop the context stack
-        env
-    }
-
-    /// get current thread's generator context stack
     #[inline]
-    pub fn current() -> &'static mut ContextStack {
-        CONTEXT_STACK.with(|env| unsafe { &mut *env.get() })
+    pub fn current() -> ContextStack {
+        let root = ROOT_CONTEXT.with(|r| r as *const _ as *mut Context);
+        let root = unsafe { &mut *root };
+        // this should put in the init
+        if root.parent.is_null() {
+            root.parent = root;
+        }
+        ContextStack { root: root }
     }
 
-    /// push generator context
-    #[inline]
-    pub fn push(&mut self, context: *mut Context) {
-        self.stack.push(context);
-    }
-
-    /// pop generator context
-    #[inline]
-    pub fn pop(&mut self) -> Option<*mut Context> {
-        self.stack.pop()
-    }
-
-    /// get current generator context
+    /// get the top context
     #[inline]
     pub fn top(&self) -> &'static mut Context {
-        unsafe { &mut **self.stack.last().unwrap() }
+        let root = unsafe { &mut *self.root };
+        unsafe { &mut *root.parent }
+    }
+
+    /// get the coroutine context
+    #[inline]
+    #[allow(dead_code)]
+    pub fn co_ctx(&self) -> &'static mut Context {
+        let root = unsafe { &mut *self.root };
+        // the root's child is used as the coroutine context pointer
+        assert!(!root.child.is_null(), "there is no child of root!");
+        unsafe { &mut *root.child }
+    }
+
+    /// push the context to the thread context list
+    #[inline]
+    pub fn push_context(&self, ctx: *mut Context) {
+        let root = unsafe { &mut *self.root };
+        let ctx = unsafe { &mut *ctx };
+        let top = unsafe { &mut *root.parent };
+
+        // link top and new ctx
+        top.child = ctx;
+        ctx.parent = top;
+
+        // save the new top
+        root.parent = ctx;
+    }
+
+    /// pop the context from the thread context list and return it's parent context
+    #[inline]
+    pub fn pop_context(&self, ctx: *mut Context) -> &'static mut Context {
+        let root = unsafe { &mut *self.root };
+        let ctx = unsafe { &mut *ctx };
+        let parent = unsafe { &mut *ctx.parent };
+
+        // unlink ctx and it's parent
+        ctx.parent = ptr::null_mut();
+        parent.child = ptr::null_mut();
+
+        // save the new top
+        root.parent = parent;
+
+        parent
     }
 }
+
 
 #[cfg(test)]
 mod test {

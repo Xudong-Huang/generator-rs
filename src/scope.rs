@@ -41,7 +41,7 @@ impl<A, T> Scope<A, T> {
 
     /// raw yiled without catch passed in para
     #[inline]
-    fn raw_yield(&mut self, env: &mut ContextStack, context: &mut Context, v: T) {
+    fn raw_yield(&mut self, env: &ContextStack, context: &mut Context, v: T) {
         // check the context
         if !context.is_generator() {
             info!("yield from none generator context");
@@ -67,7 +67,7 @@ impl<A, T> Scope<A, T> {
     pub fn yield_(&mut self, v: T) -> Option<A> {
         let env = ContextStack::current();
         let context = env.top();
-        self.raw_yield(env, context, v);
+        self.raw_yield(&env, context, v);
         self.get_para()
     }
 
@@ -80,7 +80,7 @@ impl<A, T> Scope<A, T> {
         let mut p = self.get_para();
         while !g.is_done() {
             let r = g.raw_send(p).unwrap();
-            self.raw_yield(env, context, r);
+            self.raw_yield(&env, context, r);
             p = self.get_para();
         }
         p
