@@ -11,7 +11,12 @@ use stack::Stack;
 use reg_context::Context as RegContext;
 
 /// each thread has it's own generator context stack
-thread_local!(static ROOT_CONTEXT: Context = Context::new(0));
+thread_local!(static ROOT_CONTEXT: Box<Context> = {
+    let mut root = Box::new(Context::new(0));
+    let p = &mut *root as *mut _;
+    root.parent = p; // init top to current
+    root
+});
 
 /// yield error types
 #[allow(dead_code)]
@@ -106,12 +111,7 @@ pub struct ContextStack {
 impl ContextStack {
     #[inline]
     pub fn current() -> ContextStack {
-        let root = ROOT_CONTEXT.with(|r| r as *const _ as *mut Context);
-        let root = unsafe { &mut *root };
-        // this should put in the init
-        if root.parent.is_null() {
-            root.parent = root;
-        }
+        let root = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
         ContextStack { root: root }
     }
 
@@ -165,15 +165,20 @@ impl ContextStack {
     }
 }
 
+/// check the current context if it's generator
+pub fn is_generator() -> bool {
+    let env = ContextStack::current();
+    env.top().is_generator()
+}
+
 
 #[cfg(test)]
 mod test {
-    use super::ContextStack;
+    use super::is_generator;
 
     #[test]
     fn test_is_context() {
         // this is the root context
-        let ctx = ContextStack::current().top();
-        assert!(!ctx.is_generator());
+        assert!(!is_generator());
     }
 }
