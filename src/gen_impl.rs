@@ -150,6 +150,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         mem::replace(&mut self.para, Some(para));
     }
 
+    /// set the generator local data
+    #[inline]
+    pub fn set_local_data(&mut self, data: *mut u8) {
+        self.context.local_data = data;
+    }
+
     /// resume the generator without touch the para
     /// you should call `set_para` before this method
     #[inline]

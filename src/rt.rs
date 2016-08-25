@@ -42,6 +42,8 @@ pub struct Context {
     pub _ref: u32,
     /// propagate panic
     pub err: Option<Error>,
+    /// context local storage
+    pub local_data: *mut u8,
 
     /// child context
     child: *mut Context,
@@ -61,6 +63,7 @@ impl Context {
             err: None,
             child: ptr::null_mut(),
             parent: ptr::null_mut(),
+            local_data: ptr::null_mut(),
         }
     }
 
@@ -169,6 +172,13 @@ impl ContextStack {
 pub fn is_generator() -> bool {
     let env = ContextStack::current();
     env.top().is_generator()
+}
+
+/// get the current context local data
+#[inline]
+pub fn get_local_data() -> *mut u8 {
+    let env = ContextStack::current();
+    env.top().local_data
 }
 
 

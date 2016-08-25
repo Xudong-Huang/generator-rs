@@ -28,6 +28,6 @@ mod gen_impl;
 mod reg_context;
 
 pub use scope::Scope;
-pub use rt::is_generator;
+pub use rt::{get_local_data, is_generator};
 pub use gen_impl::{Gn, Generator, GeneratorImpl};
 pub use yield_::{yield_, yield_with, yield_from, get_yield, co_yield_with};
