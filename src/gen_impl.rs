@@ -48,11 +48,11 @@ impl<A: Any> Gn<A> {
     pub fn new<'a, T: Any, F>(f: F) -> Box<GeneratorImpl<'a, A, T>>
         where F: FnOnce() -> T + 'a
     {
-        Self::new_opt(f, DEFAULT_STACK_SIZE)
+        Self::new_opt(DEFAULT_STACK_SIZE, f)
     }
 
     /// create a new generator with specified stack size
-    pub fn new_opt<'a, T: Any, F>(f: F, size: usize) -> Box<GeneratorImpl<'a, A, T>>
+    pub fn new_opt<'a, T: Any, F>(size: usize, f: F) -> Box<GeneratorImpl<'a, A, T>>
         where F: FnOnce() -> T + 'a
     {
         let mut g = GeneratorImpl::<A, T>::new(size);
@@ -154,6 +154,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     #[inline]
     pub fn set_local_data(&mut self, data: *mut u8) {
         self.context.local_data = data;
+    }
+
+    /// get the generator local data
+    #[inline]
+    pub fn get_local_data(&self) -> *mut u8 {
+        self.context.local_data
     }
 
     /// resume the generator without touch the para
@@ -286,6 +292,7 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
     // we can't panic inside the generator context
     // need to propagate the panic to the main thread
     // It is currently undefined behavior to unwind from Rust code into foreign code
+    // TODO: pass the Err to the main thread
     if let Err(cause) = panic::catch_unwind(clo) {
         if cause.downcast_ref::<Error>().is_some() {
             match cause.downcast_ref::<Error>().unwrap() {
