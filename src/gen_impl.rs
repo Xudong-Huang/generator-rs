@@ -28,6 +28,7 @@ pub struct Gn<A> {
 
 /// the generator type
 pub type Generator<'a, A, T> = Box<GeneratorImpl<'a, A, T>>;
+unsafe impl<A, T> Send for GeneratorImpl<'static, A, T> {}
 
 impl<A> Gn<A> {
     /// create a scoped generator
