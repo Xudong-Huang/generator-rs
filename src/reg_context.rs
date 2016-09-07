@@ -24,6 +24,10 @@ impl Context {
         Context { regs: Registers::new() }
     }
 
+    #[inline]
+    pub fn prefetch(&self) {
+        self.regs.prefetch();
+    }
     /// Create a new context that will resume execution by running start
     ///
     /// The `init` function will be run with `arg` and the `start` procedure

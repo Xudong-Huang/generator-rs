@@ -1,4 +1,4 @@
-use detail::{align_down, mut_offset};
+use detail::{align_down, mut_offset, prefetch};
 use reg_context::InitFn;
 use stack::Stack;
 
@@ -11,6 +11,12 @@ pub struct Registers {
 impl Registers {
     pub fn new() -> Registers {
         Registers { gpr: [0; 8] }
+    }
+
+    #[inline]
+    pub fn prefetch(&self) {
+        prefetch(self as *const _ as *const usize);
+        prefetch(self.gpr[1] as *const usize);
     }
 }
 

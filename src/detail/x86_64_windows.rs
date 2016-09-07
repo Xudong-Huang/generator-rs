@@ -1,4 +1,4 @@
-use detail::{align_down, mut_offset};
+use detail::{align_down, mut_offset, prefetch};
 use reg_context::InitFn;
 use stack::Stack;
 
@@ -27,6 +27,12 @@ impl Registers {
             gpr: [0; 16],
             _xmm: [XMM::new(0, 0, 0, 0); 2],
         }
+    }
+
+    #[inline]
+    pub fn prefetch(&self) {
+        prefetch(self as *const _ as *const usize);
+        prefetch(self.gpr[1] as *const usize);
     }
 }
 

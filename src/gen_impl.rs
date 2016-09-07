@@ -94,6 +94,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         })
     }
 
+    /// prefech the generator into cache
+    #[inline]
+    pub fn prefetch(&self) {
+        self.context.regs.prefetch();
+    }
+
     /// get the scope object
     pub fn get_scope(&mut self) -> Scope<A, T> {
         Scope::new(&mut self.para, &mut self.ret)

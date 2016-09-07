@@ -38,6 +38,21 @@ fn align_down(sp: *mut usize) -> *mut usize {
     sp as *mut usize
 }
 
+
+/// prefetch data
+#[cfg(target_arch = "x86_64")]
+#[inline]
+#[naked]
+pub fn prefetch(data: *const usize) {
+    unsafe {
+        asm!("prefetcht2 $0"
+             : // no output
+             : "m"(*data)
+             :
+             : "volatile");
+    }
+}
+
 // ptr::mut_offset is positive isizes only
 #[inline]
 fn mut_offset<T>(ptr: *mut T, count: isize) -> *mut T {
