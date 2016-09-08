@@ -1,6 +1,18 @@
-use detail::{align_down, mut_offset, prefetch};
+use detail::{align_down, mut_offset};
 use reg_context::InitFn;
 use stack::Stack;
+
+/// prefetch data
+#[inline]
+pub fn prefetch(data: *const usize) {
+    unsafe {
+        asm!("prefetcht1 $0"
+             : // no output
+             : "m"(*data)
+             :
+             : "volatile");
+    }
+}
 
 #[repr(simd)]
 #[allow(non_camel_case_types)]

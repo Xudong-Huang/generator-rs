@@ -30,27 +30,12 @@ pub mod asm;
 #[path = "x86_64_windows.rs"]
 pub mod asm;
 
-pub use self::asm::{Registers, swap_registers, initialize_call_frame};
+pub use self::asm::{Registers, swap_registers, initialize_call_frame, prefetch};
 
 #[inline]
 fn align_down(sp: *mut usize) -> *mut usize {
     let sp = (sp as usize) & !(16 - 1);
     sp as *mut usize
-}
-
-
-/// prefetch data
-#[cfg(target_arch = "x86_64")]
-#[inline]
-#[naked]
-pub fn prefetch(data: *const usize) {
-    unsafe {
-        asm!("prefetcht1 $0"
-             : // no output
-             : "m"(*data)
-             :
-             : "volatile");
-    }
 }
 
 // ptr::mut_offset is positive isizes only
