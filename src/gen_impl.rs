@@ -115,6 +115,9 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             self.cancel();
         }
 
+        // init ctx parent to itself, this would be the new top
+        self.context.parent = &mut self.context;
+
         // init the ref to 0 means that it's ready to start
         self.context._ref = 0;
         let ret = &mut self.ret as *mut _;
@@ -132,10 +135,18 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         let env = ContextStack::current();
         // get the current regs
         let cur = &mut env.top().regs;
+
+        // switch to new context, always use the top ctx's reg
+        // for normal generator self.context.parent == self.context
+        // for coroutine self.context.parent == top generator context
+        assert!(!self.context.parent.is_null());
+        let top = unsafe { &mut *self.context.parent };
+
         // save current generator context on stack
         env.push_context(&mut self.context);
-        // switch to new context
-        RegContext::swap(cur, &mut self.context.regs);
+
+        // swap to the generator
+        RegContext::swap(cur, &mut top.regs);
 
         // check the panic status
         // this would propagate the panic until root context

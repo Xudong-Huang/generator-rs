@@ -45,7 +45,7 @@ fn align_down(sp: *mut usize) -> *mut usize {
 #[naked]
 pub fn prefetch(data: *const usize) {
     unsafe {
-        asm!("prefetcht2 $0"
+        asm!("prefetcht1 $0"
              : // no output
              : "m"(*data)
              :

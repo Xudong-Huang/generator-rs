@@ -103,5 +103,24 @@ pub fn yield_from<A: Any, T: Any>(mut g: Box<GeneratorImpl<A, T>>) -> Option<A> 
 pub fn co_yield_with<T: Any>(v: T) {
     let env = ContextStack::current();
     let context = env.co_ctx();
-    raw_yield(&env, context, v);
+
+    // check the context
+    if !context.is_generator() {
+        info!("yield from none coroutine context");
+        // do nothing, just return
+        return;
+    }
+
+    // here we just panic to exit the func
+    if context._ref != 1 {
+        panic!(Error::Cancel);
+    }
+
+    context.set_ret(v);
+    context._ref -= 1;
+
+    let parent = env.pop_context(context);
+    let top = unsafe { &mut *context.parent };
+    // here we should use the top regs
+    RegContext::swap(&mut top.regs, &parent.regs);
 }

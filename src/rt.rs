@@ -48,7 +48,7 @@ pub struct Context {
     /// child context
     child: *mut Context,
     /// parent context
-    parent: *mut Context,
+    pub parent: *mut Context,
 }
 
 impl Context {
@@ -140,13 +140,14 @@ impl ContextStack {
         let root = unsafe { &mut *self.root };
         let ctx = unsafe { &mut *ctx };
         let top = unsafe { &mut *root.parent };
+        let new_top = ctx.parent;
 
         // link top and new ctx
         top.child = ctx;
         ctx.parent = top;
 
         // save the new top
-        root.parent = ctx;
+        root.parent = new_top;
     }
 
     /// pop the context from the thread context list and return it's parent context
@@ -156,8 +157,9 @@ impl ContextStack {
         let ctx = unsafe { &mut *ctx };
         let parent = unsafe { &mut *ctx.parent };
 
+        // save the old top in ctx's parent
+        ctx.parent = root.parent;
         // unlink ctx and it's parent
-        ctx.parent = ptr::null_mut();
         parent.child = ptr::null_mut();
 
         // save the new top
