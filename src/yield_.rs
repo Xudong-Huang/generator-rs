@@ -4,7 +4,6 @@
 //!
 
 use std::any::Any;
-// use generator::Generator;
 use gen_impl::GeneratorImpl;
 use rt::{Error, Context, ContextStack};
 use reg_context::Context as RegContext;
@@ -49,6 +48,7 @@ fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
 
 /// yiled something without catch passed in para
 #[inline]
+// #[deprecated(since="0.5.0", note="please use `scope` instead")]
 pub fn yield_with<T: Any>(v: T) {
     let env = ContextStack::current();
     let context = env.top();
@@ -57,6 +57,7 @@ pub fn yield_with<T: Any>(v: T) {
 
 /// get the passed in para
 #[inline]
+// #[deprecated(since="0.5.0", note="please use `scope` instead")]
 pub fn get_yield<A: Any>() -> Option<A> {
     let context = ContextStack::current().top();
     raw_get_yield(context)
@@ -79,6 +80,7 @@ fn raw_get_yield<A: Any>(context: &mut Context) -> Option<A> {
 // this is fine, but it's totally safe that we can refer to the function block
 // since we will come back later
 #[inline]
+// #[deprecated(since="0.5.0", note="please use `scope` instead")]
 pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
     let env = ContextStack::current();
     let context = env.top();
@@ -87,6 +89,7 @@ pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
 }
 
 /// `yiled_from`
+// #[deprecated(since="0.5.0", note="please use `scope` instead")]
 pub fn yield_from<A: Any, T: Any>(mut g: Box<GeneratorImpl<A, T>>) -> Option<A> {
     let env = ContextStack::current();
     let context = env.top();
@@ -104,12 +107,12 @@ pub fn co_yield_with<T: Any>(v: T) {
     let env = ContextStack::current();
     let context = env.co_ctx();
 
-    // check the context
-    if !context.is_generator() {
-        info!("yield from none coroutine context");
-        // do nothing, just return
-        return;
-    }
+    // check the context, already checked in co_ctx()
+    // if !context.is_generator() {
+    //     info!("yield from none coroutine context");
+    //     // do nothing, just return
+    //     return;
+    // }
 
     // here we just panic to exit the func
     if context._ref != 1 {
@@ -123,4 +126,9 @@ pub fn co_yield_with<T: Any>(v: T) {
     let top = unsafe { &mut *context.parent };
     // here we should use the top regs
     RegContext::swap(&mut top.regs, &parent.regs);
+}
+
+/// coroutine get passed in yield para
+pub fn co_get_yield<A: Any>() -> Option<A> {
+    ContextStack::current().co_ctx().get_para()
 }
