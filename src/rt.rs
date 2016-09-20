@@ -178,10 +178,18 @@ pub fn is_generator() -> bool {
 }
 
 /// get the current context local data
+/// only coroutine support local data
 #[inline]
 pub fn get_local_data() -> *mut u8 {
     let env = ContextStack::current();
-    env.top().local_data
+    let root = unsafe { &mut *env.root };
+    // the root's child is used as the coroutine context pointer
+    if root.child.is_null() {
+        return ptr::null_mut();
+    }
+
+    let child = unsafe { &*root.child };
+    child.local_data
 }
 
 
