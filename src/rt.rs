@@ -171,10 +171,10 @@ impl ContextStack {
 
 /// check the current context if it's generator
 #[inline]
-#[allow(dead_code)]
 pub fn is_generator() -> bool {
     let env = ContextStack::current();
-    env.top().is_generator()
+    let root = unsafe { &mut *env.root };
+    !root.child.is_null()
 }
 
 /// get the current context local data
