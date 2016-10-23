@@ -307,25 +307,43 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
         func();
     };
 
+    fn check_err(cause: Box<Any + Send + 'static>) {
+        match cause.downcast_ref::<Error>() {
+            Some(_e @ &Error::Cancel) => return,
+            Some(e @ _) => {
+                ContextStack::current().top().err = Some(*e);
+                return;
+            }
+            None => {}
+        }
+
+        ContextStack::current().top().err = Some(Error::UnkonwErr);
+
+        match cause.downcast_ref::<::std::io::Error>() {
+            Some(e) => {
+                error!("got io error, err={:?}", e);
+                return;
+            }
+            None => {}
+        }
+
+        match cause.downcast_ref::<&str>() {
+            Some(e) => {
+                error!("Panicked inside: {:?}", e);
+                return;
+            }
+            None => {}
+        }
+
+        error!("Panicked inside: unkown panic");
+    }
+
     // we can't panic inside the generator context
     // need to propagate the panic to the main thread
     // It is currently undefined behavior to unwind from Rust code into foreign code
     // TODO: pass the Err to the main thread
     if let Err(cause) = panic::catch_unwind(clo) {
-        if cause.downcast_ref::<Error>().is_some() {
-            match cause.downcast_ref::<Error>().unwrap() {
-                &Error::Cancel => {}
-                err => {
-                    let ctx = ContextStack::current().top();
-                    ctx.err = Some(*err);
-                }
-            }
-        } else {
-            // we hope all other panic could covert to a string
-            // here we forget the panic to avoid shutdown the whole thread
-            let e = cause.downcast::<&str>().unwrap_or_else(|_| Box::new("unkown panic"));
-            error!("Panicked inside: {:?}", e);
-        }
+        check_err(cause);
     }
 
     yield_now();

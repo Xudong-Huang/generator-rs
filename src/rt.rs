@@ -26,6 +26,7 @@ pub enum Error {
     TypeErr,
     StackErr,
     ContextErr,
+    UnkonwErr,
 }
 
 /// generator context
