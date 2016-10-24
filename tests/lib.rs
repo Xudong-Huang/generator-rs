@@ -169,12 +169,11 @@ fn test_ill_drop() {
         Gn::<u32>::new(|| {
             x = 5;
             // here we got None from drop
-            // but should no panic
-            x = get_yield().unwrap();
+            x = get_yield().unwrap_or(0);
         });
     }
 
-    assert!(x == 5);
+    assert!(x == 0);
 }
 
 #[test]
@@ -194,12 +193,28 @@ fn test_loop_drop() {
 }
 
 #[test]
-#[should_panic]
 fn test_panic_inside() {
-    let _g = Gn::<()>::new(|| {
-        panic!("panic inside!");
-    });
-    // _g would droped here and cause panic
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+    let mut x = 10;
+    {
+        let mut wrapper = AssertUnwindSafe(&mut x);
+        if let Err(panic) = catch_unwind(move || {
+            let mut g = Gn::<()>::new(|| {
+                **wrapper = 5;
+                panic!("panic inside!");
+            });
+            g.resume();
+        }) {
+            match panic.downcast_ref::<&str>() {
+                // why can't get the message here?? is it lost?
+                Some(msg) => println!("get panic: {:?}", msg),
+                None => println!("can't get panic message"),
+            }
+        }
+        // wrapper dropped here
+    }
+
+    assert!(x == 5);
 }
 
 
