@@ -1,13 +1,3 @@
-// Copyright 2013-2014 The Rust Project Developers. See the COPYRIGHT
-// file at the top-level directory of this distribution and at
-// http://rust-lang.org/COPYRIGHT.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
 use detail::{Registers, initialize_call_frame, swap_registers};
 use stack::Stack;
 
@@ -17,7 +7,8 @@ pub struct Context {
     regs: Registers,
 }
 
-pub type InitFn = fn(usize, *mut usize) -> !; // first argument is task handle, second is thunk ptr
+// first argument is task handle, second is thunk ptr
+pub type InitFn = fn(usize, *mut usize) -> !;
 
 impl Context {
     pub fn empty() -> Context {
@@ -28,15 +19,8 @@ impl Context {
     pub fn prefetch(&self) {
         self.regs.prefetch();
     }
-    /// Create a new context that will resume execution by running start
-    ///
-    /// The `init` function will be run with `arg` and the `start` procedure
-    /// split up into code and env pointers. It is required that the `init`
-    /// function never return.
-    ///
-    /// FIXME: this is basically an awful the interface. The main reason for
-    ///        this is to reduce the number of allocations made when a green
-    ///        task is spawned as much as possible
+
+    /// Create a new context
     #[allow(dead_code)]
     pub fn new(init: InitFn, arg: usize, start: *mut usize, stack: &Stack) -> Context {
         let mut ctx = Context::empty();
@@ -73,8 +57,6 @@ impl Context {
     }
 
     /// Load the context and switch. This function will never return.
-    ///
-    /// It is equivalent to `Context::swap(&mut dummy_context, &to_context)`.
     #[inline]
     #[allow(dead_code)]
     pub fn load(to_context: &Context) {

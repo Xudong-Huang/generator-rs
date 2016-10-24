@@ -194,16 +194,12 @@ fn test_loop_drop() {
 }
 
 #[test]
+#[should_panic]
 fn test_panic_inside() {
-    let mut x = 10;
-    {
-        Gn::<()>::new(|| {
-            x = 5;
-            panic!("panic inside!");
-        });
-    }
-
-    assert!(x == 5);
+    let _g = Gn::<()>::new(|| {
+        panic!("panic inside!");
+    });
+    // _g would droped here and cause panic
 }
 
 

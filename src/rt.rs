@@ -26,7 +26,6 @@ pub enum Error {
     TypeErr,
     StackErr,
     ContextErr,
-    UnkonwErr,
 }
 
 /// generator context
@@ -42,7 +41,7 @@ pub struct Context {
     /// track generator ref, yield will -1, send will +1
     pub _ref: u32,
     /// propagate panic
-    pub err: Option<Error>,
+    pub err: Option<Box<Any + Send>>,
     /// context local storage
     pub local_data: *mut u8,
 

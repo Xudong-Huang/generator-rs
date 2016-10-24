@@ -148,11 +148,15 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // swap to the generator
         RegContext::swap(cur, &mut top.regs);
 
-        // check the panic status
+        // comes back, check the panic status
         // this would propagate the panic until root context
-        let err = self.context.err;
-        if err.is_some() {
-            panic!(err.unwrap());
+        // if it's a croutine just stop propagate
+        if !self.context.local_data.is_null() {
+            return;
+        }
+
+        if let Some(err) = self.context.err.take() {
+            panic!(err);
         }
     }
 
@@ -178,6 +182,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     #[inline]
     pub fn get_local_data(&self) -> *mut u8 {
         self.context.local_data
+    }
+
+    /// get the generator panic data
+    #[inline]
+    pub fn get_panic_data(&mut self) -> Option<Box<Any + Send>> {
+        self.context.err.take()
     }
 
     /// resume the generator without touch the para
@@ -309,39 +319,16 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
 
     fn check_err(cause: Box<Any + Send + 'static>) {
         match cause.downcast_ref::<Error>() {
+            // this is not an eror at all, ignore it
             Some(_e @ &Error::Cancel) => return,
-            Some(e @ _) => {
-                ContextStack::current().top().err = Some(*e);
-                return;
-            }
-            None => {}
+            _ => {}
         }
-
-        ContextStack::current().top().err = Some(Error::UnkonwErr);
-
-        match cause.downcast_ref::<::std::io::Error>() {
-            Some(e) => {
-                error!("got io error, err={:?}", e);
-                return;
-            }
-            None => {}
-        }
-
-        match cause.downcast_ref::<&str>() {
-            Some(e) => {
-                error!("Panicked inside: {:?}", e);
-                return;
-            }
-            None => {}
-        }
-
-        error!("Panicked inside: unkown panic");
+        error!("set panicked inside generator");
+        ContextStack::current().top().err = Some(cause);
     }
 
     // we can't panic inside the generator context
     // need to propagate the panic to the main thread
-    // It is currently undefined behavior to unwind from Rust code into foreign code
-    // TODO: pass the Err to the main thread
     if let Err(cause) = panic::catch_unwind(clo) {
         check_err(cause);
     }
