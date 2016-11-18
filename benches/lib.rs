@@ -57,13 +57,9 @@ fn single_yield_bench(b: &mut Bencher) {
             let v: Option<usize> = yield_(i);
             i += 1;
             match v {
-                Some(x) => {
-                    assert_eq!(x, i);
-                }
-                None => {
-                    // for elegant exit
-                    break;
-                }
+                Some(x) => assert_eq!(x, i),
+                // for elegant exit
+                None => break,
             }
         }
         20usize
@@ -78,6 +74,9 @@ fn single_yield_bench(b: &mut Bencher) {
         assert_eq!(data, i);
         i += 1;
     });
+
+    // quit g
+    g.raw_send(None);
 }
 
 #[bench]
@@ -109,6 +108,9 @@ fn scoped_yield_bench(b: &mut Bencher) {
         assert_eq!(data, i);
         i += 1;
     });
+
+    // quit g
+    g.raw_send(None);
 }
 
 #[bench]

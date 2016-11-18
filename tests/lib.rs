@@ -152,11 +152,12 @@ fn test_inner_ref() {
 fn test_drop() {
     let mut x = 10;
     {
-        Gn::<()>::new(|| {
+        let mut g = Gn::<()>::new(|| {
             x = 1;
             yield_with(());
             x = 5;
         });
+        g.send(());
     }
 
     assert!(x == 5);
@@ -171,21 +172,23 @@ fn test_ill_drop() {
             // here we got None from drop
             x = get_yield().unwrap_or(0);
         });
+	// not started the gen, change nothing
     }
 
-    assert!(x == 0);
+    assert!(x == 10);
 }
 
 #[test]
 fn test_loop_drop() {
     let mut x = 10u32;
     {
-        Gn::<()>::new(|| {
+        let mut g = Gn::<()>::new(|| {
             x = 5;
             loop {
                 yield_with(());
             }
         });
+        g.send(());
         // here the generator drop will cancel the loop
     }
 
@@ -233,7 +236,9 @@ fn test_cancel() {
     loop {
         let i = g.next().unwrap();
         if i > 10 {
-            g.cancel();
+            unsafe {
+                g.cancel();
+            }
             break;
         }
     }

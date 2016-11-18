@@ -112,7 +112,9 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     {
         // make sure the last one is finished
         if self.f.is_none() && self.context._ref == 0 {
-            self.cancel();
+            unsafe {
+                self.cancel();
+            }
         }
 
         // init ctx parent to itself, this would be the new top
@@ -234,7 +236,8 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     }
 
     /// cancel the generator
-    pub fn cancel(&mut self) {
+    /// this will trigger a Cancel panic, it's unsafe in that you must care about the resource
+    pub unsafe fn cancel(&mut self) {
         // consume the fun if it's not started
         if !self.is_started() {
             self.f.take();
@@ -266,15 +269,18 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
             return;
         }
 
-        let mut i = 0;
-        while !self.is_done() {
-            if i > 2 {
-                self.cancel();
-                break;
-            }
-            self.raw_send(None);
-            i += 1;
+        if !self.is_started() {
+            // not started yet, just drop the gen
+            return;
         }
+
+        if !self.is_done() {
+            unsafe {
+                self.cancel();
+            }
+        }
+
+        assert!(self.is_done());
 
         let (total_stack, used_stack) = self.stack_usage();
         if used_stack < total_stack {
