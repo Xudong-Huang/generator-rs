@@ -4,7 +4,6 @@
 //!
 
 use std::fmt;
-use std::mem;
 use std::panic;
 use std::thread;
 use std::any::Any;
@@ -37,7 +36,16 @@ impl<A> Gn<A> {
               T: 'a,
               A: 'a
     {
-        let mut g = GeneratorImpl::<A, T>::new(DEFAULT_STACK_SIZE);
+        Self::new_scoped_opt(DEFAULT_STACK_SIZE, f)
+    }
+
+    /// create a new generator with specified stack size
+    pub fn new_scoped_opt<'a, T, F>(size: usize, f: F) -> Box<GeneratorImpl<'a, A, T>>
+        where F: FnOnce(Scope<A, T>) -> T + 'a,
+              T: 'a,
+              A: 'a
+    {
+        let mut g = GeneratorImpl::<A, T>::new(size);
         let scope = g.get_scope();
         g.init(move || f(scope));
         g
@@ -127,8 +135,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.f = Some(Box::new(move || unsafe { *ret = Some(f()) }));
 
         let stk = &self.context.stack;
-        let reg = &mut self.context.regs;
-        reg.init_with(gen_init, 0, &mut self.f as *mut _ as *mut usize, stk);
+        self.context.regs.init_with(gen_init, 0, &mut self.f as *mut _ as *mut usize, stk);
     }
 
     /// resume the generator
@@ -152,7 +159,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         // comes back, check the panic status
         // this would propagate the panic until root context
-        // if it's a croutine just stop propagate
+        // if it's a coroutine just stop propagate
         if !self.context.local_data.is_null() {
             return;
         }
@@ -172,7 +179,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// prepare the para that passed into generator before send
     #[inline]
     pub fn set_para(&mut self, para: A) {
-        mem::replace(&mut self.para, Some(para));
+        self.para = Some(para);
     }
 
     /// set the generator local data
@@ -218,8 +225,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         // this is the passed in value of the send primitive
         // the yield part would read out this value in the next round
-        // use the replace is would drop the old value
-        mem::replace(&mut self.para, para);
+        self.para = para;
 
         // every time we call the function, increase the ref count
         // yiled will decrease it and return will not
@@ -294,7 +300,7 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
     }
 }
 
-impl<'a, A, T> Iterator for GeneratorImpl<'a, A, T> {
+impl<'a, T> Iterator for GeneratorImpl<'a, (), T> {
     type Item = T;
     // The 'Iterator' trait only requires the 'next' method to be defined. The
     // return type is 'Option<T>', 'None' is returned when the 'Iterator' is
@@ -326,7 +332,7 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
 
     fn check_err(cause: Box<Any + Send + 'static>) {
         match cause.downcast_ref::<Error>() {
-            // this is not an eror at all, ignore it
+            // this is not an error at all, ignore it
             Some(_e @ &Error::Cancel) => return,
             _ => {}
         }

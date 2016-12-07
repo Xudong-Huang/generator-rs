@@ -4,7 +4,7 @@
 //!
 
 use std::any::Any;
-use gen_impl::GeneratorImpl;
+use gen_impl::Generator;
 use rt::{Error, Context, ContextStack};
 use reg_context::RegContext;
 
@@ -18,11 +18,8 @@ pub fn yield_now() {
 
 #[inline]
 pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
-    // judge if this is root context
-    if cur.is_generator() {
-        let parent = env.pop_context(cur as *mut _);
-        RegContext::swap(&mut cur.regs, &parent.regs);
-    }
+    let parent = env.pop_context(cur as *mut _);
+    RegContext::swap(&mut cur.regs, &parent.regs);
 }
 
 /// raw yiled without catch passed in para
@@ -90,7 +87,7 @@ pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
 
 /// `yiled_from`
 // #[deprecated(since="0.5.0", note="please use `scope` instead")]
-pub fn yield_from<A: Any, T: Any>(mut g: Box<GeneratorImpl<A, T>>) -> Option<A> {
+pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
     let env = ContextStack::current();
     let context = env.top();
     let mut p = context.get_para();

@@ -24,7 +24,6 @@ mod stack;
 mod detail;
 mod yield_;
 mod gen_impl;
-// mod generator;
 mod reg_context;
 
 pub use scope::Scope;

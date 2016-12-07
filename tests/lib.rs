@@ -172,7 +172,7 @@ fn test_ill_drop() {
             // here we got None from drop
             x = get_yield().unwrap_or(0);
         });
-	// not started the gen, change nothing
+        // not started the gen, change nothing
     }
 
     assert!(x == 10);

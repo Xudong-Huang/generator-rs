@@ -70,7 +70,7 @@ impl Context {
     /// judge it's generator context
     #[inline]
     pub fn is_generator(&self) -> bool {
-        self.stack.size() > 0
+        self.parent != self as *const _ as *mut _
     }
 
     /// get current generator send para
@@ -78,14 +78,16 @@ impl Context {
     pub fn get_para<A>(&self) -> Option<A>
         where A: Any
     {
-        let para = unsafe { &mut *self.para };
-        let val = para.downcast_mut::<Option<A>>();
-        if val.is_some() {
-            val.unwrap().take()
-        } else {
+        fn error<A>() -> ! {
             let t = unsafe { type_name::<A>() };
             error!("get yield type error detected, expected type: {}", t);
-            panic!(Error::TypeErr);
+            panic!(Error::TypeErr)
+        }
+
+        let para = unsafe { &mut *self.para };
+        match para.downcast_mut::<Option<A>>() {
+            Some(v) => v.take(),
+            None => error::<A>(),
         }
     }
 
@@ -94,14 +96,16 @@ impl Context {
     pub fn set_ret<T>(&mut self, v: T)
         where T: Any
     {
-        let ret = unsafe { &mut *self.ret };
-        let val = ret.downcast_mut::<Option<T>>();
-        if val.is_some() {
-            mem::replace(val.unwrap(), Some(v));
-        } else {
+        fn error<T>() -> ! {
             let t = unsafe { type_name::<T>() };
             error!("yield type error detected, expected type: {}", t);
-            panic!(Error::TypeErr);
+            panic!(Error::TypeErr)
+        }
+
+        let ret = unsafe { &mut *self.ret };
+        match ret.downcast_mut::<Option<T>>() {
+            Some(r) => *r = Some(v),
+            None => error::<T>(),
         }
     }
 }
