@@ -15,7 +15,7 @@ use std::intrinsics::type_name;
 use scope::Scope;
 use yield_::yield_now;
 use rt::{Error, Context, ContextStack};
-use reg_context::Context as RegContext;
+use reg_context::RegContext;
 
 // default stack size, in usize
 // windows has a minimal size as 0x4a8!!!!

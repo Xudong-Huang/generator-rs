@@ -8,7 +8,7 @@ use std::any::Any;
 use std::intrinsics::type_name;
 
 use stack::Stack;
-use reg_context::Context as RegContext;
+use reg_context::RegContext;
 
 /// each thread has it's own generator context stack
 thread_local!(static ROOT_CONTEXT: Box<Context> = {

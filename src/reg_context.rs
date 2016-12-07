@@ -2,7 +2,7 @@ use detail::{Registers, initialize_call_frame, swap_registers};
 use stack::Stack;
 
 #[derive(Debug)]
-pub struct Context {
+pub struct RegContext {
     /// Hold the registers while the task or scheduler is suspended
     regs: Registers,
 }
@@ -10,9 +10,9 @@ pub struct Context {
 // first argument is task handle, second is thunk ptr
 pub type InitFn = fn(usize, *mut usize) -> !;
 
-impl Context {
-    pub fn empty() -> Context {
-        Context { regs: Registers::new() }
+impl RegContext {
+    pub fn empty() -> RegContext {
+        RegContext { regs: Registers::new() }
     }
 
     #[inline]
@@ -22,8 +22,8 @@ impl Context {
 
     /// Create a new context
     #[allow(dead_code)]
-    pub fn new(init: InitFn, arg: usize, start: *mut usize, stack: &Stack) -> Context {
-        let mut ctx = Context::empty();
+    pub fn new(init: InitFn, arg: usize, start: *mut usize, stack: &Stack) -> RegContext {
+        let mut ctx = RegContext::empty();
         ctx.init_with(init, arg, start, stack);
         ctx
     }
@@ -42,13 +42,13 @@ impl Context {
     /// saving the registers values of the executing thread to a Context
     /// then loading the registers from a previously saved Context.
     #[inline]
-    pub fn swap(out_context: &mut Context, in_context: &Context) {
+    pub fn swap(out_context: &mut RegContext, in_context: &RegContext) {
         // debug!("swapping contexts");
         let out_regs: &mut Registers = match *out_context {
-            Context { regs: ref mut r, .. } => r,
+            RegContext { regs: ref mut r, .. } => r,
         };
         let in_regs: &Registers = match *in_context {
-            Context { regs: ref r, .. } => r,
+            RegContext { regs: ref r, .. } => r,
         };
 
         // debug!("register raw swap");
@@ -59,7 +59,7 @@ impl Context {
     /// Load the context and switch. This function will never return.
     #[inline]
     #[allow(dead_code)]
-    pub fn load(to_context: &Context) {
+    pub fn load(to_context: &RegContext) {
         let mut cur = Registers::new();
         let regs: &Registers = &to_context.regs;
 
@@ -72,7 +72,7 @@ mod test {
     use std::mem::transmute;
 
     use stack::Stack;
-    use reg_context::Context;
+    use reg_context::RegContext;
 
     const MIN_STACK: usize = 2 * 1024 * 1024;
 
@@ -80,8 +80,8 @@ mod test {
         let func: fn() = unsafe { transmute(f) };
         func();
 
-        let ctx: &Context = unsafe { transmute(arg) };
-        Context::load(ctx);
+        let ctx: &RegContext = unsafe { transmute(arg) };
+        RegContext::load(ctx);
 
         unreachable!("Should never comeback");
     }
@@ -89,7 +89,7 @@ mod test {
     #[test]
     fn test_swap_context() {
         static mut VAL: bool = false;
-        let mut cur = Context::empty();
+        let mut cur = RegContext::empty();
 
         fn callback() {
             unsafe {
@@ -98,12 +98,12 @@ mod test {
         }
 
         let stk = Stack::new(MIN_STACK);
-        let ctx = Context::new(init_fn,
-                               unsafe { transmute(&cur) },
-                               unsafe { transmute(callback as usize) },
-                               &stk);
+        let ctx = RegContext::new(init_fn,
+                                  unsafe { transmute(&cur) },
+                                  unsafe { transmute(callback as usize) },
+                                  &stk);
 
-        Context::swap(&mut cur, &ctx);
+        RegContext::swap(&mut cur, &ctx);
         unsafe {
             assert!(VAL);
         }

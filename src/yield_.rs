@@ -6,7 +6,7 @@
 use std::any::Any;
 use gen_impl::GeneratorImpl;
 use rt::{Error, Context, ContextStack};
-use reg_context::Context as RegContext;
+use reg_context::RegContext;
 
 /// switch back to parent context
 #[inline]
