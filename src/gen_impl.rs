@@ -18,7 +18,7 @@ use reg_context::RegContext;
 
 // default stack size, in usize
 // windows has a minimal size as 0x4a8!!!!
-pub const DEFAULT_STACK_SIZE: usize = 0x800;
+pub const DEFAULT_STACK_SIZE: usize = 0x1000;
 
 /// Generator helper
 pub struct Gn<A> {
@@ -200,6 +200,13 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.context.err.take()
     }
 
+    /// get the _ref pointer, this is used for coroutine cancel
+    /// don't call this function for a normal generator!!
+    #[inline]
+    pub unsafe fn get_ref_ptr(&mut self) -> *mut u32 {
+        &self.context._ref as *const _ as *mut _
+    }
+
     /// resume the generator without touch the para
     /// you should call `set_para` before this method
     #[inline]
@@ -259,7 +266,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// is finished
     #[inline]
     pub fn is_done(&self) -> bool {
-        self.is_started() && self.context._ref != 0
+        self.is_started() && (self.context._ref & 0x3) != 0
     }
 
     /// get stack total size and used size in word
