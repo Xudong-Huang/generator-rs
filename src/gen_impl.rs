@@ -131,8 +131,18 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // init the ref to 0 means that it's ready to start
         self.context._ref = 0;
         let ret = &mut self.ret as *mut _;
+        let contex = &mut self.context as *mut Context;
         // windows box::new is quite slow than unix
-        self.f = Some(Box::new(move || unsafe { *ret = Some(f()) }));
+        self.f = Some(Box::new(move || {
+            let r = f();
+            let ret = unsafe { &mut *ret };
+            let _ref = unsafe { (*contex)._ref };
+            if _ref == 0xf {
+                *ret = None; // this is a done return
+            } else {
+                *ret = Some(r); // normal return
+            }
+        }));
 
         let stk = &self.context.stack;
         self.context.regs.init_with(gen_init, 0, &mut self.f as *mut _ as *mut usize, stk);

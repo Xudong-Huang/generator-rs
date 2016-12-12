@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate generator;
 
 use generator::*;
@@ -11,6 +12,19 @@ fn generator_is_done() {
     g.next();
     assert!(!g.is_done());
     g.next();
+    assert!(g.is_done());
+}
+
+#[test]
+fn generator_is_done1() {
+    let mut g = Gn::new_scoped(|mut s| {
+        s.yield_(2);
+        done!();
+    });
+
+    assert_eq!(g.next(), Some(2));
+    assert!(!g.is_done());
+    assert_eq!(g.next(), None);
     assert!(g.is_done());
 }
 

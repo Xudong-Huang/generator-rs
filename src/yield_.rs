@@ -8,11 +8,24 @@ use gen_impl::Generator;
 use rt::{Error, Context, ContextStack};
 use reg_context::RegContext;
 
+/// it's a special return instruction that yield nothing
+/// but only terminate the generator safely
+#[macro_export]
+macro_rules! done { () => ({ return $crate::done() }) }
+
+/// don't use it directly, use done!() macro instead
+#[inline]
+pub fn done<T>() -> T {
+    // set the done bit for this special return
+    ContextStack::current().top()._ref = 0xf;
+    unsafe { ::std::mem::uninitialized() }
+}
+
 /// switch back to parent context
 #[inline]
 pub fn yield_now() {
     let env = ContextStack::current();
-    let mut cur = env.top();
+    let cur = env.top();
     raw_yield_now(&env, cur);
 }
 
