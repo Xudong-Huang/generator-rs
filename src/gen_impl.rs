@@ -255,7 +255,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// send interface
     pub fn send(&mut self, para: A) -> T {
         let ret = self.raw_send(Some(para));
-        ret.unwrap()
+        ret.expect("send got None return")
     }
 
     /// cancel the generator
