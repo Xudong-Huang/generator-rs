@@ -34,7 +34,7 @@ impl<A, T> Scope<A, T> {
 
     /// get current generator send para
     #[inline]
-    fn get_para(&mut self) -> Option<A> {
+    pub fn get_yield(&mut self) -> Option<A> {
         let para = unsafe { &mut *self.para };
         para.take()
     }
@@ -60,15 +60,21 @@ impl<A, T> Scope<A, T> {
         }
     }
 
+    /// yiled something without catch passed in para
+    #[inline]
+    pub fn yield_with(&mut self, v: T) {
+        let env = ContextStack::current();
+        let context = env.top();
+        self.raw_yield(&env, context, v);
+    }
+
     /// yiled and get the send para
     // it's totally safe that we can refer to the function block
     // since we will come back later
     #[inline]
     pub fn yield_(&mut self, v: T) -> Option<A> {
-        let env = ContextStack::current();
-        let context = env.top();
-        self.raw_yield(&env, context, v);
-        self.get_para()
+        self.yield_with(v);
+        self.get_yield()
     }
 
 
@@ -77,13 +83,13 @@ impl<A, T> Scope<A, T> {
     pub fn yield_from(&mut self, mut g: Box<GeneratorImpl<A, T>>) -> Option<A> {
         let env = ContextStack::current();
         let context = env.top();
-        let mut p = self.get_para();
+        let mut p = self.get_yield();
         while !g.is_done() {
             match g.raw_send(p) {
                 None => return None,
                 Some(r) => self.raw_yield(&env, context, r),
             }
-            p = self.get_para();
+            p = self.get_yield();
         }
         p
     }
