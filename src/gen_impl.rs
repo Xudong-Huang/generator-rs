@@ -258,18 +258,32 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         ret.expect("send got None return")
     }
 
+    /// cancel the generator without any check
+    #[inline]
+    unsafe fn raw_cancel(&mut self) {
+        // tell the func to panic
+        // so that we can stop the inner func
+        self.context._ref = 2;
+        // save the old panic hook, we don't want to print anything for the Cancel
+        let old = ::std::panic::take_hook();
+        ::std::panic::set_hook(Box::new(|_| {}));
+        self.resume_gen();
+        ::std::panic::set_hook(old);
+    }
+
     /// cancel the generator
     /// this will trigger a Cancel panic, it's unsafe in that you must care about the resource
     pub unsafe fn cancel(&mut self) {
+        if self.is_done() {
+            return;
+        }
+
         // consume the fun if it's not started
         if !self.is_started() {
             self.f.take();
             self.context._ref = 1;
         } else {
-            // tell the func to panic
-            // so that we can stop the inner func
-            self.context._ref = 2;
-            self.resume_gen();
+            self.raw_cancel();
         }
     }
 
@@ -299,7 +313,7 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
 
         if !self.is_done() {
             warn!("generator is not done while drop");
-            unsafe { self.cancel() }
+            unsafe { self.raw_cancel() }
         }
 
         assert!(self.is_done());
