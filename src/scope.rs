@@ -32,22 +32,12 @@ impl<A, T> Scope<A, T> {
         *ret = Some(v);
     }
 
-    /// get current generator send para
-    #[inline]
-    pub fn get_yield(&mut self) -> Option<A> {
-        let para = unsafe { &mut *self.para };
-        para.take()
-    }
-
     /// raw yiled without catch passed in para
     #[inline]
     fn raw_yield(&mut self, env: &ContextStack, context: &mut Context, v: T) {
         // check the context
         if !context.is_generator() {
-            info!("yield from none generator context");
-            // do nothing, just return
-            return;
-            // panic!(Error::ContextErr);
+            panic!("yield from none generator context");
         }
 
         self.set_ret(v);
@@ -66,6 +56,13 @@ impl<A, T> Scope<A, T> {
         let env = ContextStack::current();
         let context = env.top();
         self.raw_yield(&env, context, v);
+    }
+
+    /// get current generator send para
+    #[inline]
+    pub fn get_yield(&mut self) -> Option<A> {
+        let para = unsafe { &mut *self.para };
+        para.take()
     }
 
     /// yiled and get the send para

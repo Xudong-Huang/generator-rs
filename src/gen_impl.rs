@@ -298,9 +298,8 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
         }
 
         if !self.is_done() {
-            unsafe {
-                self.cancel();
-            }
+            warn!("generator is not done while drop");
+            unsafe { self.cancel() }
         }
 
         assert!(self.is_done());

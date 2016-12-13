@@ -40,20 +40,19 @@ pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
 fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
     // check the context
     if !context.is_generator() {
-        info!("yield from none generator context");
-        // do nothing, just return
-        return;
-        // panic!(Error::ContextErr);
+        panic!("yield from none generator context");
     }
+
+
+
+    context.set_ret(v);
+    context._ref -= 1;
+    raw_yield_now(env, context);
 
     // here we just panic to exit the func
     if context._ref != 1 {
         panic!(Error::Cancel);
     }
-
-    context.set_ret(v);
-    context._ref -= 1;
-    raw_yield_now(env, context);
 }
 
 /// yiled something without catch passed in para

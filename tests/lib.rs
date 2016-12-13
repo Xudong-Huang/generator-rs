@@ -183,7 +183,7 @@ fn test_drop() {
         g.send(());
     }
 
-    assert!(x == 5);
+    assert!(x == 1);
 }
 
 #[test]
@@ -277,6 +277,7 @@ fn test_yield_from_functor_context() {
 }
 
 #[test]
+#[should_panic]
 fn test_yield_with_from_functor_context() {
     // this is not run from generator
     yield_with(0);
