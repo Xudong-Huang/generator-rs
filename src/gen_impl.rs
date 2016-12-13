@@ -30,8 +30,8 @@ pub type Generator<'a, A, T> = Box<GeneratorImpl<'a, A, T>>;
 unsafe impl<A, T> Send for GeneratorImpl<'static, A, T> {}
 
 impl<A> Gn<A> {
-    /// create a scoped generator
-    pub fn new_scoped<'a, T, F>(f: F) -> Box<GeneratorImpl<'a, A, T>>
+    /// create a scoped generator with default stack size
+    pub fn new_scoped<'a, T, F>(f: F) -> Generator<'a, A, T>
         where F: FnOnce(Scope<A, T>) -> T + 'a,
               T: 'a,
               A: 'a
@@ -39,8 +39,8 @@ impl<A> Gn<A> {
         Self::new_scoped_opt(DEFAULT_STACK_SIZE, f)
     }
 
-    /// create a new generator with specified stack size
-    pub fn new_scoped_opt<'a, T, F>(size: usize, f: F) -> Box<GeneratorImpl<'a, A, T>>
+    /// create a scoped generator with specified stack size
+    pub fn new_scoped_opt<'a, T, F>(size: usize, f: F) -> Generator<'a, A, T>
         where F: FnOnce(Scope<A, T>) -> T + 'a,
               T: 'a,
               A: 'a
@@ -54,14 +54,14 @@ impl<A> Gn<A> {
 
 impl<A: Any> Gn<A> {
     /// create a new generator with default stack size
-    pub fn new<'a, T: Any, F>(f: F) -> Box<GeneratorImpl<'a, A, T>>
+    pub fn new<'a, T: Any, F>(f: F) -> Generator<'a, A, T>
         where F: FnOnce() -> T + 'a
     {
         Self::new_opt(DEFAULT_STACK_SIZE, f)
     }
 
     /// create a new generator with specified stack size
-    pub fn new_opt<'a, T: Any, F>(size: usize, f: F) -> Box<GeneratorImpl<'a, A, T>>
+    pub fn new_opt<'a, T: Any, F>(size: usize, f: F) -> Generator<'a, A, T>
         where F: FnOnce() -> T + 'a
     {
         let mut g = GeneratorImpl::<A, T>::new(size);

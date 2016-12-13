@@ -79,8 +79,10 @@ impl<A, T> Scope<A, T> {
         let context = env.top();
         let mut p = self.get_para();
         while !g.is_done() {
-            let r = g.raw_send(p).unwrap();
-            self.raw_yield(&env, context, r);
+            match g.raw_send(p) {
+                None => return None,
+                Some(r) => self.raw_yield(&env, context, r),
+            }
             p = self.get_para();
         }
         p

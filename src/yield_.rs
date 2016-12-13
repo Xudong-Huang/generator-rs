@@ -105,8 +105,10 @@ pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
     let context = env.top();
     let mut p = context.get_para();
     while !g.is_done() {
-        let r = g.raw_send(p).unwrap();
-        raw_yield(&env, context, r);
+        match g.raw_send(p) {
+            None => return None,
+            Some(r) => raw_yield(&env, context, r),
+        }
         p = context.get_para();
     }
     p

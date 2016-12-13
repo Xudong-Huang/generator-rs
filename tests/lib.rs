@@ -4,6 +4,15 @@ extern crate generator;
 use generator::*;
 
 #[test]
+fn test_return() {
+    let mut g = Gn::new_scoped(|_s| {
+        return 42;
+    });
+    assert_eq!(g.next(), Some(42));
+    assert!(g.is_done());
+}
+
+#[test]
 fn generator_is_done() {
     let mut g = Gn::<()>::new(|| {
         yield_with(());
