@@ -12,19 +12,19 @@ git = "https://github.com/Xudong-Huang/generator-rs.git"
 
 ## Usage
 ```rust
+#[macro_use]
 extern crate generator;
-use generator::{Gn, yield_with};
+use generator::Gn;
 
 fn main() {
-
-    let g = Gn::<()>::new(|| {
+    let g = Gn::new_scoped(|mut s| {
         let (mut a, mut b) = (0, 1);
         while b < 200 {
             std::mem::swap(&mut a, &mut b);
             b = a + b;
-            yield_with(b);
+            s.yield_(b);
         }
-        a + b
+        done!();
     });
 
     for i in g {
@@ -47,7 +47,6 @@ fn main() {
 89
 144
 233
-377
 ```
 
 ## Goals
@@ -58,7 +57,6 @@ fn main() {
 - [x] panic inside genertor support
 - [x] Basic single threaded support
 - [x] compact stack support
-- [ ] Multithreaded support
 
 
 
@@ -72,4 +70,6 @@ fn main() {
 * This crate supports platforms in
 
     - x86_64 linux
+    - x86_64 windows
+
 
