@@ -8,7 +8,7 @@ enum Action {
     Stop,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 enum State {
     Playing,
     Stopped,
@@ -21,34 +21,40 @@ fn main() {
     let mut cd_player = Gn::new_scoped(|mut s| {
         let mut state = Stopped;
         loop {
-            match s.get_yield() {
-                Some(Play(s)) => {
-                    if state == Stopped {
-                        println!("I'm playing {}", s);
-                        state = Playing;
-                    } else {
-                        println!("should first stop");
+            match state {
+                Stopped => {
+                    match s.get_yield() {
+                        Some(Play(t)) => {
+                            println!("I'm playing {}", t);
+                            state = Playing;
+                        }
+                        Some(Stop) => println!("I'm already stopped"),
+                        _ => unreachable!("some thing wrong"),
                     }
                 }
-                Some(Stop) => {
-                    if state == Playing {
-                        println!("I'm stopped");
-                        state = Stopped;
-                    } else {
-                        println!("I'm already stopped");
+
+                Playing => {
+                    match s.get_yield() {
+                        Some(Stop) => {
+                            println!("I'm stopped");
+                            state = Stopped;
+                        }
+                        Some(Play(_)) => println!("should first stop"),
+                        _ => unreachable!("some thing wrong"),
                     }
-                }
-                a => {
-                    println!("invalid action: {:?}", a);
                 }
             }
+
             s.yield_with(state);
         }
     });
 
-    cd_player.send(Play("hello world"));
-    cd_player.send(Play("hello another day"));
-    cd_player.send(Stop);
-    cd_player.send(Stop);
-    cd_player.send(Play("hello another day"));
+    for _ in 0..1000 {
+        cd_player.send(Play("hello world"));
+        cd_player.send(Play("hello another day"));
+        cd_player.send(Stop);
+        cd_player.send(Stop);
+        cd_player.send(Play("hello another day"));
+        cd_player.send(Stop);
+    }
 }
