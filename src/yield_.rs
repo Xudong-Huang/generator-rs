@@ -43,8 +43,6 @@ fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
         panic!("yield from none generator context");
     }
 
-
-
     context.set_ret(v);
     context._ref -= 1;
     raw_yield_now(env, context);

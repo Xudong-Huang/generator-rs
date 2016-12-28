@@ -18,13 +18,17 @@ thread_local!(static ROOT_CONTEXT: Box<Context> = {
     root
 });
 
-/// yield error types
+/// yield panic error types
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Error {
+    /// Cancel panic
     Cancel,
+    /// Type mismatch panic
     TypeErr,
+    /// Stack overflow panic
     StackErr,
+    /// Wrong Context panic
     ContextErr,
 }
 
@@ -133,9 +137,17 @@ impl ContextStack {
     #[inline]
     pub fn co_ctx(&self) -> &'static mut Context {
         let root = unsafe { &mut *self.root };
-        // the root's child is used as the coroutine context pointer
-        assert!(!root.child.is_null(), "there is no child of root!");
-        unsafe { &mut *root.child }
+
+        // search from top
+        let mut ctx = unsafe { &mut *root.parent };
+        while ctx as *const _ != root as *const _ {
+            if !ctx.local_data.is_null() {
+                return ctx;
+            }
+            ctx = unsafe { &mut *ctx.parent };
+        }
+        // not find any coroutine
+        unreachable!("there is no coroutine found!");
     }
 
     /// push the context to the thread context list
@@ -186,14 +198,8 @@ pub fn is_generator() -> bool {
 #[inline]
 pub fn get_local_data() -> *mut u8 {
     let env = ContextStack::current();
-    let root = unsafe { &mut *env.root };
-    // the root's child is used as the coroutine context pointer
-    if root.child.is_null() {
-        return ptr::null_mut();
-    }
-
-    let child = unsafe { &*root.child };
-    child.local_data
+    let ctx = env.co_ctx();
+    ctx.local_data
 }
 
 
