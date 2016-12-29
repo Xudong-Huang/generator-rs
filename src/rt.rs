@@ -198,8 +198,18 @@ pub fn is_generator() -> bool {
 #[inline]
 pub fn get_local_data() -> *mut u8 {
     let env = ContextStack::current();
-    let ctx = env.co_ctx();
-    ctx.local_data
+    let root = unsafe {&mut *env.root};
+
+    // search from top
+    let mut ctx = unsafe { &mut *root.parent };
+    while ctx as *const _ != root as *const _ {
+        if !ctx.local_data.is_null() {
+            return ctx.local_data;
+        }
+        ctx = unsafe { &mut *ctx.parent };
+    }
+
+    ptr::null_mut()
 }
 
 
