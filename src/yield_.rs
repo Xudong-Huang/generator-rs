@@ -114,7 +114,7 @@ pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
 /// coroutine yield
 pub fn co_yield_with<T: Any>(v: T) {
     let env = ContextStack::current();
-    let context = env.co_ctx();
+    let context = env.co_ctx().unwrap();
 
     // check the context, already checked in co_ctx()
     // if !context.is_generator() {
@@ -139,5 +139,8 @@ pub fn co_yield_with<T: Any>(v: T) {
 
 /// coroutine get passed in yield para
 pub fn co_get_yield<A: Any>() -> Option<A> {
-    ContextStack::current().co_ctx().get_para()
+    match ContextStack::current().co_ctx() {
+        Some(ctx) => ctx.get_para(),
+        None => None,
+    }
 }

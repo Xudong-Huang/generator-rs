@@ -135,19 +135,19 @@ impl ContextStack {
 
     /// get the coroutine context
     #[inline]
-    pub fn co_ctx(&self) -> &'static mut Context {
+    pub fn co_ctx(&self) -> Option<&'static mut Context> {
         let root = unsafe { &mut *self.root };
 
         // search from top
         let mut ctx = unsafe { &mut *root.parent };
         while ctx as *const _ != root as *const _ {
             if !ctx.local_data.is_null() {
-                return ctx;
+                return Some(ctx);
             }
             ctx = unsafe { &mut *ctx.parent };
         }
         // not find any coroutine
-        unreachable!("there is no coroutine found!");
+        None
     }
 
     /// push the context to the thread context list
@@ -198,7 +198,7 @@ pub fn is_generator() -> bool {
 #[inline]
 pub fn get_local_data() -> *mut u8 {
     let env = ContextStack::current();
-    let root = unsafe {&mut *env.root};
+    let root = unsafe { &mut *env.root };
 
     // search from top
     let mut ctx = unsafe { &mut *root.parent };

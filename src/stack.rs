@@ -54,7 +54,11 @@ impl Stack {
             }
 
         }
-        self.buf.cap() - offset
+        let cap = self.buf.cap();
+        // if cap & 1 != 0 {
+        //     println!("stack size={}, used={}", cap, cap - offset);
+        // }
+        cap - offset
     }
 
     /// get the stack cap
