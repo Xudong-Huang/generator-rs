@@ -55,9 +55,9 @@ impl Stack {
 
         }
         let cap = self.buf.cap();
-        // if cap & 1 != 0 {
-        //     println!("stack size={}, used={}", cap, cap - offset);
-        // }
+        if cap & 1 != 0 {
+            error!("stack size={}, used={}", cap, cap - offset);
+        }
         cap - offset
     }
 

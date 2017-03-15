@@ -111,9 +111,24 @@ pub fn initialize_call_frame(regs: &mut Registers,
     }
 }
 
+#[inline]
+pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
+    // setup rcx and rdx
+    // windows nightly 1.7 debug assembly will override the RBP!
+    // so we set it up correctly by hand
+    asm!(
+        ""
+        :
+        : "{rcx}"(out_regs), "{rdx}"(in_regs)
+        : "rcx", "rdx"
+        : "volatile"
+        );
+    swap_registers_impl();
+}
+
 #[inline(never)]
 #[naked]
-pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
+unsafe extern "C" fn swap_registers_impl() {
     // The first argument is in %rcx, and the second one is in %rdx
 
     // Save registers
@@ -181,7 +196,7 @@ pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *cons
         mov (3*8)(%rdx), %rcx
     "
     :
-    : "{rcx}"(out_regs), "{rdx}"(in_regs)
+    : // "{rcx}"(out_regs), "{rdx}"(in_regs)
     : "memory"
     : "volatile");
 }

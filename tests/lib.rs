@@ -205,7 +205,8 @@ fn test_ill_drop() {
 fn test_loop_drop() {
     let mut x = 10u32;
     {
-        let mut g = Gn::<()>::new(|| {
+        // rust 1.17 can't deduce the output type!
+        let mut g: Generator<_, ()> = Gn::<()>::new(|| {
             x = 5;
             loop {
                 yield_with(());
@@ -257,7 +258,8 @@ fn test_cancel() {
     });
 
     loop {
-        let i = g.next().unwrap();
+        // rust 1.17 can't deduce the output type!
+        let i: i32 = g.next().unwrap();
         if i > 10 {
             unsafe {
                 g.cancel();
