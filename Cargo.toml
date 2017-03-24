@@ -9,6 +9,7 @@ documentation = "https://docs.rs/generator"
 description = "Generator Library in Rust"
 readme = "README.md"
 keywords = ["generator", "coroutine", "green", "thread", "fiber"]
+categories = ["data-structures", "algorithms"]
 
 [profile.release]
 opt-level=3
