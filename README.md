@@ -51,13 +51,13 @@ fn main() {
 
 ## Goals
 
-- [x] basic send/yield support
+- [x] basic send/yield with message support
 - [x] generator cancel support
 - [x] yield_from support
 - [x] panic inside genertor support
-- [x] Basic single threaded support
-- [x] compact stack support
-
+- [x] stack size tune support
+- [x] scoped static type support
+- [x] basic coroutine interface suport
 
 
 ##  based on this basic library
@@ -71,5 +71,3 @@ fn main() {
 
     - x86_64 linux
     - x86_64 windows
-
-
