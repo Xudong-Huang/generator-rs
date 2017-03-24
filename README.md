@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/Xudong-Huang/generator-rs.svg?branch=master)](https://travis-ci.org/Xudong-Huang/generator-rs)
+
 # Generator-rs
 
 rust generator library
