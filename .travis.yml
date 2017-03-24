@@ -1,0 +1,16 @@
+sudo: false
+language: rust
+cache: cargo
+
+os:
+ - linux
+
+rust:
+  - nightly
+
+evn: 
+
+  - RUST_BACKTRACE=1
+
+script:
+  - cargo test
