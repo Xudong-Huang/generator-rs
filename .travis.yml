@@ -4,11 +4,12 @@ cache: cargo
 
 os:
  - linux
+ - osx
 
 rust:
   - nightly
 
-evn: 
+evn:
 
   - RUST_BACKTRACE=1
 
