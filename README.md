@@ -71,14 +71,13 @@ fn main() {
 
 
 ##  based on this basic library
-- we can easily port python libary based on generator into rust. the libaray has more powerfull tools than python that can make the generator more fast, safe and multi thread support.
-- schedule framework running with multi-thread.
-- basic library for Asynchronous I/O
+- we can easily port python library based on generator into rust
+- coroutine framework running on multi thread
 
 
 ## Notices
 
-* This crate supports platforms in
+* This crate supports below platforms, welcome to contribute with other arch and platforms
 
     - x86_64 linux
     - x86_64 windows
