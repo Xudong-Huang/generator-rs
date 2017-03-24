@@ -2,6 +2,8 @@
 
 rust generator library
 
+you need the nightly rust compiler to compile it
+
 use the dev version on master
 
 ```toml
@@ -57,13 +59,15 @@ fn main() {
 - [x] panic inside genertor support
 - [x] stack size tune support
 - [x] scoped static type support
-- [x] basic coroutine interface suport
+- [x] basic coroutine interface support
+- [ ] stable rust support
 
 
 ##  based on this basic library
 - we can easily port python libary based on generator into rust. the libaray has more powerfull tools than python that can make the generator more fast, safe and multi thread support.
 - schedule framework running with multi-thread.
 - basic library for Asynchronous I/O
+
 
 ## Notices
 
