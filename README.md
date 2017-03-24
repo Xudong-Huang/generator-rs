@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/Xudong-Huang/generator-rs.svg?branch=master)](https://travis-ci.org/Xudong-Huang/generator-rs)
+[![Build status](https://ci.appveyor.com/api/projects/status/x3mix8q57ygwqcgb/branch/master?svg=true)](https://ci.appveyor.com/project/Xudong-Huang/generator-rs/branch/master)
 [![Current Crates.io Version](https://img.shields.io/crates/v/generator.svg)](https://crates.io/crates/generator)
 [![Document](https://img.shields.io/badge/doc-generator-green.svg)](https://docs.rs/generator)
 [![License](https://img.shields.io/crates/l/generator.svg)](https://github.com/Xudong-Huang/generator-rs)
