@@ -7,7 +7,6 @@ use std::fmt;
 use std::panic;
 use std::thread;
 use std::any::Any;
-use std::boxed::FnBox;
 use std::marker::PhantomData;
 use std::intrinsics::type_name;
 
@@ -19,6 +18,17 @@ use reg_context::RegContext;
 // default stack size, in usize
 // windows has a minimal size as 0x4a8!!!!
 pub const DEFAULT_STACK_SIZE: usize = 0x1000;
+
+trait FnBox {
+    fn call_box(self: Box<Self>);
+}
+
+impl<F: FnOnce()> FnBox for F {
+    #[cfg_attr(feature = "cargo-clippy", allow(boxed_local))]
+    fn call_box(self: Box<Self>) {
+        self()
+    }
+}
 
 /// Generator helper
 pub struct Gn<A> {
@@ -32,18 +42,20 @@ unsafe impl<A, T> Send for GeneratorImpl<'static, A, T> {}
 impl<A> Gn<A> {
     /// create a scoped generator with default stack size
     pub fn new_scoped<'a, T, F>(f: F) -> Generator<'a, A, T>
-        where F: FnOnce(Scope<A, T>) -> T + 'a,
-              T: 'a,
-              A: 'a
+    where
+        F: FnOnce(Scope<A, T>) -> T + 'a,
+        T: 'a,
+        A: 'a,
     {
         Self::new_scoped_opt(DEFAULT_STACK_SIZE, f)
     }
 
     /// create a scoped generator with specified stack size
     pub fn new_scoped_opt<'a, T, F>(size: usize, f: F) -> Generator<'a, A, T>
-        where F: FnOnce(Scope<A, T>) -> T + 'a,
-              T: 'a,
-              A: 'a
+    where
+        F: FnOnce(Scope<A, T>) -> T + 'a,
+        T: 'a,
+        A: 'a,
     {
         let mut g = GeneratorImpl::<A, T>::new(size);
         let scope = g.get_scope();
@@ -55,14 +67,16 @@ impl<A> Gn<A> {
 impl<A: Any> Gn<A> {
     /// create a new generator with default stack size
     pub fn new<'a, T: Any, F>(f: F) -> Generator<'a, A, T>
-        where F: FnOnce() -> T + 'a
+    where
+        F: FnOnce() -> T + 'a,
     {
         Self::new_opt(DEFAULT_STACK_SIZE, f)
     }
 
     /// create a new generator with specified stack size
     pub fn new_opt<'a, T: Any, F>(size: usize, f: F) -> Generator<'a, A, T>
-        where F: FnOnce() -> T + 'a
+    where
+        F: FnOnce() -> T + 'a,
     {
         let mut g = GeneratorImpl::<A, T>::new(size);
         g.init_context();
@@ -80,7 +94,7 @@ pub struct GeneratorImpl<'a, A, T> {
     // save the output
     ret: Option<T>,
     // boxed functor
-    f: Option<Box<FnBox() + 'a>>,
+    f: Option<Box<FnBox + 'a>>,
 }
 
 impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
@@ -116,7 +130,8 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// init a heap based generator
     // it's can be used to re-init a 'done' generator before it's get dropped
     pub fn init<F: FnOnce() -> T + 'a>(&mut self, f: F)
-        where T: 'a
+    where
+        T: 'a,
     {
         // make sure the last one is finished
         if self.f.is_none() && self.context._ref == 0 {
@@ -145,7 +160,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         }));
 
         let stk = &self.context.stack;
-        self.context.regs.init_with(gen_init, 0, &mut self.f as *mut _ as *mut usize, stk);
+        self.context.regs.init_with(
+            gen_init,
+            0,
+            &mut self.f as *mut _ as *mut usize,
+            stk,
+        );
     }
 
     /// resume the generator
@@ -295,7 +315,10 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// get stack total size and used size in word
     pub fn stack_usage(&self) -> (usize, usize) {
-        (self.context.stack.size(), self.context.stack.get_used_size())
+        (
+            self.context.stack.size(),
+            self.context.stack.get_used_size(),
+        )
     }
 }
 
@@ -343,10 +366,12 @@ impl<'a, T> Iterator for GeneratorImpl<'a, (), T> {
 impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         unsafe {
-            write!(f,
-                   "Generator<{}, Output={}> {{ ... }}",
-                   type_name::<A>(),
-                   type_name::<T>())
+            write!(
+                f,
+                "Generator<{}, Output={}> {{ ... }}",
+                type_name::<A>(),
+                type_name::<T>()
+            )
         }
     }
 }
@@ -355,9 +380,9 @@ impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
 fn gen_init(_: usize, f: *mut usize) -> ! {
     let clo = move || {
         // consume self.f
-        let f: &mut Option<Box<FnBox()>> = unsafe { &mut *(f as *mut _) };
+        let f: &mut Option<Box<FnBox>> = unsafe { &mut *(f as *mut _) };
         let func = f.take().unwrap();
-        func();
+        func.call_box();
     };
 
     fn check_err(cause: Box<Any + Send + 'static>) {

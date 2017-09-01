@@ -5,7 +5,6 @@
 
 #![cfg_attr(nightly, feature(asm))]
 #![cfg_attr(nightly, feature(alloc))]
-#![cfg_attr(nightly, feature(fnbox))]
 #![cfg_attr(nightly, feature(naked_functions))]
 #![cfg_attr(nightly, feature(core_intrinsics))]
 #![cfg_attr(nightly, feature(repr_simd))]
