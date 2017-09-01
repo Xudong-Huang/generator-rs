@@ -8,7 +8,6 @@ use std::panic;
 use std::thread;
 use std::any::Any;
 use std::marker::PhantomData;
-use std::intrinsics::type_name;
 
 use scope::Scope;
 use yield_::yield_now;
@@ -363,16 +362,20 @@ impl<'a, T> Iterator for GeneratorImpl<'a, (), T> {
     }
 }
 
+
 impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
+    #[cfg(nightly)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unsafe {
-            write!(
-                f,
-                "Generator<{}, Output={}> {{ ... }}",
-                type_name::<A>(),
-                type_name::<T>()
-            )
-        }
+        use std::intrinsics::type_name;
+        write!(f, "Generator<{}, Output={}> {{ ... }}",
+            unsafe { type_name::<A>() },
+            unsafe { type_name::<T>() }
+        )
+    }
+
+    #[cfg(not(nightly))]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Generator {{ ... }}")
     }
 }
 

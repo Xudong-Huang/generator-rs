@@ -5,7 +5,6 @@
 use std::mem;
 use std::ptr;
 use std::any::Any;
-use std::intrinsics::type_name;
 
 use stack::Stack;
 use reg_context::RegContext;
@@ -80,36 +79,26 @@ impl Context {
     /// get current generator send para
     #[inline]
     pub fn get_para<A>(&self) -> Option<A>
-        where A: Any
+    where
+        A: Any,
     {
-        fn error<A>() -> ! {
-            let t = unsafe { type_name::<A>() };
-            error!("get yield type error detected, expected type: {}", t);
-            panic!(Error::TypeErr)
-        }
-
         let para = unsafe { &mut *self.para };
         match para.downcast_mut::<Option<A>>() {
             Some(v) => v.take(),
-            None => error::<A>(),
+            None => type_error::<A>("get yield type mismatch error detected"),
         }
     }
 
     /// set current generator return value
     #[inline]
     pub fn set_ret<T>(&mut self, v: T)
-        where T: Any
+    where
+        T: Any,
     {
-        fn error<T>() -> ! {
-            let t = unsafe { type_name::<T>() };
-            error!("yield type error detected, expected type: {}", t);
-            panic!(Error::TypeErr)
-        }
-
         let ret = unsafe { &mut *self.ret };
         match ret.downcast_mut::<Option<T>>() {
             Some(r) => *r = Some(v),
-            None => error::<T>(),
+            None => type_error::<T>("yield type mismatch error detected"),
         }
     }
 }
@@ -183,6 +172,22 @@ impl ContextStack {
 
         parent
     }
+}
+
+#[inline]
+fn type_error<A>(msg: &str) -> ! {
+    #[cfg(nightly)]
+    {
+        use std::intrinsics::type_name;
+        let t = unsafe { type_name::<A>() };
+        error!("{}, expected type: {}", msg, t);
+    }
+
+    #[cfg(not(nightly))]
+    {
+        error!("{}", msg);
+    }
+    panic!(Error::TypeErr)
 }
 
 /// check the current context if it's generator
