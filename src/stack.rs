@@ -3,7 +3,11 @@
 //!
 
 use std::ptr;
+
+#[cfg(nightly)]
 use alloc::raw_vec::RawVec;
+#[cfg(not(nightly))]
+use alloc::RawVec;
 
 #[cfg(windows)]
 const MIN_STACK_SIZE: usize = 0x4b0;

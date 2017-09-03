@@ -16,6 +16,8 @@
 extern crate log;
 #[cfg(nightly)]
 extern crate alloc;
+#[cfg(not(nightly))]
+mod alloc;
 
 mod rt;
 mod scope;
