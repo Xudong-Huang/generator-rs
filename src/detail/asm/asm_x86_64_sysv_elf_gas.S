@@ -4,6 +4,7 @@
 .align 16
 prefetch:
     prefetcht1 (%rdi)
+.size prefetch,.-prefetch
 
 .text
 .globl bootstrap_green_task
@@ -14,6 +15,7 @@ bootstrap_green_task:
     mov %r13, %rsi     /* setup the function arg */
     mov %r14, 8(%rsp)  /* this is the new return adrress */
     ret
+.size bootstrap_green_task,.-bootstrap_green_task
 
 .text
 .globl swap_registers
@@ -40,3 +42,7 @@ swap_registers:
 
     mov (3*8)(%rsi), %rdi
     ret
+.size bootstrap_green_task,.-bootstrap_green_task
+
+/* Mark that we don't need executable stack. */
+.section .note.GNU-stack,"",%progbits
