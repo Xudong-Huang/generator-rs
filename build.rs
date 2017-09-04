@@ -1,4 +1,8 @@
+extern crate gcc;
 extern crate rustc_version;
+
+use std::env;
+use std::path::PathBuf;
 use rustc_version::{version_meta, Channel};
 
 fn main() {
@@ -6,6 +10,68 @@ fn main() {
     if let Channel::Nightly = version_meta().unwrap().channel {
         return println!("cargo:rustc-cfg=nightly");
     }
+    // println!("cargo:rustc-cfg=nightly");
 
-    panic!("stable build is not supported now!");
+    // for the stable build asm lib
+    let target: String = env::var("TARGET").unwrap();
+    let is_win_gnu = target.ends_with("windows-gnu");
+    let is_win_msvc = target.ends_with("windows-msvc");
+    let is_win = is_win_gnu || is_win_msvc;
+
+    let arch = match target.split('-').next().unwrap() {
+        "arm" | "armv7" | "armv7s" => "arm",
+        "arm64" | "aarch64" => "arm64",
+        "x86" | "i386" | "i486" | "i586" | "i686" => "i386",
+        "mips" | "mipsel" => "mips32",
+        "powerpc" => "ppc32",
+        "powerpc64" => "ppc64",
+        "x86_64" => "x86_64",
+        _ => {
+            panic!("Unsupported architecture: {}", target);
+        }
+    };
+
+    let abi = match arch {
+        "arm" | "arm64" => "aapcs",
+        "mips32" => "o32",
+        _ => if is_win { "ms" } else { "sysv" },
+    };
+
+    let format = if is_win {
+        "pe"
+    } else if target.contains("apple") {
+        "macho"
+    } else if target.ends_with("aix") {
+        "xcoff"
+    } else {
+        "elf"
+    };
+
+    let (asm, ext) = if is_win_msvc {
+        if arch == "arm" {
+            ("armasm", "asm")
+        } else {
+            ("masm", "asm")
+        }
+    } else if is_win_gnu {
+        ("gas", "asm")
+    } else {
+        ("gas", "S")
+    };
+
+    let mut path: PathBuf = "src/detail/asm".into();
+    let mut config = gcc::Build::new();
+
+    if is_win_gnu {
+        config.flag("-x").flag("assembler-with-cpp");
+    }
+
+    let file_name: [&str; 11] = ["asm", "_", arch, "_", abi, "_", format, "_", asm, ".", ext];
+    let file_name = file_name.concat();
+
+    path.push(file_name);
+    config.file(path.to_str().unwrap());
+
+    // create the static asm libary
+    config.compile("libasm.a");
 }

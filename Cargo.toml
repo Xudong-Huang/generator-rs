@@ -17,6 +17,7 @@ log = "0.3"
 
 [build-dependencies]
 rustc_version = "0.2"
+gcc = "0.3"
 
 [profile.release]
 opt-level=3

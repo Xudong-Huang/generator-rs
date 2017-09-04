@@ -177,9 +177,7 @@ fn fnbox_bench(b: &mut Bencher) {
 
     b.iter(|| {
         let a: [usize; 100] = [0; 100];
-        let f: Box<FnBox()> = Box::new(|| {
-            test::black_box(a);
-        });
+        let f: Box<FnBox()> = Box::new(|| { test::black_box(a); });
         test::black_box(f);
     });
 }

@@ -48,11 +48,13 @@ impl Registers {
     }
 }
 
-pub fn initialize_call_frame(regs: &mut Registers,
-                             fptr: InitFn,
-                             arg: usize,
-                             arg2: *mut usize,
-                             stack: &Stack) {
+pub fn initialize_call_frame(
+    regs: &mut Registers,
+    fptr: InitFn,
+    arg: usize,
+    arg2: *mut usize,
+    stack: &Stack,
+) {
 
     #[inline(never)]
     #[naked]
