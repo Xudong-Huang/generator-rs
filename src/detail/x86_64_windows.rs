@@ -2,19 +2,129 @@ use detail::{align_down, mut_offset};
 use reg_context::InitFn;
 use stack::Stack;
 
-/// prefetch data
+#[cfg(not(nightly))]
+#[link(name = "asm", kind = "static")]
+extern "C" {
+    pub fn bootstrap_green_task();
+    pub fn prefetch_asm(data: *const usize);
+    pub fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers);
+}
+
+#[allow(dead_code)]
 #[inline]
 pub fn prefetch(data: *const usize) {
     unsafe {
+        prefetch_asm(data);
+    }
+}
+
+#[cfg(nightly)]
+mod asm {
+    use super::Registers;
+    /// prefetch data
+    #[inline]
+    pub unsafe fn prefetch_asm(data: *const usize) {
         asm!("prefetcht1 $0"
              : // no output
              : "m"(*data)
              :
              : "volatile");
     }
-}
 
-#[repr(simd)]
+    #[inline(never)]
+    #[naked]
+    pub unsafe extern "C" fn bootstrap_green_task() {
+        asm!("
+            mov %r12, %rcx     // setup the function arg
+            mov %r13, %rdx     // setup the function arg
+            mov %r14, 8(%rsp)  // this is the new return adrress
+        "
+        : // no output
+        : // no input
+        : "memory"
+        : "volatile");
+    }
+
+    #[inline(never)]
+    #[naked]
+    pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
+        // The first argument is in %rcx, and the second one is in %rdx
+
+        // Save registers
+        asm!("
+            mov %rbx, (0*8)(%rcx)
+            mov %rsp, (1*8)(%rcx)
+            mov %rbp, (2*8)(%rcx)
+            mov %r12, (4*8)(%rcx)
+            mov %r13, (5*8)(%rcx)
+            mov %r14, (6*8)(%rcx)
+            mov %r15, (7*8)(%rcx)
+            mov %rdi, (9*8)(%rcx)
+            mov %rsi, (10*8)(%rcx)
+    
+            // Save non-volatile XMM registers:
+            movapd %xmm6, (16*8)(%rcx)
+            movapd %xmm7, (18*8)(%rcx)
+    
+            /* load NT_TIB */
+            movq  %gs:(0x30), %r10
+            /* save current stack base */
+            movq  0x08(%r10), %rax
+            mov  %rax, (11*8)(%rcx)
+            /* save current stack limit */
+            movq  0x10(%r10), %rax
+             mov  %rax, (12*8)(%rcx)
+            /* save current deallocation stack */
+            movq  0x1478(%r10), %rax
+            mov  %rax, (13*8)(%rcx)
+            /* save fiber local storage */
+            // movq  0x18(%r10), %rax
+            // mov  %rax, (14*8)(%rcx)
+    
+            mov %rcx, (3*8)(%rcx)
+    
+            mov (0*8)(%rdx), %rbx
+            mov (1*8)(%rdx), %rsp
+            mov (2*8)(%rdx), %rbp
+            mov (4*8)(%rdx), %r12
+            mov (5*8)(%rdx), %r13
+            mov (6*8)(%rdx), %r14
+            mov (7*8)(%rdx), %r15
+            mov (9*8)(%rdx), %rdi
+            mov (10*8)(%rdx), %rsi
+    
+            // Restore non-volatile XMM registers:
+            movapd (16*8)(%rdx), %xmm6
+            movapd (18*8)(%rdx), %xmm7
+    
+            /* load NT_TIB */
+            movq  %gs:(0x30), %r10
+            /* restore fiber local storage */
+            // mov (14*8)(%rdx), %rax
+            // movq  %rax, 0x18(%r10)
+            /* restore deallocation stack */
+            mov (13*8)(%rdx), %rax
+            movq  %rax, 0x1478(%r10)
+            /* restore stack limit */
+            mov (12*8)(%rdx), %rax
+            movq  %rax, 0x10(%r10)
+            /* restore stack base */
+            mov  (11*8)(%rdx), %rax
+            movq  %rax, 0x8(%r10)
+    
+            mov (3*8)(%rdx), %rcx
+        "
+        :
+        : "{rcx}"(out_regs), "{rdx}"(in_regs)
+        : "memory"
+        : "volatile");
+    }
+}
+#[cfg(nightly)]
+pub use self::asm::*;
+
+#[cfg_attr(nightly, repr(simd))]
+#[cfg_attr(not(nightly), repr(C))]
 #[allow(non_camel_case_types)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct XMM(u32, u32, u32, u32);
@@ -43,8 +153,10 @@ impl Registers {
 
     #[inline]
     pub fn prefetch(&self) {
-        prefetch(self as *const _ as *const usize);
-        prefetch(self.gpr[1] as *const usize);
+        unsafe {
+           prefetch_asm(self as *const _ as *const usize);
+           prefetch_asm(self.gpr[1] as *const usize);
+        }
     }
 }
 
@@ -55,21 +167,6 @@ pub fn initialize_call_frame(
     arg2: *mut usize,
     stack: &Stack,
 ) {
-
-    #[inline(never)]
-    #[naked]
-    unsafe extern "C" fn bootstrap_green_task() {
-        asm!("
-            mov %r12, %rcx     // setup the function arg
-            mov %r13, %rdx     // setup the function arg
-            mov %r14, 8(%rsp)  // this is the new return adrress
-        "
-        : // no output
-        : // no input
-        : "memory"
-        : "volatile");
-    }
-
     // Redefinitions from rt/arch/x86_64/regs.h
     const RUSTRT_RSP: usize = 1;
     const RUSTRT_RBP: usize = 2;
@@ -111,94 +208,4 @@ pub fn initialize_call_frame(
         *mut_offset(sp, -2) = 0;
         *mut_offset(sp, -1) = 0;
     }
-}
-
-#[inline]
-pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
-    // setup rcx and rdx
-    // windows nightly 1.7 debug assembly will override the RBP!
-    // so we set it up correctly by hand
-    asm!(
-        ""
-        :
-        : "{rcx}"(out_regs), "{rdx}"(in_regs)
-        : "rcx", "rdx"
-        : "volatile"
-        );
-    swap_registers_impl();
-}
-
-#[inline(never)]
-#[naked]
-unsafe extern "C" fn swap_registers_impl() {
-    // The first argument is in %rcx, and the second one is in %rdx
-
-    // Save registers
-    asm!("
-        mov %rbx, (0*8)(%rcx)
-        mov %rsp, (1*8)(%rcx)
-        mov %rbp, (2*8)(%rcx)
-        mov %r12, (4*8)(%rcx)
-        mov %r13, (5*8)(%rcx)
-        mov %r14, (6*8)(%rcx)
-        mov %r15, (7*8)(%rcx)
-        mov %rdi, (9*8)(%rcx)
-        mov %rsi, (10*8)(%rcx)
-
-        // Save non-volatile XMM registers:
-        movapd %xmm6, (16*8)(%rcx)
-        movapd %xmm7, (18*8)(%rcx)
-
-        /* load NT_TIB */
-        movq  %gs:(0x30), %r10
-        /* save current stack base */
-        movq  0x08(%r10), %rax
-        mov  %rax, (11*8)(%rcx)
-        /* save current stack limit */
-        movq  0x10(%r10), %rax
-         mov  %rax, (12*8)(%rcx)
-        /* save current deallocation stack */
-        movq  0x1478(%r10), %rax
-        mov  %rax, (13*8)(%rcx)
-        /* save fiber local storage */
-        // movq  0x18(%r10), %rax
-        // mov  %rax, (14*8)(%rcx)
-
-        mov %rcx, (3*8)(%rcx)
-
-        mov (0*8)(%rdx), %rbx
-        mov (1*8)(%rdx), %rsp
-        mov (2*8)(%rdx), %rbp
-        mov (4*8)(%rdx), %r12
-        mov (5*8)(%rdx), %r13
-        mov (6*8)(%rdx), %r14
-        mov (7*8)(%rdx), %r15
-        mov (9*8)(%rdx), %rdi
-        mov (10*8)(%rdx), %rsi
-
-        // Restore non-volatile XMM registers:
-        movapd (16*8)(%rdx), %xmm6
-        movapd (18*8)(%rdx), %xmm7
-
-        /* load NT_TIB */
-        movq  %gs:(0x30), %r10
-        /* restore fiber local storage */
-        // mov (14*8)(%rdx), %rax
-        // movq  %rax, 0x18(%r10)
-        /* restore deallocation stack */
-        mov (13*8)(%rdx), %rax
-        movq  %rax, 0x1478(%r10)
-        /* restore stack limit */
-        mov (12*8)(%rdx), %rax
-        movq  %rax, 0x10(%r10)
-        /* restore stack base */
-        mov  (11*8)(%rdx), %rax
-        movq  %rax, 0x8(%r10)
-
-        mov (3*8)(%rdx), %rcx
-    "
-    :
-    : // "{rcx}"(out_regs), "{rdx}"(in_regs)
-    : "memory"
-    : "volatile");
 }

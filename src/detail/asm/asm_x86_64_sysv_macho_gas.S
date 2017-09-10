@@ -3,6 +3,7 @@
 .align 8
 _prefetch:
     prefetcht1 (%rdi)
+    ret
 
 .text
 .globl _bootstrap_green_task

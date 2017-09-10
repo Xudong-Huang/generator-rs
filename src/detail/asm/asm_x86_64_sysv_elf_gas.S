@@ -4,6 +4,7 @@
 .align 16
 prefetch:
     prefetcht1 (%rdi)
+    ret
 .size prefetch,.-prefetch
 
 .text
