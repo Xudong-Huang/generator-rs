@@ -4,7 +4,7 @@ use generator::{Gn, yield_};
 
 fn sum(a: u32) -> u32 {
     let mut sum = a;
-    let mut recv;
+    let mut recv: u32;
     while sum < 200 {
         // println!("sum={} ", sum);
         recv = yield_(sum).unwrap();
