@@ -123,7 +123,7 @@ mod asm {
 #[cfg(nightly)]
 pub use self::asm::*;
 
-#[cfg_attr(nightly, repr(simd))]
+#[cfg_attr(nightly, repr(C))]
 #[cfg_attr(not(nightly), repr(C))]
 #[allow(non_camel_case_types)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -140,7 +140,8 @@ impl XMM {
 #[derive(Debug)]
 pub struct Registers {
     gpr: [usize; 16],
-    _xmm: [XMM; 2],
+    _xmm: [XMM; 1],
+    _pad: [usize; 2],
 }
 
 impl Registers {
@@ -148,6 +149,7 @@ impl Registers {
         Registers {
             gpr: [0; 16],
             _xmm: [XMM::new(0, 0, 0, 0); 2],
+            _pad: [0; 4],
         }
     }
 
