@@ -61,6 +61,9 @@ mod asm {
             mov %r15, (7*8)(%rcx)
             mov %rdi, (9*8)(%rcx)
             mov %rsi, (10*8)(%rcx)
+
+            // mov %rcx, %r10
+            // and $$0xf0, %r10b
     
             // Save non-volatile XMM registers:
             movapd %xmm6, (16*8)(%rcx)
@@ -123,7 +126,7 @@ mod asm {
 #[cfg(nightly)]
 pub use self::asm::*;
 
-#[cfg_attr(nightly, repr(C))]
+#[cfg_attr(nightly, repr(simd))]
 #[cfg_attr(not(nightly), repr(C))]
 #[allow(non_camel_case_types)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -140,16 +143,21 @@ impl XMM {
 #[derive(Debug)]
 pub struct Registers {
     gpr: [usize; 16],
-    _xmm: [XMM; 1],
-    _pad: [usize; 2],
+    #[cfg(nightly)]
+    _xmm: [XMM; 2],
+    // keep enough for place holder
+    #[cfg(not(nightly))]
+    _xmm: [XMM; 4],
 }
 
 impl Registers {
     pub fn new() -> Registers {
         Registers {
             gpr: [0; 16],
+            #[cfg(nightly)]
             _xmm: [XMM::new(0, 0, 0, 0); 2],
-            _pad: [0; 4],
+            #[cfg(not(nightly))]
+            _xmm: [XMM::new(0, 0, 0, 0); 4],
         }
     }
 

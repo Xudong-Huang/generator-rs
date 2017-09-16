@@ -28,9 +28,12 @@ swap_registers PROC FRAME
     mov [rcx + 9*8], rdi
     mov [rcx + 10*8], rsi
 
+    mov r10, rcx
+    and r10, not 8
+
     ; Save non-volatile XMM registers:
-    movapd [rcx + 16*8], xmm6
-    movapd [rcx + 18*8], xmm7
+    movapd [r10 + 18*8], xmm6
+    movapd [r10 + 20*8], xmm7
 
     ; load NT_TIB
     mov r10, gs:[030h]
@@ -59,9 +62,12 @@ swap_registers PROC FRAME
     mov rdi, [rdx + 9*8]
     mov rsi, [rdx + 10*8]
 
+    mov r10, rdx
+    and r10, not 8
+
     ; Restore non-volatile XMM registers:
-    movapd xmm6, [rdx + 16*8]
-    movapd xmm7, [rdx + 18*8]
+    movapd xmm6, [r10 + 18*8]
+    movapd xmm7, [r10 + 20*8]
 
     ; load NT_TIB
     mov r10, gs:[030h]
