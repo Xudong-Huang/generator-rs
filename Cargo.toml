@@ -1,6 +1,6 @@
 [package]
 name = "generator"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Xudong Huang <huangxu008@hotmail.com>"]
 license = "LGPL-2.1"
 repository = "https://github.com/Xudong-Huang/generator-rs.git"
@@ -11,6 +11,12 @@ readme = "README.md"
 keywords = ["generator", "coroutine", "green", "thread", "fiber"]
 categories = ["data-structures", "algorithms"]
 build = "build.rs"
+exclude = [
+    ".gitignore",
+    ".travis.yml",
+    "appveyor.yml",
+    "benches/**/*",
+]
 
 [dependencies]
 log = "0.3"
