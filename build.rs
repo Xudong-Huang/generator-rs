@@ -1,4 +1,4 @@
-extern crate gcc;
+extern crate cc;
 extern crate rustc_version;
 
 use std::env;
@@ -60,7 +60,7 @@ fn main() {
     };
 
     let mut path: PathBuf = "src/detail/asm".into();
-    let mut config = gcc::Build::new();
+    let mut config = cc::Build::new();
 
     if is_win_gnu {
         config.flag("-x").flag("assembler-with-cpp");
