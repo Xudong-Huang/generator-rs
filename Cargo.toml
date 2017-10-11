@@ -1,6 +1,6 @@
 [package]
 name = "generator"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Xudong Huang <huangxu008@hotmail.com>"]
 license = "LGPL-2.1"
 repository = "https://github.com/Xudong-Huang/generator-rs.git"
