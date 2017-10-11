@@ -9,13 +9,9 @@
 
 rust generator library
 
-you need the nightly rust compiler to compile it
-
-use the dev version on master
-
 ```toml
-[dependencies.generator]
-git = "https://github.com/Xudong-Huang/generator-rs.git"
+[dependencies]
+generator = "0.6"
 ```
 
 
