@@ -1,12 +1,12 @@
 [package]
 name = "generator"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["Xudong Huang <huangxu008@hotmail.com>"]
 license = "LGPL-2.1"
 repository = "https://github.com/Xudong-Huang/generator-rs.git"
 homepage = "https://github.com/Xudong-Huang/generator-rs.git"
 documentation = "https://docs.rs/generator"
-description = "Generator Library in Rust"
+description = "Stackfull Generator Library in Rust"
 readme = "README.md"
 keywords = ["generator", "coroutine", "green", "thread", "fiber"]
 categories = ["data-structures", "algorithms"]

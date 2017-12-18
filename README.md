@@ -7,7 +7,7 @@
 
 # Generator-rs
 
-rust generator library
+rust stackfull generator library
 
 ```toml
 [dependencies]
