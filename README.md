@@ -2,7 +2,6 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/x3mix8q57ygwqcgb/branch/master?svg=true)](https://ci.appveyor.com/project/Xudong-Huang/generator-rs/branch/master)
 [![Current Crates.io Version](https://img.shields.io/crates/v/generator.svg)](https://crates.io/crates/generator)
 [![Document](https://img.shields.io/badge/doc-generator-green.svg)](https://docs.rs/generator)
-[![License](https://img.shields.io/github/license/Xudong-Huang/generator-rs.svg)](https://github.com/Xudong-Huang/generator-rs)
 
 
 # Generator-rs
@@ -59,7 +58,7 @@ fn main() {
 - [x] basic send/yield with message support
 - [x] generator cancel support
 - [x] yield_from support
-- [x] panic inside genertor support
+- [x] panic inside generator support
 - [x] stack size tune support
 - [x] scoped static type support
 - [x] basic coroutine interface support
@@ -75,5 +74,13 @@ fn main() {
 
 * This crate supports below platforms, welcome to contribute with other arch and platforms
 
-    - x86_64 linux
-    - x86_64 windows
+    - x86_64 Linux
+    - x86_64 MacOs
+    - x86_64 Windows
+
+## License
+
+This project is licensed under either of the following, at your option:
+
+ * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT License ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)

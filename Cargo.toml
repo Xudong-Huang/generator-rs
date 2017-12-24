@@ -1,8 +1,8 @@
 [package]
 name = "generator"
-version = "0.6.2"
+version = "0.6.3"
 authors = ["Xudong Huang <huangxu008@hotmail.com>"]
-license = "LGPL-2.1"
+license = "MIT/Apache-2.0"
 repository = "https://github.com/Xudong-Huang/generator-rs.git"
 homepage = "https://github.com/Xudong-Huang/generator-rs.git"
 documentation = "https://docs.rs/generator"
