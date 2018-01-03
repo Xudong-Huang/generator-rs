@@ -92,7 +92,6 @@ impl Registers {
     }
 }
 
-
 pub fn initialize_call_frame(
     regs: &mut Registers,
     fptr: InitFn,

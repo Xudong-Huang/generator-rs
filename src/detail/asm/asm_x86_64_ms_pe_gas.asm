@@ -51,8 +51,10 @@ swap_registers:
     and $0xf0, %r10b
     
     /* Save non-volatile XMM registers */
-    movapd %xmm6, (18*8)(%r10)
-    movapd %xmm7, (20*8)(%r10)
+    movapd %xmm6, (16*8)(%r10)
+    movapd %xmm7, (18*8)(%r10)
+    movapd %xmm8, (20*8)(%r10)
+    movapd %xmm9, (22*8)(%r10)
     
     /* load NT_TIB */
     movq %gs:(0x30), %r10
@@ -85,8 +87,10 @@ swap_registers:
     mov %rdx, %r10
     and $0xf0, %r10b
     /* Restore non-volatile XMM registers */
-    movapd (18*8)(%r10), %xmm6
-    movapd (20*8)(%r10), %xmm7
+    movapd (16*8)(%r10), %xmm6
+    movapd (18*8)(%r10), %xmm7
+    movapd (20*8)(%r10), %xmm8
+    movapd (22*8)(%r10), %xmm9
     
     /* load NT_TIB */
     movq  %gs:(0x30), %r10

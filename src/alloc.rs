@@ -5,7 +5,9 @@ pub struct RawVec<T> {
 
 impl<T> RawVec<T> {
     pub fn with_capacity(cap: usize) -> Self {
-        RawVec { buf: Vec::with_capacity(cap) }
+        RawVec {
+            buf: Vec::with_capacity(cap),
+        }
     }
 
     pub fn ptr(&self) -> *mut T {

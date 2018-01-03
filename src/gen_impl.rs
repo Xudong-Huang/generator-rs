@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 
 use scope::Scope;
 use yield_::yield_now;
-use rt::{Error, Context, ContextStack};
+use rt::{Context, ContextStack, Error};
 use reg_context::RegContext;
 
 // default stack size, in usize
@@ -159,12 +159,9 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         }));
 
         let stk = &self.context.stack;
-        self.context.regs.init_with(
-            gen_init,
-            0,
-            &mut self.f as *mut _ as *mut usize,
-            stk,
-        );
+        self.context
+            .regs
+            .init_with(gen_init, 0, &mut self.f as *mut _ as *mut usize, stk);
     }
 
     /// resume the generator
@@ -362,12 +359,13 @@ impl<'a, T> Iterator for GeneratorImpl<'a, (), T> {
     }
 }
 
-
 impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
     #[cfg(nightly)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use std::intrinsics::type_name;
-        write!(f, "Generator<{}, Output={}> {{ ... }}",
+        write!(
+            f,
+            "Generator<{}, Output={}> {{ ... }}",
             unsafe { type_name::<A>() },
             unsafe { type_name::<T>() }
         )

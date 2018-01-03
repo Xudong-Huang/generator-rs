@@ -15,7 +15,6 @@ const MIN_STACK_SIZE: usize = 0x4b0;
 #[cfg(unix)]
 const MIN_STACK_SIZE: usize = 0x100;
 
-
 /// generator stack
 pub struct Stack {
     buf: RawVec<usize>,
@@ -30,7 +29,9 @@ impl Stack {
             size = MIN_STACK_SIZE;
         }
 
-        let stk = Stack { buf: RawVec::with_capacity(size) };
+        let stk = Stack {
+            buf: RawVec::with_capacity(size),
+        };
 
         // if size is not even we do the full foot print test
         if (size & 1) == 0 && (size > 8) {
@@ -56,7 +57,6 @@ impl Stack {
                 offset += 1;
                 ptr = ptr.offset(1);
             }
-
         }
         let cap = self.buf.cap();
         if cap & 1 != 0 {

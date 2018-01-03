@@ -5,7 +5,7 @@
 
 use std::any::Any;
 use gen_impl::Generator;
-use rt::{Error, Context, ContextStack};
+use rt::{Context, ContextStack, Error};
 use reg_context::RegContext;
 
 /// it's a special return instruction that yield nothing

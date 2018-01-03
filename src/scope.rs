@@ -5,7 +5,7 @@
 
 // use generator::Generator;
 use gen_impl::GeneratorImpl;
-use rt::{Error, Context, ContextStack};
+use rt::{Context, ContextStack, Error};
 use yield_::raw_yield_now;
 
 /// passed in scope tpye
@@ -73,7 +73,6 @@ impl<A, T> Scope<A, T> {
         self.yield_with(v);
         self.get_yield()
     }
-
 
     /// `yiled_from`
     /// the from generator must has the same type as itself

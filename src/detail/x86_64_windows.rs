@@ -68,6 +68,8 @@ mod asm {
             // Save non-volatile XMM registers:
             movapd %xmm6, (16*8)(%rcx)
             movapd %xmm7, (18*8)(%rcx)
+            movapd %xmm8, (20*8)(%rcx)
+            movapd %xmm9, (22*8)(%rcx)
     
             /* load NT_TIB */
             movq  %gs:(0x30), %r10
@@ -99,6 +101,8 @@ mod asm {
             // Restore non-volatile XMM registers:
             movapd (16*8)(%rdx), %xmm6
             movapd (18*8)(%rdx), %xmm7
+            movapd (20*8)(%rdx), %xmm8
+            movapd (22*8)(%rdx), %xmm9
     
             /* load NT_TIB */
             movq  %gs:(0x30), %r10
@@ -143,10 +147,7 @@ impl XMM {
 #[derive(Debug)]
 pub struct Registers {
     gpr: [usize; 16],
-    #[cfg(nightly)]
-    _xmm: [XMM; 2],
     // keep enough for place holder
-    #[cfg(not(nightly))]
     _xmm: [XMM; 4],
 }
 
@@ -154,9 +155,6 @@ impl Registers {
     pub fn new() -> Registers {
         Registers {
             gpr: [0; 16],
-            #[cfg(nightly)]
-            _xmm: [XMM::new(0, 0, 0, 0); 2],
-            #[cfg(not(nightly))]
             _xmm: [XMM::new(0, 0, 0, 0); 4],
         }
     }
@@ -164,8 +162,8 @@ impl Registers {
     #[inline]
     pub fn prefetch(&self) {
         unsafe {
-           prefetch_asm(self as *const _ as *const usize);
-           prefetch_asm(self.gpr[1] as *const usize);
+            prefetch_asm(self as *const _ as *const usize);
+            prefetch_asm(self.gpr[1] as *const usize);
         }
     }
 }

@@ -1,4 +1,3 @@
-
 // Register contexts used in various architectures
 //
 // These structures all represent a context of one task throughout its
@@ -30,7 +29,7 @@ pub mod asm;
 #[path = "x86_64_windows.rs"]
 pub mod asm;
 
-pub use self::asm::{Registers, swap_registers, initialize_call_frame, prefetch};
+pub use self::asm::{initialize_call_frame, prefetch, swap_registers, Registers};
 
 #[inline]
 fn align_down(sp: *mut usize) -> *mut usize {

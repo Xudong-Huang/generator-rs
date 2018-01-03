@@ -217,7 +217,6 @@ pub fn get_local_data() -> *mut u8 {
     ptr::null_mut()
 }
 
-
 #[cfg(test)]
 mod test {
     use super::is_generator;

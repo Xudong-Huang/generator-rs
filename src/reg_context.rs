@@ -1,4 +1,4 @@
-use detail::{Registers, initialize_call_frame, swap_registers};
+use detail::{initialize_call_frame, swap_registers, Registers};
 use stack::Stack;
 
 #[derive(Debug)]
@@ -12,7 +12,9 @@ pub type InitFn = fn(usize, *mut usize) -> !;
 
 impl RegContext {
     pub fn empty() -> RegContext {
-        RegContext { regs: Registers::new() }
+        RegContext {
+            regs: Registers::new(),
+        }
     }
 
     #[inline]
@@ -45,7 +47,9 @@ impl RegContext {
     pub fn swap(out_context: &mut RegContext, in_context: &RegContext) {
         // debug!("swapping contexts");
         let out_regs: &mut Registers = match *out_context {
-            RegContext { regs: ref mut r, .. } => r,
+            RegContext {
+                regs: ref mut r, ..
+            } => r,
         };
         let in_regs: &Registers = match *in_context {
             RegContext { regs: ref r, .. } => r,
@@ -98,10 +102,12 @@ mod test {
         }
 
         let stk = Stack::new(MIN_STACK);
-        let ctx = RegContext::new(init_fn,
-                                  unsafe { transmute(&cur) },
-                                  unsafe { transmute(callback as usize) },
-                                  &stk);
+        let ctx = RegContext::new(
+            init_fn,
+            unsafe { transmute(&cur) },
+            unsafe { transmute(callback as usize) },
+            &stk,
+        );
 
         RegContext::swap(&mut cur, &ctx);
         unsafe {
