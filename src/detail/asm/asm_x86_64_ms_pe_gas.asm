@@ -55,6 +55,12 @@ swap_registers:
     movapd %xmm7, (18*8)(%r10)
     movapd %xmm8, (20*8)(%r10)
     movapd %xmm9, (22*8)(%r10)
+    movapd %xmm10, (24*8)(%r10)
+    movapd %xmm11, (26*8)(%r10)
+    movapd %xmm12, (28*8)(%r10)
+    movapd %xmm13, (30*8)(%r10)
+    movapd %xmm14, (32*8)(%r10)
+    movapd %xmm15, (34*8)(%r10)
     
     /* load NT_TIB */
     movq %gs:(0x30), %r10
@@ -91,6 +97,12 @@ swap_registers:
     movapd (18*8)(%r10), %xmm7
     movapd (20*8)(%r10), %xmm8
     movapd (22*8)(%r10), %xmm9
+    movapd (24*8)(%r10), %xmm10
+    movapd (26*8)(%r10), %xmm11
+    movapd (28*8)(%r10), %xmm12
+    movapd (30*8)(%r10), %xmm13
+    movapd (32*8)(%r10), %xmm14
+    movapd (34*8)(%r10), %xmm15
     
     /* load NT_TIB */
     movq  %gs:(0x30), %r10

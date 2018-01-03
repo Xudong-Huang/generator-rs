@@ -36,6 +36,12 @@ swap_registers PROC FRAME
     movapd [r10 + 18*8], xmm7
     movapd [r10 + 20*8], xmm8
     movapd [r10 + 22*8], xmm9
+    movapd [r10 + 24*8], xmm10
+    movapd [r10 + 26*8], xmm11
+    movapd [r10 + 28*8], xmm12
+    movapd [r10 + 30*8], xmm13
+    movapd [r10 + 32*8], xmm14
+    movapd [r10 + 34*8], xmm15
 
     ; load NT_TIB
     mov r10, gs:[030h]
@@ -72,6 +78,12 @@ swap_registers PROC FRAME
     movapd xmm7, [r10 + 18*8]
     movapd xmm8, [r10 + 20*8]
     movapd xmm9, [r10 + 22*8]
+    movapd xmm10, [r10 + 24*8]
+    movapd xmm11, [r10 + 26*8]
+    movapd xmm12, [r10 + 28*8]
+    movapd xmm13, [r10 + 30*8]
+    movapd xmm14, [r10 + 32*8]
+    movapd xmm15, [r10 + 34*8]
 
     ; load NT_TIB
     mov r10, gs:[030h]

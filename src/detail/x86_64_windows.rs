@@ -70,6 +70,12 @@ mod asm {
             movapd %xmm7, (18*8)(%rcx)
             movapd %xmm8, (20*8)(%rcx)
             movapd %xmm9, (22*8)(%rcx)
+            movapd %xmm10, (24*8)(%rcx)
+            movapd %xmm11, (26*8)(%rcx)
+            movapd %xmm12, (28*8)(%rcx)
+            movapd %xmm13, (30*8)(%rcx)
+            movapd %xmm14, (32*8)(%rcx)
+            movapd %xmm15, (34*8)(%rcx)
     
             /* load NT_TIB */
             movq  %gs:(0x30), %r10
@@ -103,6 +109,12 @@ mod asm {
             movapd (18*8)(%rdx), %xmm7
             movapd (20*8)(%rdx), %xmm8
             movapd (22*8)(%rdx), %xmm9
+            movapd (24*8)(%rdx), %xmm10
+            movapd (26*8)(%rdx), %xmm11
+            movapd (28*8)(%rdx), %xmm12
+            movapd (30*8)(%rdx), %xmm13
+            movapd (32*8)(%rdx), %xmm14
+            movapd (34*8)(%rdx), %xmm15
     
             /* load NT_TIB */
             movq  %gs:(0x30), %r10
@@ -148,14 +160,14 @@ impl XMM {
 pub struct Registers {
     gpr: [usize; 16],
     // keep enough for place holder
-    _xmm: [XMM; 4],
+    _xmm: [XMM; 10],
 }
 
 impl Registers {
     pub fn new() -> Registers {
         Registers {
             gpr: [0; 16],
-            _xmm: [XMM::new(0, 0, 0, 0); 4],
+            _xmm: [XMM::new(0, 0, 0, 0); 10],
         }
     }
 
