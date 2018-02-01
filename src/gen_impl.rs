@@ -226,13 +226,6 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.context.err.take()
     }
 
-    /// get the _ref pointer, this is used for coroutine cancel
-    /// don't call this function for a normal generator!!
-    #[inline]
-    pub unsafe fn get_ref_ptr(&mut self) -> *mut u32 {
-        &self.context._ref as *const _ as *mut _
-    }
-
     /// resume the generator without touch the para
     /// you should call `set_para` before this method
     #[inline]
