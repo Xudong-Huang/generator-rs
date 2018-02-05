@@ -1,14 +1,6 @@
-use detail::{align_down, mut_offset};
+// use detail::{align_down, mut_offset};
 use reg_context::InitFn;
-use stack::Stack;
-
-#[cfg(not(nightly))]
-#[link(name = "asm", kind = "static")]
-extern "C" {
-    pub fn bootstrap_green_task();
-    pub fn prefetch_asm(data: *const usize);
-    pub fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers);
-}
+use stack::{Stack, StackPointer};
 
 #[allow(dead_code)]
 #[inline]
@@ -18,214 +10,130 @@ pub fn prefetch(data: *const usize) {
     }
 }
 
-#[cfg(nightly)]
-mod asm {
-    use super::Registers;
-    /// prefetch data
-    #[inline]
-    pub unsafe fn prefetch_asm(data: *const usize) {
-        asm!("prefetcht1 $0"
+/// prefetch data
+#[inline]
+pub unsafe fn prefetch_asm(data: *const usize) {
+    asm!("prefetcht1 $0"
              : // no output
              : "m"(*data)
              :
              : "volatile");
-    }
-
-    #[inline(never)]
-    #[naked]
-    pub unsafe extern "C" fn bootstrap_green_task() {
-        asm!("
-            mov %r12, %rcx     // setup the function arg
-            mov %r13, %rdx     // setup the function arg
-            mov %r14, 8(%rsp)  // this is the new return adrress
-        "
-        : // no output
-        : // no input
-        : "memory"
-        : "volatile");
-    }
-
-    #[inline(never)]
-    #[naked]
-    pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
-        // The first argument is in %rcx, and the second one is in %rdx
-
-        // Save registers
-        asm!("
-            mov %rbx, (0*8)(%rcx)
-            mov %rsp, (1*8)(%rcx)
-            mov %rbp, (2*8)(%rcx)
-            mov %r12, (4*8)(%rcx)
-            mov %r13, (5*8)(%rcx)
-            mov %r14, (6*8)(%rcx)
-            mov %r15, (7*8)(%rcx)
-            mov %rdi, (9*8)(%rcx)
-            mov %rsi, (10*8)(%rcx)
-
-            // mov %rcx, %r10
-            // and $$0xf0, %r10b
-    
-            // Save non-volatile XMM registers:
-            movapd %xmm6, (16*8)(%rcx)
-            movapd %xmm7, (18*8)(%rcx)
-            movapd %xmm8, (20*8)(%rcx)
-            movapd %xmm9, (22*8)(%rcx)
-            movapd %xmm10, (24*8)(%rcx)
-            movapd %xmm11, (26*8)(%rcx)
-            movapd %xmm12, (28*8)(%rcx)
-            movapd %xmm13, (30*8)(%rcx)
-            movapd %xmm14, (32*8)(%rcx)
-            movapd %xmm15, (34*8)(%rcx)
-    
-            /* load NT_TIB */
-            movq  %gs:(0x30), %r10
-            /* save current stack base */
-            movq  0x08(%r10), %rax
-            mov  %rax, (11*8)(%rcx)
-            /* save current stack limit */
-            movq  0x10(%r10), %rax
-             mov  %rax, (12*8)(%rcx)
-            /* save current deallocation stack */
-            movq  0x1478(%r10), %rax
-            mov  %rax, (13*8)(%rcx)
-            /* save fiber local storage */
-            // movq  0x18(%r10), %rax
-            // mov  %rax, (14*8)(%rcx)
-    
-            mov %rcx, (3*8)(%rcx)
-    
-            mov (0*8)(%rdx), %rbx
-            mov (1*8)(%rdx), %rsp
-            mov (2*8)(%rdx), %rbp
-            mov (4*8)(%rdx), %r12
-            mov (5*8)(%rdx), %r13
-            mov (6*8)(%rdx), %r14
-            mov (7*8)(%rdx), %r15
-            mov (9*8)(%rdx), %rdi
-            mov (10*8)(%rdx), %rsi
-    
-            // Restore non-volatile XMM registers:
-            movapd (16*8)(%rdx), %xmm6
-            movapd (18*8)(%rdx), %xmm7
-            movapd (20*8)(%rdx), %xmm8
-            movapd (22*8)(%rdx), %xmm9
-            movapd (24*8)(%rdx), %xmm10
-            movapd (26*8)(%rdx), %xmm11
-            movapd (28*8)(%rdx), %xmm12
-            movapd (30*8)(%rdx), %xmm13
-            movapd (32*8)(%rdx), %xmm14
-            movapd (34*8)(%rdx), %xmm15
-    
-            /* load NT_TIB */
-            movq  %gs:(0x30), %r10
-            /* restore fiber local storage */
-            // mov (14*8)(%rdx), %rax
-            // movq  %rax, 0x18(%r10)
-            /* restore deallocation stack */
-            mov (13*8)(%rdx), %rax
-            movq  %rax, 0x1478(%r10)
-            /* restore stack limit */
-            mov (12*8)(%rdx), %rax
-            movq  %rax, 0x10(%r10)
-            /* restore stack base */
-            mov  (11*8)(%rdx), %rax
-            movq  %rax, 0x8(%r10)
-    
-            mov (3*8)(%rdx), %rcx
-        "
-        :
-        : "{rcx}"(out_regs), "{rdx}"(in_regs)
-        : "memory"
-        : "volatile");
-    }
-}
-#[cfg(nightly)]
-pub use self::asm::*;
-
-#[cfg_attr(nightly, repr(simd))]
-#[cfg_attr(not(nightly), repr(C))]
-#[allow(non_camel_case_types)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-struct XMM(u32, u32, u32, u32);
-
-impl XMM {
-    pub fn new(a: u32, b: u32, c: u32, d: u32) -> Self {
-        XMM(a, b, c, d)
-    }
 }
 
-// windows need to restore xmm6~xmm15, for most cases only use two xmm registers
+#[inline(always)]
+pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
+    unimplemented!()
+}
+
+pub unsafe fn initialize_call_frame(
+    stack_base: *mut u8,
+    f: unsafe fn(usize, StackPointer),
+) -> StackPointer {
+    #[naked]
+    unsafe extern "C" fn trampoline_1() {
+        asm!(
+      r#"
+        # This nop is here so that the initial swap doesn't return to the start
+        # of the trampoline, which confuses the unwinder since it will look for
+        # frame information in the previous symbol rather than this one. It is
+        # never actually executed.
+        nop
+
+        # Stack unwinding in some versions of libunwind doesn't seem to like
+        # 1-byte symbols, so we add a second nop here. This instruction isn't
+        # executed either, it is only here to pad the symbol size.
+        nop
+      "#
+      : : : : "volatile")
+    }
+
+    #[naked]
+    unsafe extern "C" fn trampoline_2() {
+        asm!(
+      r#"
+        # This nop is here so that the return address of the swap trampoline
+        # doesn't point to the start of the symbol. This confuses gdb's backtraces,
+        # causing them to think the parent function is trampoline_1 instead of
+        # trampoline_2.
+        nop
+
+        # Call with the provided function
+        call    *16(%rsp)
+
+        # Restore the stack pointer of the parent context. No CFI adjustments
+        # are needed since we have the same stack frame as trampoline_1.
+        movq    (%rsp), %rsp
+
+        # Restore frame pointer of the parent context.
+        popq    %rbp
+
+        # Clear the stack pointer. We can't call into this context any more once
+        # the function has returned.
+        xorq    %rdx, %rdx
+
+        # Return into the parent context. Use `pop` and `jmp` instead of a `ret`
+        # to avoid return address mispredictions (~8ns per `ret` on Ivy Bridge).
+        popq    %rax
+        jmpq    *%rax
+      "#
+      : : : : "volatile")
+    }
+
+    // We set up the stack in a somewhat special way so that to the unwinder it
+    // looks like trampoline_1 has called trampoline_2, which has in turn called
+    // swap::trampoline.
+    //
+    // There are 2 call frames in this setup, each containing the return address
+    // followed by the %rbp value for that frame. This setup supports unwinding
+    // using DWARF CFI as well as the frame pointer-based unwinding used by tools
+    // such as perf or dtrace.
+    let mut sp = StackPointer::new(stack_base);
+
+    sp.push(0 as usize); // Padding to ensure the stack is properly aligned
+    sp.push(f as usize); // Function that trampoline_2 should call
+
+    // Call frame for trampoline_2. The CFA slot is updated by swap::trampoline
+    // each time a context switch is performed.
+    sp.push(trampoline_1 as usize + 2); // Return after the 2 nops
+    sp.push(0xdeaddeaddead0cfa); // CFA slot
+
+    // Call frame for swap::trampoline. We set up the %rbp value to point to the
+    // parent call frame.
+    let frame = sp.offset(0);
+    sp.push(trampoline_2 as usize + 1); // Entry point, skip initial nop
+    sp.push(frame as usize); // Pointer to parent call frame
+
+    sp
+}
+
 #[repr(C)]
 #[derive(Debug)]
 pub struct Registers {
-    gpr: [usize; 16],
-    // keep enough for place holder
-    _xmm: [XMM; 10],
+    // 0: rsp
+    // 1~3: tib
+    gpr: [usize; 4],
 }
 
 impl Registers {
     pub fn new() -> Registers {
-        Registers {
-            gpr: [0; 16],
-            _xmm: [XMM::new(0, 0, 0, 0); 10],
-        }
+        Registers { gpr: [0; 4] }
     }
 
     #[inline]
     pub fn prefetch(&self) {
         unsafe {
             prefetch_asm(self as *const _ as *const usize);
-            prefetch_asm(self.gpr[1] as *const usize);
+            prefetch_asm(self.gpr[0] as *const usize);
         }
     }
 }
 
-pub fn initialize_call_frame(
-    regs: &mut Registers,
-    fptr: InitFn,
-    arg: usize,
-    arg2: *mut usize,
-    stack: &Stack,
-) {
-    // Redefinitions from rt/arch/x86_64/regs.h
-    const RUSTRT_RSP: usize = 1;
-    const RUSTRT_RBP: usize = 2;
-    const RUSTRT_R12: usize = 4;
-    const RUSTRT_R13: usize = 5;
-    const RUSTRT_R14: usize = 6;
-    const RUSTRT_STACK_BASE: usize = 11;
-    const RUSTRT_STACK_LIMIT: usize = 12;
-    const RUSTRT_STACK_DEALLOC: usize = 13;
-
-    let sp = align_down(stack.end());
-
-    // These registers are frobbed by rust_bootstrap_green_task into the right
-    // location so we can invoke the "real init function", `fptr`.
-    regs.gpr[RUSTRT_R12] = arg;
-    regs.gpr[RUSTRT_R13] = arg2 as usize;
-    regs.gpr[RUSTRT_R14] = fptr as usize;
-
-    // These registers are picked up by the regular context switch paths. These
-    // will put us in "mostly the right context" except for frobbing all the
-    // arguments to the right place. We have the small trampoline code inside of
-    // rust_bootstrap_green_task to do that.
-    regs.gpr[RUSTRT_RSP] = mut_offset(sp, -4) as usize;
-
-    // Last base pointer on the stack should be 0
-    regs.gpr[RUSTRT_RBP] = 0;
-
-    regs.gpr[RUSTRT_STACK_BASE] = stack.end() as usize;
-    regs.gpr[RUSTRT_STACK_LIMIT] = stack.begin() as usize;
-    regs.gpr[RUSTRT_STACK_DEALLOC] = 0; //mut_offset(sp, -8192) as usize;
-
-    // setup the init stack
-    // this is prepared for the swap context
-    // different platform/debug has different offset between sp and ret
-    unsafe {
-        *mut_offset(sp, -4) = bootstrap_green_task as usize;
-        *mut_offset(sp, -3) = bootstrap_green_task as usize;
-        // leave enough space for RET
-        *mut_offset(sp, -2) = 0;
-        *mut_offset(sp, -1) = 0;
-    }
-}
+// pub fn initialize_call_frame(
+//     regs: &mut Registers,
+//     fptr: InitFn,
+//     arg: usize,
+//     arg2: *mut usize,
+//     stack: &Stack,
+// ) {
+//     unimplemented!()
+// }

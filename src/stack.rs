@@ -90,3 +90,24 @@ impl Stack {
         self.buf.ptr()
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct StackPointer(NonNull<usize>);
+
+impl StackPointer {
+    #[inline(always)]
+    pub unsafe fn push(&mut self, val: usize) {
+        self.0 = NonNull::new_unchecked(self.0.as_ptr().offset(-1));
+        *self.0.as_mut() = val;
+    }
+
+    #[inline(always)]
+    pub unsafe fn new(sp: *mut u8) -> StackPointer {
+        StackPointer(NonNull::new_unchecked(sp as *mut usize))
+    }
+
+    #[inline(always)]
+    pub unsafe fn offset(&self, count: isize) -> *mut usize {
+        self.0.as_ptr().offset(count)
+    }
+}
