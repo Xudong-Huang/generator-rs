@@ -11,11 +11,18 @@ use reg_context::RegContext;
 
 /// each thread has it's own generator context stack
 thread_local!(static ROOT_CONTEXT: Box<Context> = {
-    let mut root = Box::new(Context::new(0));
+    let mut root = Box::new(Context::empty());
     let p = &mut *root as *mut _;
     root.parent = p; // init top to current
     root
 });
+
+// fast access pointer, this is will be init only once
+// when ROOT_CONTEXT get inialized. but in debug mode it
+// will be zero in generator context since the stack changed
+// to a different place, be careful about that.
+#[thread_local]
+static mut ROOT_CONTEXT_P: *mut Context = ptr::null_mut();
 
 /// yield panic error types
 #[allow(dead_code)]
@@ -55,6 +62,21 @@ pub struct Context {
 }
 
 impl Context {
+    // create for root empty context
+    fn empty() -> Self {
+        Context {
+            regs: RegContext::empty(),
+            stack: Stack::empty(),
+            para: unsafe { mem::uninitialized() },
+            ret: unsafe { mem::uninitialized() },
+            _ref: 1, // none zero means it's not running
+            err: None,
+            child: ptr::null_mut(),
+            parent: ptr::null_mut(),
+            local_data: ptr::null_mut(),
+        }
+    }
+
     /// return a default generator context
     pub fn new(size: usize) -> Context {
         Context {
@@ -111,8 +133,16 @@ pub struct ContextStack {
 impl ContextStack {
     #[inline]
     pub fn current() -> ContextStack {
-        let root = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
-        ContextStack { root: root }
+        use std::intrinsics::unlikely;
+        unsafe {
+            if unlikely(ROOT_CONTEXT_P.is_null()) {
+                ROOT_CONTEXT_P = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
+            }
+
+            ContextStack {
+                root: ROOT_CONTEXT_P,
+            }
+        }
     }
 
     /// get the top context

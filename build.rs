@@ -34,7 +34,11 @@ fn main() {
     let abi = match arch {
         "arm" | "arm64" => "aapcs",
         "mips32" => "o32",
-        _ => if is_win { "ms" } else { "sysv" },
+        _ => if is_win {
+            "ms"
+        } else {
+            "sysv"
+        },
     };
 
     let format = if is_win {

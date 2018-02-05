@@ -1,5 +1,5 @@
 extern crate generator;
-use generator::{Gn, get_yield, yield_with};
+use generator::{get_yield, yield_with, Gn};
 
 fn sum(a: u32) -> u32 {
     let mut sum = a;

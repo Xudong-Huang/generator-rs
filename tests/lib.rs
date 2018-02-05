@@ -221,7 +221,7 @@ fn test_loop_drop() {
 
 #[test]
 fn test_panic_inside() {
-    use std::panic::{AssertUnwindSafe, catch_unwind};
+    use std::panic::{catch_unwind, AssertUnwindSafe};
     let mut x = 10;
     {
         let mut wrapper = AssertUnwindSafe(&mut x);
@@ -243,7 +243,6 @@ fn test_panic_inside() {
 
     assert!(x == 5);
 }
-
 
 #[test]
 #[allow(unreachable_code)]
@@ -380,7 +379,7 @@ fn test_yield_from_send_type_miss_match() {
     let n = g.send(0);
     assert!(n == 0);
     assert!(g.is_done());
-}/*
+} /*
 
 // windows has it's own check, this test would make the app abort
 #[test]

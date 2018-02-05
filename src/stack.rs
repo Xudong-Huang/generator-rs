@@ -21,11 +21,19 @@ pub struct Stack {
 }
 
 impl Stack {
+    pub fn empty() -> Stack {
+        Stack {
+            buf: RawVec::with_capacity(0),
+        }
+    }
+
     /// Allocate a new stack of `size`. If size = 0, this is a `dummy_stack`
     pub fn new(size: usize) -> Stack {
+        assert_ne!(size, 0);
+
         let mut size = size;
         // the minimal size
-        if size != 0 && size < MIN_STACK_SIZE {
+        if size < MIN_STACK_SIZE {
             size = MIN_STACK_SIZE;
         }
 

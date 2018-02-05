@@ -21,27 +21,23 @@ fn main() {
         let mut state = Stopped;
         loop {
             match state {
-                Stopped => {
-                    match s.get_yield() {
-                        Some(Play(t)) => {
-                            println!("I'm playing {}", t);
-                            state = Playing;
-                        }
-                        Some(Stop) => println!("I'm already stopped"),
-                        _ => unreachable!("some thing wrong"),
+                Stopped => match s.get_yield() {
+                    Some(Play(t)) => {
+                        println!("I'm playing {}", t);
+                        state = Playing;
                     }
-                }
+                    Some(Stop) => println!("I'm already stopped"),
+                    _ => unreachable!("some thing wrong"),
+                },
 
-                Playing => {
-                    match s.get_yield() {
-                        Some(Stop) => {
-                            println!("I'm stopped");
-                            state = Stopped;
-                        }
-                        Some(Play(_)) => println!("should first stop"),
-                        _ => unreachable!("some thing wrong"),
+                Playing => match s.get_yield() {
+                    Some(Stop) => {
+                        println!("I'm stopped");
+                        state = Stopped;
                     }
-                }
+                    Some(Play(_)) => println!("should first stop"),
+                    _ => unreachable!("some thing wrong"),
+                },
             }
 
             s.yield_with(state);

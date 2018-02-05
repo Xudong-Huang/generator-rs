@@ -24,7 +24,9 @@ fn main() {
         println!("{}", i);
     }
 
-    (0..10000).filter(|n| factors(*n).sum::<u32>() == *n).fold((), |_, n| {
-        println!("n = {}", n);
-    })
+    (0..10000)
+        .filter(|n| factors(*n).sum::<u32>() == *n)
+        .fold((), |_, n| {
+            println!("n = {}", n);
+        })
 }

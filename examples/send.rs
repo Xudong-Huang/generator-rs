@@ -1,6 +1,6 @@
 extern crate generator;
 use std::mem;
-use generator::{Gn, yield_};
+use generator::{yield_, Gn};
 
 fn sum(a: u32) -> u32 {
     let mut sum = a;
@@ -26,7 +26,7 @@ fn main() {
         // println!("send={}", last);
         mem::swap(&mut cur, &mut last);
         cur = s.send(cur); // s += cur
-        // println!("cur={} last={}", cur, last);
+                           // println!("cur={} last={}", cur, last);
         println!("{}", cur);
     }
 }
