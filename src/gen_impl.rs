@@ -10,24 +10,14 @@ use std::any::Any;
 use std::marker::PhantomData;
 
 use scope::Scope;
-use yield_::yield_now;
-use rt::{Context, ContextStack, Error};
+use stack::StackPointer;
 use reg_context::RegContext;
+use rt::{Context, ContextStack, Error};
+use no_drop::{decode_usize, encode_usize, NoDrop};
 
 // default stack size, in usize
 // windows has a minimal size as 0x4a8!!!!
 pub const DEFAULT_STACK_SIZE: usize = 0x1000;
-
-trait FnBox {
-    fn call_box(self: Box<Self>);
-}
-
-impl<F: FnOnce()> FnBox for F {
-    #[cfg_attr(feature = "cargo-clippy", allow(boxed_local))]
-    fn call_box(self: Box<Self>) {
-        self()
-    }
-}
 
 /// Generator helper
 pub struct Gn<A> {
@@ -91,9 +81,10 @@ pub struct GeneratorImpl<'a, A, T> {
     // save the input
     para: Option<A>,
     // save the output
+    // no need to save here, yield should return it
     ret: Option<T>,
-    // boxed functor
-    f: Option<Box<FnBox + 'a>>,
+    // phantom
+    phantom: PhantomData<&'a u8>,
 }
 
 impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
@@ -110,8 +101,8 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         Box::new(GeneratorImpl {
             para: None,
             ret: None,
-            f: None,
             context: Context::new(size),
+            phantom: PhantomData,
         })
     }
 
@@ -126,6 +117,20 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         Scope::new(&mut self.para, &mut self.ret)
     }
 
+    /// prefech the generator into cache
+    #[inline]
+    fn return_wrap<F: FnOnce() + 'a>(&mut self, f: F) {
+        let stk = &self.context.stack;
+        self.context.regs.init_with(gen_wrapper::<F, A>, stk);
+
+        // Transfer environment to the callee.
+        let _f = NoDrop::new(f);
+        let _arg = unsafe { encode_usize(&_f) };
+        //  self.resume_gen()
+        // for the first time, the arg is f that transfer to the callee stack
+        //  let stack_ptr = arch::swap_link(encode_usize(&f), stack_ptr, stack.base()).1;
+    }
+
     /// init a heap based generator
     // it's can be used to re-init a 'done' generator before it's get dropped
     pub fn init<F: FnOnce() -> T + 'a>(&mut self, f: F)
@@ -133,7 +138,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         T: 'a,
     {
         // make sure the last one is finished
-        if self.f.is_none() && self.context._ref == 0 {
+        if self.context._ref == 0 {
             unsafe {
                 self.cancel();
             }
@@ -144,10 +149,10 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         // init the ref to 0 means that it's ready to start
         self.context._ref = 0;
+
         let ret = &mut self.ret as *mut _;
         let contex = &mut self.context as *mut Context;
-        // windows box::new is quite slow than unix
-        self.f = Some(Box::new(move || {
+        self.return_wrap(move || {
             let r = f();
             let ret = unsafe { &mut *ret };
             let _ref = unsafe { (*contex)._ref };
@@ -156,12 +161,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             } else {
                 *ret = Some(r); // normal return
             }
-        }));
-
-        let stk = &self.context.stack;
-        self.context
-            .regs
-            .init_with(gen_init, 0, &mut self.f as *mut _ as *mut usize, stk);
+        });
     }
 
     /// resume the generator
@@ -198,8 +198,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     #[inline]
     fn is_started(&self) -> bool {
-        // when the f is consumed we think it's running
-        self.f.is_none()
+        true
     }
 
     /// prepare the para that passed into generator before send
@@ -288,8 +287,8 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         }
 
         // consume the fun if it's not started
+        // TODO: when init is called, it's always started!
         if !self.is_started() {
-            self.f.take();
             self.context._ref = 1;
         } else {
             self.raw_cancel();
@@ -370,15 +369,11 @@ impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
     }
 }
 
-/// the init function passed to reg_context
-fn gen_init(_: usize, f: *mut usize) -> ! {
-    let clo = move || {
-        // consume self.f
-        let f: &mut Option<Box<FnBox>> = unsafe { &mut *(f as *mut _) };
-        let func = f.take().unwrap();
-        func.call_box();
-    };
-
+// the init function passed to reg_context
+//
+// the first arg is the env data
+// the second arg is the peer stack pointer
+fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, _sp: StackPointer) {
     fn check_err(cause: Box<Any + Send + 'static>) {
         match cause.downcast_ref::<Error>() {
             // this is not an error at all, ignore it
@@ -389,13 +384,27 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
         ContextStack::current().top().err = Some(cause);
     }
 
+    // Retrieve our environment from the caller and return control to it.
+    let f: F = unsafe { decode_usize(env) };
+    // the first invoke doesn't necessarily pass in anything
+    // just for init and return to the parent caller
+    // let (data, stack_ptr) = arch::swap(0, stack_ptr);
+
+    // the first data is only for start the generator and is not used
+    // TODO: how to use the second returned data here?
+    // actually it's saved in the generator
+    // let data: Input = yield_now();
+    // See the second half of Yielder::suspend_bare.
+    // let input: Input = decode_usize(data);
+    // Run the body of the generator.
+    // let yielder = Yielder::new(stack_ptr);
+
     // we can't panic inside the generator context
     // need to propagate the panic to the main thread
-    if let Err(cause) = panic::catch_unwind(clo) {
+    if let Err(cause) = panic::catch_unwind(panic::AssertUnwindSafe(f)) {
         check_err(cause);
     }
 
-    yield_now();
-
-    unreachable!("Should never comeback");
+    // return to caller by assembly code!
+    // after finished the control will be in caller's stack
 }

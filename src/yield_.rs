@@ -21,14 +21,6 @@ pub fn done<T>() -> T {
     unsafe { ::std::mem::uninitialized() }
 }
 
-/// switch back to parent context
-#[inline]
-pub fn yield_now() {
-    let env = ContextStack::current();
-    let cur = env.top();
-    raw_yield_now(&env, cur);
-}
-
 #[inline]
 pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
     let parent = env.pop_context(cur as *mut _);

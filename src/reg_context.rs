@@ -1,5 +1,5 @@
 use detail::{initialize_call_frame, swap_registers, Registers};
-use stack::Stack;
+use stack::{Stack, StackPointer};
 
 #[derive(Debug)]
 pub struct RegContext {
@@ -7,8 +7,10 @@ pub struct RegContext {
     regs: Registers,
 }
 
-// first argument is task handle, second is thunk ptr
-pub type InitFn = fn(usize, *mut usize) -> !;
+// the first argument is passed in through swap(resume) function
+// the seconde argments is the target sp address
+// this must keep the same interface as swap defined
+pub type InitFn = unsafe fn(usize, StackPointer);
 
 impl RegContext {
     pub fn empty() -> RegContext {
@@ -24,18 +26,18 @@ impl RegContext {
 
     /// Create a new context
     #[allow(dead_code)]
-    pub fn new(init: InitFn, arg: usize, start: *mut usize, stack: &Stack) -> RegContext {
+    pub fn new(init: InitFn, stack: &Stack) -> RegContext {
         let mut ctx = RegContext::empty();
-        ctx.init_with(init, arg, start, stack);
+        ctx.init_with(init, stack);
         ctx
     }
 
     /// init the generator register
     #[inline]
-    pub fn init_with(&mut self, init: InitFn, arg: usize, start: *mut usize, stack: &Stack) {
+    pub fn init_with(&mut self, init: InitFn, stack: &Stack) {
         // Save and then immediately load the current context,
         // which we will then modify to call the given function when restoredtack
-        initialize_call_frame(&mut self.regs, init, arg, start, stack);
+        unsafe { initialize_call_frame(&mut self.regs, init, stack) };
     }
 
     /// Switch contexts
@@ -73,21 +75,16 @@ impl RegContext {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use std::mem::transmute;
-
-    use stack::Stack;
-    use reg_context::RegContext;
-
     const MIN_STACK: usize = 2 * 1024 * 1024;
 
-    fn init_fn(arg: usize, f: *mut usize) -> ! {
-        let func: fn() = unsafe { transmute(f) };
+    // this target funcion call
+    // the argument is passed in through the first swap
+    fn init_fn(env: usize, _sp: StackPointer) {
+        let func: fn() = unsafe { transmute(env) };
         func();
-
-        let ctx: &RegContext = unsafe { transmute(arg) };
-        RegContext::load(ctx);
-
-        unreachable!("Should never comeback");
+        // after this will return to the caller
     }
 
     #[test]
@@ -95,19 +92,15 @@ mod test {
         static mut VAL: bool = false;
         let mut cur = RegContext::empty();
 
-        fn callback() {
-            unsafe {
-                VAL = true;
-            }
-        }
+        // fn callback() {
+        //     unsafe {
+        //         VAL = true;
+        //     }
+        // }
 
         let stk = Stack::new(MIN_STACK);
-        let ctx = RegContext::new(
-            init_fn,
-            unsafe { transmute(&cur) },
-            unsafe { transmute(callback as usize) },
-            &stk,
-        );
+        // TODO: how to to pass the callback to ctx?
+        let ctx = RegContext::new(init_fn, &stk);
 
         RegContext::swap(&mut cur, &ctx);
         unsafe {

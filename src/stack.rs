@@ -2,7 +2,7 @@
 //!
 //!
 
-use std::ptr;
+use std::ptr::{self, NonNull};
 
 #[cfg(nightly)]
 use alloc::raw_vec::RawVec;
@@ -102,7 +102,7 @@ impl StackPointer {
     }
 
     #[inline(always)]
-    pub unsafe fn new(sp: *mut u8) -> StackPointer {
+    pub unsafe fn new(sp: *mut usize) -> StackPointer {
         StackPointer(NonNull::new_unchecked(sp as *mut usize))
     }
 

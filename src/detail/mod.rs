@@ -31,16 +31,16 @@ pub mod asm;
 
 pub use self::asm::{initialize_call_frame, prefetch, swap_registers, Registers};
 
-#[inline]
-fn align_down(sp: *mut usize) -> *mut usize {
-    let sp = (sp as usize) & !(16 - 1);
-    sp as *mut usize
-}
+// #[inline]
+// fn align_down(sp: *mut usize) -> *mut usize {
+//     let sp = (sp as usize) & !(16 - 1);
+//     sp as *mut usize
+// }
 
-// ptr::mut_offset is positive isizes only
-#[inline]
-fn mut_offset<T>(ptr: *mut T, count: isize) -> *mut T {
-    // use std::mem::size_of;
-    // (ptr as isize + count * (size_of::<T>() as isize)) as *mut T
-    unsafe { ptr.offset(count) }
-}
+// // ptr::mut_offset is positive isizes only
+// #[inline]
+// fn mut_offset<T>(ptr: *mut T, count: isize) -> *mut T {
+//     // use std::mem::size_of;
+//     // (ptr as isize + count * (size_of::<T>() as isize)) as *mut T
+//     unsafe { ptr.offset(count) }
+// }

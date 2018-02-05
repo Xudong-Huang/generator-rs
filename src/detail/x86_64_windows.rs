@@ -21,14 +21,11 @@ pub unsafe fn prefetch_asm(data: *const usize) {
 }
 
 #[inline(always)]
-pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
+pub unsafe extern "C" fn swap_registers(_out_regs: *mut Registers, _in_regs: *const Registers) {
     unimplemented!()
 }
 
-pub unsafe fn initialize_call_frame(
-    stack_base: *mut u8,
-    f: unsafe fn(usize, StackPointer),
-) -> StackPointer {
+pub unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &Stack) {
     #[naked]
     unsafe extern "C" fn trampoline_1() {
         asm!(
@@ -87,10 +84,10 @@ pub unsafe fn initialize_call_frame(
     // followed by the %rbp value for that frame. This setup supports unwinding
     // using DWARF CFI as well as the frame pointer-based unwinding used by tools
     // such as perf or dtrace.
-    let mut sp = StackPointer::new(stack_base);
+    let mut sp = StackPointer::new(stack.end());
 
-    sp.push(0 as usize); // Padding to ensure the stack is properly aligned
-    sp.push(f as usize); // Function that trampoline_2 should call
+    sp.push(0usize); // Padding to ensure the stack is properly aligned
+    sp.push(fptr as usize); // Function that trampoline_2 should call
 
     // Call frame for trampoline_2. The CFA slot is updated by swap::trampoline
     // each time a context switch is performed.
@@ -103,7 +100,8 @@ pub unsafe fn initialize_call_frame(
     sp.push(trampoline_2 as usize + 1); // Entry point, skip initial nop
     sp.push(frame as usize); // Pointer to parent call frame
 
-    sp
+    // save the sp in register
+    regs.reg[0] = sp.offset(0) as usize;
 }
 
 #[repr(C)]
@@ -111,29 +109,19 @@ pub unsafe fn initialize_call_frame(
 pub struct Registers {
     // 0: rsp
     // 1~3: tib
-    gpr: [usize; 4],
+    reg: [usize; 4],
 }
 
 impl Registers {
     pub fn new() -> Registers {
-        Registers { gpr: [0; 4] }
+        Registers { reg: [0; 4] }
     }
 
     #[inline]
     pub fn prefetch(&self) {
         unsafe {
             prefetch_asm(self as *const _ as *const usize);
-            prefetch_asm(self.gpr[0] as *const usize);
+            prefetch_asm(self.reg[0] as *const usize);
         }
     }
 }
-
-// pub fn initialize_call_frame(
-//     regs: &mut Registers,
-//     fptr: InitFn,
-//     arg: usize,
-//     arg2: *mut usize,
-//     stack: &Stack,
-// ) {
-//     unimplemented!()
-// }

@@ -9,6 +9,7 @@
 #![cfg_attr(nightly, feature(core_intrinsics))]
 #![cfg_attr(nightly, feature(repr_simd))]
 #![cfg_attr(nightly, feature(thread_local))]
+#![cfg_attr(nightly, feature(untagged_unions))]
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
 
@@ -24,6 +25,7 @@ mod scope;
 mod stack;
 mod detail;
 mod yield_;
+mod no_drop;
 mod gen_impl;
 mod reg_context;
 
