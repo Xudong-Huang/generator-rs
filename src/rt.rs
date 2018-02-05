@@ -21,6 +21,7 @@ thread_local!(static ROOT_CONTEXT: Box<Context> = {
 // when ROOT_CONTEXT get inialized. but in debug mode it
 // will be zero in generator context since the stack changed
 // to a different place, be careful about that.
+#[cfg(nightly)]
 #[thread_local]
 static mut ROOT_CONTEXT_P: *mut Context = ptr::null_mut();
 
@@ -130,19 +131,32 @@ pub struct ContextStack {
     root: *mut Context,
 }
 
+#[cfg(nightly)]
+#[cold]
+#[inline(never)]
+unsafe fn init_root_p() {
+    ROOT_CONTEXT_P = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
+}
+
 impl ContextStack {
+    #[cfg(nightly)]
     #[inline]
     pub fn current() -> ContextStack {
-        use std::intrinsics::unlikely;
         unsafe {
-            if unlikely(ROOT_CONTEXT_P.is_null()) {
-                ROOT_CONTEXT_P = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
+            if ROOT_CONTEXT_P.is_null() {
+                init_root_p();
             }
-
             ContextStack {
                 root: ROOT_CONTEXT_P,
             }
         }
+    }
+
+    #[cfg(not(nightly))]
+    #[inline]
+    pub fn current() -> ContextStack {
+        let root = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
+        ContextStack { root: root }
     }
 
     /// get the top context
