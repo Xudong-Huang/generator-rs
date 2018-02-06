@@ -40,6 +40,12 @@ impl RegContext {
         unsafe { initialize_call_frame(&mut self.regs, init, stack) };
     }
 
+    // save the TIB context, only used by windows
+    #[inline]
+    pub fn save_context(src: &mut RegContext, dst: &mut RegContext) {
+        unsafe { save_context(&mut src.regs, &mut dst.regs) };
+    }
+
     /// Switch execution contexts to another stack
     ///
     /// Suspend the current execution context and resume another by
@@ -53,7 +59,7 @@ impl RegContext {
     /// between different stacks
     #[inline]
     pub fn swap(src: &mut RegContext, dst: &mut RegContext, arg: usize) -> usize {
-        unsafe { save_context(&mut src.regs, &mut dst.regs) };
+        Self::save_context(src, dst);
         let sp = dst.regs.get_sp();
         let (ret, sp) = unsafe { swap(arg, sp) };
         dst.regs.set_sp(sp);
@@ -68,7 +74,7 @@ impl RegContext {
         base: *mut usize,
         arg: usize,
     ) -> usize {
-        unsafe { save_context(&mut src.regs, &mut dst.regs) };
+        Self::save_context(src, dst);
         let sp = dst.regs.get_sp();
         let (ret, sp) = unsafe { swap_link(arg, sp, base) };
         // if sp is None means the generator is finished

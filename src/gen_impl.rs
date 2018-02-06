@@ -403,6 +403,8 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
         check_err(cause);
     }
 
+    // we need to restore the TIB!
+    RegContext::save_context(&mut cur.regs, &mut parent.regs);
     // when finished pop the current ctx and return to the caller
     env.pop_context(cur as *mut _);
 }
