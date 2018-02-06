@@ -397,9 +397,12 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
     parent.regs.set_sp(sp);
     RegContext::swap(&mut cur.regs, &mut parent.regs, 0);
 
-    // we can't panic inside the generator context
-    // need to propagate the panic to the main thread
-    if let Err(cause) = panic::catch_unwind(panic::AssertUnwindSafe(f)) {
+    // check if cancled
+    if cur._ref != 1 {
+        // if cancled we do nothing
+    } else if let Err(cause) = panic::catch_unwind(panic::AssertUnwindSafe(f)) {
+        // we can't panic inside the generator context
+        // need to propagate the panic to the main thread
         check_err(cause);
     }
 
