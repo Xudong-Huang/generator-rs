@@ -97,40 +97,46 @@ pub unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &
 
     // save the sp in register
     regs.reg[0] = sp.offset(0) as usize;
+    regs.reg[1] = stack.end() as usize;
+    regs.reg[2] = stack.begin() as usize;
+    regs.reg[3] = 0;
 }
 
 // this is only used in windows platform which need to save the TIB info
 #[inline(always)]
-pub unsafe fn save_context(_src: &mut Registers, _dst: &mut Registers) {
-    // load tib and save in the src_reg
-    // load dst_reg and save to the tib
-    /*asm!(
-         r#"
-            /* load NT_TIB */
-            movq  %gs:(0x30), %r10
-            /* save current stack base */
-            movq  0x08(%r10), %rax
-            pushq %rax
-            /* save current stack limit */
-            movq  0x10(%r10), %rax
-            pushq  %rax
-            /* save current deallocation stack */
-            movq  0x1478(%r10), %rax
-            pushq %rax
+pub unsafe fn save_context(src: *mut Registers, dst: *mut Registers) {
+    // load tib and save in the src
+    // load dst and save to the tib
+    asm!(
+    r#"
+        /* load NT_TIB */
+        movq  %gs:(0x30), %r10
 
-            /* load NT_TIB */
-            movq  %gs:(0x30), %r10
-            /* restore deallocation stack */
-            popq %rax
-            movq  %rax, 0x1478(%r10)
-            /* restore stack limit */
-            popq %rax
-            movq  %rax, 0x10(%r10)
-            /* restore stack base */
-            popq %rax
-            movq  %rax, 0x8(%r10)      
-            "#
-    );*/
+        /* save current stack base */
+        movq  0x08(%r10), %rax
+        mov  %rax, (1*8)(%rcx)
+        /* save current stack limit */
+        movq  0x10(%r10), %rax
+        mov  %rax, (2*8)(%rcx)
+        /* save current deallocation stack */
+        movq  0x1478(%r10), %rax
+        mov  %rax, (3*8)(%rcx)
+
+        /* restore deallocation stack */
+        mov  (3*8)(%rdx), %rax
+        movq  %rax, 0x1478(%r10)
+        /* restore stack limit */
+        mov  (2*8)(%rdx), %rax
+        movq  %rax, 0x10(%r10)
+        /* restore stack base */
+        mov  (1*8)(%rdx), %rax
+        movq  %rax, 0x8(%r10)
+    "#
+    :
+    : "{rcx}" (src)
+      "{rdx}" (dst)
+    : "r10", "memory"
+    : "volatile");
 }
 
 #[inline(always)]
