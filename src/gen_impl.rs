@@ -181,7 +181,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         env.push_context(&mut self.context);
 
         // swap to the generator
-        RegContext::swap(cur, &mut top.regs);
+        RegContext::swap_link(cur, &mut top.regs, top.stack.end(), 0);
 
         // comes back, check the panic status
         // this would propagate the panic until root context

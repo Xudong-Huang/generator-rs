@@ -1,15 +1,18 @@
-use detail::{initialize_call_frame, swap_registers, Registers};
 use stack::{Stack, StackPointer};
+use detail::{initialize_call_frame, save_context, swap, swap_link, Registers};
 
+// Hold the registers of the generator
+// the most important register the stack pointer
 #[derive(Debug)]
 pub struct RegContext {
-    /// Hold the registers while the task or scheduler is suspended
     regs: Registers,
 }
 
-// the first argument is passed in through swap(resume) function
+// the first argument is passed in through swap/resume function
+// usually this is the passed in functor
 // the seconde argments is the target sp address
-// this must keep the same interface as swap defined
+// this must be compatible with the interface that defined by
+// assmbly swap functoin
 pub type InitFn = unsafe fn(usize, StackPointer);
 
 impl RegContext {
@@ -24,66 +27,62 @@ impl RegContext {
         self.regs.prefetch();
     }
 
-    /// Create a new context
-    #[allow(dead_code)]
-    pub fn new(init: InitFn, stack: &Stack) -> RegContext {
-        let mut ctx = RegContext::empty();
-        ctx.init_with(init, stack);
-        ctx
-    }
-
-    /// init the generator register
+    /// init the generator stack and registers
     #[inline]
     pub fn init_with(&mut self, init: InitFn, stack: &Stack) {
-        // Save and then immediately load the current context,
-        // which we will then modify to call the given function when restoredtack
+        // this would swap into the generator and then yield back to there
+        // thus the registers will be updated accordingly
         unsafe { initialize_call_frame(&mut self.regs, init, stack) };
     }
 
-    /// Switch contexts
+    /// Switch execution contexts to another stack
     ///
     /// Suspend the current execution context and resume another by
     /// saving the registers values of the executing thread to a Context
     /// then loading the registers from a previously saved Context.
+    /// after the peer call the swap again, this function would return
+    /// the passed in arg would be catch by the peer swap and the return
+    /// value is the peer swap arg
+    ///
+    /// usually we use NoDop and decode_usize/encode_usize to convert data
+    /// between different stacks
     #[inline]
-    pub fn swap(out_context: &mut RegContext, in_context: &RegContext) {
-        // debug!("swapping contexts");
-        let out_regs: &mut Registers = match *out_context {
-            RegContext {
-                regs: ref mut r, ..
-            } => r,
-        };
-        let in_regs: &Registers = match *in_context {
-            RegContext { regs: ref r, .. } => r,
-        };
-
-        // debug!("register raw swap");
-
-        unsafe { swap_registers(out_regs, in_regs) }
+    pub fn swap(src: &mut RegContext, dst: &mut RegContext, arg: usize) -> usize {
+        unsafe { save_context(&mut src.regs, &mut dst.regs) };
+        let sp = dst.regs.get_sp();
+        let (ret, sp) = unsafe { swap(arg, sp) };
+        dst.regs.set_sp(sp);
+        ret
     }
 
-    /// Load the context and switch. This function will never return.
+    /// same as swap, but used for resume to link the ret address
     #[inline]
-    #[allow(dead_code)]
-    pub fn load(to_context: &RegContext) {
-        let mut cur = Registers::new();
-        let regs: &Registers = &to_context.regs;
-
-        unsafe { swap_registers(&mut cur, regs) }
+    pub fn swap_link(
+        src: &mut RegContext,
+        dst: &mut RegContext,
+        base: *mut usize,
+        arg: usize,
+    ) -> usize {
+        unsafe { save_context(&mut src.regs, &mut dst.regs) };
+        let sp = dst.regs.get_sp();
+        let (ret, sp) = unsafe { swap_link(arg, sp, base) };
+        // if sp is None means the generator is finished
+        dst.regs.set_sp(unsafe { ::std::mem::transmute(sp) });
+        ret
     }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use std::mem::transmute;
     const MIN_STACK: usize = 2 * 1024 * 1024;
 
     // this target funcion call
     // the argument is passed in through the first swap
-    fn init_fn(env: usize, _sp: StackPointer) {
-        let func: fn() = unsafe { transmute(env) };
-        func();
+    fn init_fn(env: usize, sp: StackPointer) {
+        let func: fn(StackPointer) = unsafe { transmute(env) };
+        func(sp);
         // after this will return to the caller
     }
 
@@ -92,17 +91,20 @@ mod test {
         static mut VAL: bool = false;
         let mut cur = RegContext::empty();
 
-        // fn callback() {
-        //     unsafe {
-        //         VAL = true;
-        //     }
-        // }
+        fn callback(sp: StackPointer) {
+            println!("target sp={:?}", sp);
+            unsafe {
+                VAL = true;
+            }
+        }
 
         let stk = Stack::new(MIN_STACK);
         // TODO: how to to pass the callback to ctx?
-        let ctx = RegContext::new(init_fn, &stk);
+        let mut ctx = RegContext::empty();
+        ctx.init_with(init_fn, &stk);
 
-        RegContext::swap(&mut cur, &ctx);
+        // send the function to the generator
+        RegContext::swap_link(&mut cur, &mut ctx, stk.end(), callback as usize);
         unsafe {
             assert!(VAL);
         }

@@ -1,4 +1,4 @@
-// use detail::{align_down, mut_offset};
+use std::mem;
 use reg_context::InitFn;
 use stack::{Stack, StackPointer};
 
@@ -18,11 +18,6 @@ pub unsafe fn prefetch_asm(data: *const usize) {
              : "m"(*data)
              :
              : "volatile");
-}
-
-#[inline(always)]
-pub unsafe extern "C" fn swap_registers(_out_regs: *mut Registers, _in_regs: *const Registers) {
-    unimplemented!()
 }
 
 pub unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &Stack) {
@@ -104,6 +99,133 @@ pub unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &
     regs.reg[0] = sp.offset(0) as usize;
 }
 
+// this is only used in windows platform which need to save the TIB info
+#[inline(always)]
+pub unsafe fn save_context(_src: &mut Registers, _dst: &mut Registers) {
+    // load tib and save in the src_reg
+    // load dst_reg and save to the tib
+    /*asm!(
+         r#"
+            /* load NT_TIB */
+            movq  %gs:(0x30), %r10
+            /* save current stack base */
+            movq  0x08(%r10), %rax
+            pushq %rax
+            /* save current stack limit */
+            movq  0x10(%r10), %rax
+            pushq  %rax
+            /* save current deallocation stack */
+            movq  0x1478(%r10), %rax
+            pushq %rax
+
+            /* load NT_TIB */
+            movq  %gs:(0x30), %r10
+            /* restore deallocation stack */
+            popq %rax
+            movq  %rax, 0x1478(%r10)
+            /* restore stack limit */
+            popq %rax
+            movq  %rax, 0x10(%r10)
+            /* restore stack base */
+            popq %rax
+            movq  %rax, 0x8(%r10)      
+            "#
+    );*/
+}
+
+#[inline(always)]
+pub unsafe fn swap_link(
+    arg: usize,
+    new_sp: StackPointer,
+    new_stack_base: *mut usize,
+) -> (usize, Option<StackPointer>) {
+    let ret: usize;
+    let ret_sp: usize;
+    asm!(
+    r#"
+        # Push the return address
+        leaq    0f(%rip), %rax
+        pushq   %rax
+
+        # Save frame pointer explicitly; the unwinder uses it to find CFA of
+        # the caller, and so it has to have the correct value immediately after
+        # the call instruction that invoked the trampoline.
+        pushq   %rbp
+
+        # Link the call stacks together by writing the current stack bottom
+        # address to the CFA slot in the new stack.
+        movq    %rsp, -32(%rdi)
+
+        # Pass the stack pointer of the old context to the new one.
+        movq    %rsp, %rdx
+
+        # Load stack pointer of the new context.
+        movq    %rsi, %rsp
+
+        # Restore frame pointer of the new context.
+        popq    %rbp
+
+        # Return into the new context. Use `pop` and `jmp` instead of a `ret`
+        # to avoid return address mispredictions (~8ns per `ret` on Ivy Bridge).
+        popq    %rax
+        jmpq    *%rax
+      0:
+    "#
+    : "={rcx}" (ret)
+      "={rdx}" (ret_sp)
+    : "{rcx}" (arg)
+      "{rsi}" (new_sp.offset(0))
+      "{rdi}" (new_stack_base)
+    : "rax",   "rbx",   /*"rcx",   "rdx",*/ "rsi",   "rdi",  /* "rbp",   "rsp",*/
+      "r8",    "r9",    "r10",   "r11",   "r12",   "r13",   "r14",   "r15",
+      "mm0",   "mm1",   "mm2",   "mm3",   "mm4",   "mm5",   "mm6",   "mm7",
+      "xmm0",  "xmm1",  "xmm2",  "xmm3",  "xmm4",  "xmm5",  "xmm6",  "xmm7",
+      "xmm8",  "xmm9",  "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",
+      "xmm16", "xmm17", "xmm18", "xmm19", "xmm20", "xmm21", "xmm22", "xmm23",
+      "xmm24", "xmm25", "xmm26", "xmm27", "xmm28", "xmm29", "xmm30", "xmm31",
+      "cc", "dirflag", "fpsr", "flags", "memory"
+      // Ideally, we would set the LLVM "noredzone" attribute on this function
+      // (and it would be propagated to the call site). Unfortunately, rustc
+      // provides no such functionality. Fortunately, by a lucky coincidence,
+      // the "alignstack" LLVM inline assembly option does exactly the same
+      // thing on x86_64.
+    : "volatile", "alignstack");
+    (ret, mem::transmute(ret_sp))
+}
+
+#[inline(always)]
+pub unsafe fn swap(arg: usize, new_sp: StackPointer) -> (usize, StackPointer) {
+    // This is identical to swap_link, but without the write to the CFA slot.
+    let ret: usize;
+    let ret_sp: usize;
+    asm!(
+    r#"
+        leaq    0f(%rip), %rax
+        pushq   %rax
+        pushq   %rbp
+        movq    %rsp, %rdx
+        movq    %rsi, %rsp
+        popq    %rbp
+        popq    %rax
+        jmpq    *%rax
+      0:
+    "#
+    : "={rcx}" (ret)
+      "={rdx}" (ret_sp)
+    : "{rcx}" (arg)
+      "{rsi}" (new_sp.offset(0))
+    : "rax",   "rbx",   /*"rcx",   "rdx",*/ "rsi",   "rdi",  /* "rbp",   "rsp",*/
+      "r8",    "r9",    "r10",   "r11",   "r12",   "r13",   "r14",   "r15",
+      "mm0",   "mm1",   "mm2",   "mm3",   "mm4",   "mm5",   "mm6",   "mm7",
+      "xmm0",  "xmm1",  "xmm2",  "xmm3",  "xmm4",  "xmm5",  "xmm6",  "xmm7",
+      "xmm8",  "xmm9",  "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",
+      "xmm16", "xmm17", "xmm18", "xmm19", "xmm20", "xmm21", "xmm22", "xmm23",
+      "xmm24", "xmm25", "xmm26", "xmm27", "xmm28", "xmm29", "xmm30", "xmm31",
+      "cc", "dirflag", "fpsr", "flags", "memory"
+    : "volatile", "alignstack");
+    (ret, mem::transmute(ret_sp))
+}
+
 #[repr(C)]
 #[derive(Debug)]
 pub struct Registers {
@@ -115,6 +237,16 @@ pub struct Registers {
 impl Registers {
     pub fn new() -> Registers {
         Registers { reg: [0; 4] }
+    }
+
+    #[inline]
+    pub fn get_sp(&self) -> StackPointer {
+        unsafe { StackPointer::new(self.reg[0] as *mut usize) }
+    }
+
+    #[inline]
+    pub fn set_sp(&mut self, sp: StackPointer) {
+        self.reg[0] = unsafe { mem::transmute(sp) };
     }
 
     #[inline]
