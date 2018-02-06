@@ -81,7 +81,10 @@ impl Stack {
 
     /// Point to the high end of the allocated stack
     pub fn end(&self) -> *mut usize {
-        unsafe { self.buf.ptr().offset(self.buf.cap() as isize) as *mut usize }
+        // need to align according to the arch
+        let mut base = unsafe { self.buf.ptr().offset(self.buf.cap() as isize) } as usize;
+        base = base & !(16 - 1);
+        base as *mut usize
     }
 
     /// Point to the low end of the allocated stack

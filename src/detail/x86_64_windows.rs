@@ -112,6 +112,8 @@ pub unsafe fn save_context(src: *mut Registers, dst: *mut Registers) {
         /* load NT_TIB */
         movq  %gs:(0x30), %r10
 
+        // seems that there is no need to save them every time!
+        // just load them back should be fine
         /* save current stack base */
         movq  0x08(%r10), %rax
         mov  %rax, (1*8)(%rcx)
