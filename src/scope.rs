@@ -37,6 +37,7 @@ impl<A, T> Scope<A, T> {
     fn raw_yield(&mut self, env: &ContextStack, context: &mut Context, v: T) {
         // check the context
         if !context.is_generator() {
+            #[cold]
             panic!("yield from none generator context");
         }
 
