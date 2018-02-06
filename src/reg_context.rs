@@ -88,13 +88,22 @@ mod tests {
 
     #[test]
     fn test_swap_context() {
-        static mut VAL: bool = false;
         let mut cur = RegContext::empty();
 
         fn callback(sp: StackPointer) {
-            println!("target sp={:?}", sp);
-            unsafe {
-                VAL = true;
+            // useless cur ctx
+            let mut cur = RegContext::empty();
+            // construct a dst ctx
+            let mut dst = RegContext::empty();
+            let mut out = 42;
+            loop {
+                dst.regs.set_sp(sp);
+                let para = RegContext::swap(&mut cur, &mut dst, out);
+                if para == 0 {
+                    return;
+                }
+                out += 1;
+                assert_eq!(para, out);
             }
         }
 
@@ -104,9 +113,15 @@ mod tests {
         ctx.init_with(init_fn, &stk);
 
         // send the function to the generator
-        RegContext::swap_link(&mut cur, &mut ctx, stk.end(), callback as usize);
-        unsafe {
-            assert!(VAL);
-        }
+        let ret = RegContext::swap_link(&mut cur, &mut ctx, stk.end(), callback as usize);
+        assert_eq!(ret, 42);
+        let ret = RegContext::swap_link(&mut cur, &mut ctx, stk.end(), ret + 1);
+        assert_eq!(ret, 43);
+        let ret = RegContext::swap_link(&mut cur, &mut ctx, stk.end(), ret + 1);
+        assert_eq!(ret, 44);
+        // finish the generator
+        RegContext::swap_link(&mut cur, &mut ctx, stk.end(), 0);
+        let sp = unsafe { ctx.regs.get_sp().offset(0) as usize };
+        assert_eq!(sp, 0);
     }
 }
