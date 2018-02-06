@@ -61,10 +61,10 @@ fn test_yield_with() {
 
     // the para type could be deduced here
     let i = g.send(());
-    assert!(i == 10);
+    assert_eq!(i, 10);
 
     let j = g.next();
-    assert!(j.unwrap() == 20);
+    assert_eq!(j, Some(20));
 }
 
 #[test]
@@ -116,10 +116,10 @@ fn test_scoped() {
     });
 
     g.next();
-    assert!(*x.borrow() == 20);
+    assert_eq!(*x.borrow(), 20);
 
     g.next();
-    assert!(*x.borrow() == 5);
+    assert_eq!(*x.borrow(), 5);
 
     assert!(g.is_done());
 }
@@ -134,7 +134,7 @@ fn test_scoped_1() {
         g.next();
     }
 
-    assert!(x == 5);
+    assert_eq!(x, 5);
 }
 
 #[test]
@@ -159,14 +159,14 @@ fn test_inner_ref() {
         s.yield_(unsafe { mem::transmute(&mut x) });
 
         // this was modified by the invoker
-        assert!(x == 5);
+        assert_eq!(x, 5);
         // teardown happened when the generator get dropped
         unsafe { &mut *ptr::null_mut() }
     });
 
     // use the resource setup from generator
     let a = g.next().unwrap();
-    assert!(*a == 10);
+    assert_eq!(*a, 10);
     *a = 5;
     // a keeps valid until the generator dropped
 }
@@ -183,7 +183,7 @@ fn test_drop() {
         g.send(());
     }
 
-    assert!(x == 1);
+    assert_eq!(x, 1);
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn test_ill_drop() {
         // not started the gen, change nothing
     }
 
-    assert!(x == 10);
+    assert_eq!(x, 10);
 }
 
 #[test]
@@ -216,7 +216,7 @@ fn test_loop_drop() {
         // here the generator drop will cancel the loop
     }
 
-    assert!(x == 5);
+    assert_eq!(x, 5);
 }
 
 #[test]
@@ -241,7 +241,7 @@ fn test_panic_inside() {
         // wrapper dropped here
     }
 
-    assert!(x == 5);
+    assert_eq!(x, 5);
 }
 
 #[test]
@@ -298,10 +298,10 @@ fn test_yield_from_generator_context() {
     });
 
     let n = g.send(());
-    assert!(n == 5);
+    assert_eq!(n, 5);
 
     let n = g.send(());
-    assert!(n == 0);
+    assert_eq!(n, 0);
 }
 
 #[test]
@@ -317,11 +317,11 @@ fn test_yield_from() {
     });
 
     let n = g.send(());
-    assert!(n == 5);
+    assert_eq!(n, 5);
     let n = g.send(());
-    assert!(n == 10);
+    assert_eq!(n, 10);
     let n = g.send(());
-    assert!(n == 0);
+    assert_eq!(n, 0);
     assert!(g.is_done());
 }
 
@@ -343,14 +343,14 @@ fn test_yield_from_send() {
 
     // first start the generator
     let n = g.raw_send(None).unwrap();
-    assert!(n == 1);
+    assert_eq!(n, 1);
 
     let n = g.send(3);
-    assert!(n == 6);
+    assert_eq!(n, 6);
     let n = g.send(4);
-    assert!(n == 8);
+    assert_eq!(n, 8);
     let n = g.send(10);
-    assert!(n == 0);
+    assert_eq!(n, 0);
     assert!(g.is_done());
 }
 
@@ -370,14 +370,14 @@ fn test_yield_from_send_type_miss_match() {
     });
 
     let n = g.send(3);
-    assert!(n == 1);
+    assert_eq!(n, 1);
     let n = g.send(4);
-    assert!(n == 6);
+    assert_eq!(n, 6);
     let n = g.send(10);
-    assert!(n == 8);
+    assert_eq!(n, 8);
     // the last send has no meaning for the return
     let n = g.send(0);
-    assert!(n == 0);
+    assert_eq!(n, 0);
     assert!(g.is_done());
 } /*
 
@@ -431,7 +431,7 @@ fn test_scope_yield_from_send() {
     assert_eq!(n, 20);
     // the last send has no meaning for the return
     let n = g.send(7);
-    assert!(n == 14);
+    assert_eq!(n, 14);
     assert!(g.is_done());
 }
 
