@@ -102,18 +102,13 @@ pub unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &
     regs.reg[3] = 0;
 }
 
-// this is only used in windows platform which need to save the TIB info
+// load TIB context into the root regs
 #[inline(always)]
-pub unsafe fn save_context(src: *mut Registers, dst: *mut Registers) {
-    // load tib and save in the src
-    // load dst and save to the tib
+unsafe fn load_context(regs: *mut Registers) {
     asm!(
     r#"
         /* load NT_TIB */
         movq  %gs:(0x30), %r10
-
-        // seems that there is no need to save them every time!
-        // just load them back should be fine
         /* save current stack base */
         movq  0x08(%r10), %rax
         mov  %rax, (1*8)(%rcx)
@@ -123,20 +118,35 @@ pub unsafe fn save_context(src: *mut Registers, dst: *mut Registers) {
         /* save current deallocation stack */
         movq  0x1478(%r10), %rax
         mov  %rax, (3*8)(%rcx)
+    "#
+    :
+    : "{rcx}" (regs)
+    : "r10", "memory"
+    : "volatile"
+    );
+}
 
+// this is only used in windows platform which need to save the TIB info
+#[inline(always)]
+pub unsafe fn restore_context(regs: *mut Registers) {
+    // load tib and save in the src
+    // load dst and save to the tib
+    asm!(
+    r#"
+        /* load NT_TIB */
+        movq  %gs:(0x30), %r10
         /* restore deallocation stack */
-        mov  (3*8)(%rdx), %rax
+        mov  (3*8)(%rcx), %rax
         movq  %rax, 0x1478(%r10)
         /* restore stack limit */
-        mov  (2*8)(%rdx), %rax
+        mov  (2*8)(%rcx), %rax
         movq  %rax, 0x10(%r10)
         /* restore stack base */
-        mov  (1*8)(%rdx), %rax
+        mov  (1*8)(%rcx), %rax
         movq  %rax, 0x8(%r10)
     "#
     :
-    : "{rcx}" (src)
-      "{rdx}" (dst)
+    : "{rcx}" (regs)
     : "r10", "memory"
     : "volatile");
 }
@@ -245,6 +255,13 @@ pub struct Registers {
 impl Registers {
     pub fn new() -> Registers {
         Registers { reg: [0; 4] }
+    }
+
+    // use for root thread register init
+    pub fn root() -> Registers {
+        let mut regs = Self::new();
+        unsafe { load_context(&mut regs) };
+        regs
     }
 
     #[inline]

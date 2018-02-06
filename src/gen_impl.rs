@@ -167,10 +167,6 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// resume the generator
     #[inline]
     fn resume_gen(&mut self, para: usize) -> usize {
-        let env = ContextStack::current();
-        // get the current regs
-        let cur = &mut env.top().regs;
-
         // switch to new context, always use the top ctx's reg
         // for normal generator self.context.parent == self.context
         // for coroutine self.context.parent == top generator context
@@ -178,10 +174,11 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         let top = unsafe { &mut *self.context.parent };
 
         // save current generator context on stack
+        let env = ContextStack::current();
         env.push_context(&mut self.context);
 
         // swap to the generator
-        let ret = RegContext::swap_link(cur, &mut top.regs, top.stack.end(), para);
+        let ret = RegContext::swap_link(&mut top.regs, top.stack.end(), para);
 
         // comes back, check the panic status
         // this would propagate the panic until root context
@@ -192,15 +189,11 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         if let Some(err) = self.context.err.take() {
             // pass the error to the parent until root
+            #[cold]
             panic::resume_unwind(err);
         }
 
         ret
-    }
-
-    #[inline]
-    fn is_started(&self) -> bool {
-        true
     }
 
     /// prepare the para that passed into generator before send
@@ -288,19 +281,15 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             return;
         }
 
-        // consume the fun if it's not started
-        // TODO: when init is called, it's always started!
-        if !self.is_started() {
-            self.context._ref = 1;
-        } else {
-            self.raw_cancel();
-        }
+        self.raw_cancel();
     }
 
     /// is finished
     #[inline]
     pub fn is_done(&self) -> bool {
-        self.is_started() && (self.context._ref & 0x3) != 0
+        // let sp: usize = unsafe { self.context.regs.get_sp() };
+        // sp == 0
+        (self.context._ref & 0x3) != 0
     }
 
     /// get stack total size and used size in word
@@ -316,11 +305,6 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
     fn drop(&mut self) {
         // when the thread is already panic, do nothing
         if thread::panicking() {
-            return;
-        }
-
-        if !self.is_started() {
-            // not started yet, just drop the gen
             return;
         }
 
@@ -395,7 +379,7 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
     let cur = env.top();
     let parent = env.pop_context(cur as *mut _);
     parent.regs.set_sp(sp);
-    RegContext::swap(&mut cur.regs, &mut parent.regs, 0);
+    RegContext::swap(&mut parent.regs, 0);
 
     // check if cancled
     if cur._ref != 1 {
@@ -407,7 +391,7 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
     }
 
     // we need to restore the TIB!
-    RegContext::save_context(&mut cur.regs, &mut parent.regs);
+    RegContext::restore_context(&mut parent.regs);
     // when finished pop the current ctx and return to the caller
     env.pop_context(cur as *mut _);
 }

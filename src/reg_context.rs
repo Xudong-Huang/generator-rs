@@ -1,5 +1,5 @@
 use stack::{Stack, StackPointer};
-use detail::{initialize_call_frame, save_context, swap, swap_link, Registers};
+use detail::{initialize_call_frame, restore_context, swap, swap_link, Registers};
 
 // Hold the registers of the generator
 // the most important register the stack pointer
@@ -16,6 +16,14 @@ pub struct RegContext {
 pub type InitFn = unsafe fn(usize, StackPointer);
 
 impl RegContext {
+    // create the root context
+    pub fn root() -> RegContext {
+        RegContext {
+            regs: Registers::root(),
+        }
+    }
+
+    // create empty context for generator
     pub fn empty() -> RegContext {
         RegContext {
             regs: Registers::new(),
@@ -42,8 +50,8 @@ impl RegContext {
 
     // save the TIB context, only used by windows
     #[inline]
-    pub fn save_context(src: &mut RegContext, dst: &mut RegContext) {
-        unsafe { save_context(&mut src.regs, &mut dst.regs) };
+    pub fn restore_context(regs: &mut RegContext) {
+        unsafe { restore_context(&mut regs.regs) };
     }
 
     /// Switch execution contexts to another stack
@@ -58,8 +66,8 @@ impl RegContext {
     /// usually we use NoDop and decode_usize/encode_usize to convert data
     /// between different stacks
     #[inline]
-    pub fn swap(src: &mut RegContext, dst: &mut RegContext, arg: usize) -> usize {
-        Self::save_context(src, dst);
+    pub fn swap(dst: &mut RegContext, arg: usize) -> usize {
+        Self::restore_context(dst);
         let sp = dst.regs.get_sp();
         let (ret, sp) = unsafe { swap(arg, sp) };
         dst.regs.set_sp(sp);
@@ -68,13 +76,8 @@ impl RegContext {
 
     /// same as swap, but used for resume to link the ret address
     #[inline]
-    pub fn swap_link(
-        src: &mut RegContext,
-        dst: &mut RegContext,
-        base: *mut usize,
-        arg: usize,
-    ) -> usize {
-        Self::save_context(src, dst);
+    pub fn swap_link(dst: &mut RegContext, base: *mut usize, arg: usize) -> usize {
+        Self::restore_context(dst);
         let sp = dst.regs.get_sp();
         let (ret, sp) = unsafe { swap_link(arg, sp, base) };
         // if sp is None means the generator is finished
@@ -99,17 +102,13 @@ mod tests {
 
     #[test]
     fn test_swap_context() {
-        let mut cur = RegContext::empty();
-
         fn callback(sp: StackPointer) {
-            // useless cur ctx
-            let mut cur = RegContext::empty();
             // construct a dst ctx
-            let mut dst = RegContext::empty();
+            let mut dst = RegContext::root();
             let mut out = 42;
             loop {
                 dst.regs.set_sp(sp);
-                let para = RegContext::swap(&mut cur, &mut dst, out);
+                let para = RegContext::swap(&mut dst, out);
                 if para == 0 {
                     return;
                 }
@@ -119,19 +118,18 @@ mod tests {
         }
 
         let stk = Stack::new(MIN_STACK);
-        // TODO: how to to pass the callback to ctx?
         let mut ctx = RegContext::empty();
         ctx.init_with(init_fn, &stk);
 
         // send the function to the generator
-        let ret = RegContext::swap_link(&mut cur, &mut ctx, stk.end(), callback as usize);
+        let ret = RegContext::swap_link(&mut ctx, stk.end(), callback as usize);
         assert_eq!(ret, 42);
-        let ret = RegContext::swap_link(&mut cur, &mut ctx, stk.end(), ret + 1);
+        let ret = RegContext::swap_link(&mut ctx, stk.end(), ret + 1);
         assert_eq!(ret, 43);
-        let ret = RegContext::swap_link(&mut cur, &mut ctx, stk.end(), ret + 1);
+        let ret = RegContext::swap_link(&mut ctx, stk.end(), ret + 1);
         assert_eq!(ret, 44);
         // finish the generator
-        RegContext::swap_link(&mut cur, &mut ctx, stk.end(), 0);
+        RegContext::swap_link(&mut ctx, stk.end(), 0);
         let sp = unsafe { ctx.regs.get_sp().offset(0) as usize };
         assert_eq!(sp, 0);
     }

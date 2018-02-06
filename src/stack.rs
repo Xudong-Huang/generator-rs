@@ -18,12 +18,14 @@ const MIN_STACK_SIZE: usize = 0x100;
 /// generator stack
 pub struct Stack {
     buf: RawVec<usize>,
+    base: *mut usize,
 }
 
 impl Stack {
     pub fn empty() -> Stack {
         Stack {
             buf: RawVec::with_capacity(0),
+            base: ptr::null_mut(),
         }
     }
 
@@ -37,8 +39,14 @@ impl Stack {
             size = MIN_STACK_SIZE;
         }
 
+        // need to align according to the arch
+        let buf: RawVec<usize> = RawVec::with_capacity(size);
+        let mut base = unsafe { buf.ptr().offset(buf.cap() as isize) } as usize;
+        base = base & !(16 - 1);
+
         let stk = Stack {
-            buf: RawVec::with_capacity(size),
+            buf,
+            base: base as *mut usize,
         };
 
         // if size is not even we do the full foot print test
@@ -81,10 +89,7 @@ impl Stack {
 
     /// Point to the high end of the allocated stack
     pub fn end(&self) -> *mut usize {
-        // need to align according to the arch
-        let mut base = unsafe { self.buf.ptr().offset(self.buf.cap() as isize) } as usize;
-        base = base & !(16 - 1);
-        base as *mut usize
+        self.base
     }
 
     /// Point to the low end of the allocated stack

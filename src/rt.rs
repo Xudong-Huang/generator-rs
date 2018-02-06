@@ -11,7 +11,7 @@ use reg_context::RegContext;
 
 /// each thread has it's own generator context stack
 thread_local!(static ROOT_CONTEXT: Box<Context> = {
-    let mut root = Box::new(Context::empty());
+    let mut root = Box::new(Context::root());
     let p = &mut *root as *mut _;
     root.parent = p; // init top to current
     root
@@ -63,10 +63,10 @@ pub struct Context {
 }
 
 impl Context {
-    // create for root empty context
-    fn empty() -> Self {
+    // create for root context
+    fn root() -> Self {
         Context {
-            regs: RegContext::empty(),
+            regs: RegContext::root(),
             stack: Stack::empty(),
             para: unsafe { mem::uninitialized() },
             ret: unsafe { mem::uninitialized() },

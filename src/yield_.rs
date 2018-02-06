@@ -24,7 +24,7 @@ pub fn done<T>() -> T {
 #[inline]
 pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
     let parent = env.pop_context(cur as *mut _);
-    RegContext::swap(&mut cur.regs, &mut parent.regs, 0);
+    RegContext::swap(&mut parent.regs, 0);
 }
 
 /// raw yiled without catch passed in para
@@ -130,9 +130,8 @@ pub fn co_yield_with<T: Any>(v: T) {
     context._ref -= 1;
 
     let parent = env.pop_context(context);
-    let top = unsafe { &mut *context.parent };
     // here we should use the top regs
-    RegContext::swap(&mut top.regs, &mut parent.regs, 0);
+    RegContext::swap(&mut parent.regs, 0);
 }
 
 /// coroutine get passed in yield para
