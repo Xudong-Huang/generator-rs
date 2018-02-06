@@ -4,9 +4,10 @@
 //!
 
 use std::any::Any;
+use stack::StackPointer;
 use gen_impl::Generator;
-use rt::{Context, ContextStack, Error};
 use reg_context::RegContext;
+use rt::{Context, ContextStack, Error};
 
 /// it's a special return instruction that yield nothing
 /// but only terminate the generator safely
@@ -19,6 +20,16 @@ pub fn done<T>() -> T {
     // set the done bit for this special return
     ContextStack::current().top()._ref = 0xf;
     unsafe { ::std::mem::uninitialized() }
+}
+
+/// switch back to parent context
+#[inline]
+pub fn yield_now(sp: StackPointer) {
+    let env = ContextStack::current();
+    let cur = env.top();
+    let parent = unsafe { &mut *cur.parent };
+    parent.regs.set_sp(sp);
+    raw_yield_now(&env, cur);
 }
 
 #[inline]

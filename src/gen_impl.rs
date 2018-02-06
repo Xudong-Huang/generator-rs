@@ -81,7 +81,7 @@ pub struct GeneratorImpl<'a, A, T> {
     // save the input
     para: Option<A>,
     // save the output
-    // no need to save here, yield should return it
+    // TODO: need to save here, yield should return it
     ret: Option<T>,
     // phantom
     phantom: PhantomData<&'a u8>,
@@ -120,15 +120,15 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// prefech the generator into cache
     #[inline]
     fn return_wrap<F: FnOnce() + 'a>(&mut self, f: F) {
-        let stk = &self.context.stack;
-        self.context.regs.init_with(gen_wrapper::<F, A>, stk);
+        self.context
+            .regs
+            .init_with(gen_wrapper::<F, A>, &self.context.stack);
 
         // Transfer environment to the callee.
-        let _f = NoDrop::new(f);
-        let _arg = unsafe { encode_usize(&_f) };
-        //  self.resume_gen()
+        let f = NoDrop::new(f);
+        let arg = unsafe { encode_usize(&f) };
         // for the first time, the arg is f that transfer to the callee stack
-        //  let stack_ptr = arch::swap_link(encode_usize(&f), stack_ptr, stack.base()).1;
+        self.resume_gen(arg);
     }
 
     /// init a heap based generator
@@ -166,7 +166,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// resume the generator
     #[inline]
-    fn resume_gen(&mut self) {
+    fn resume_gen(&mut self, para: usize) -> usize {
         let env = ContextStack::current();
         // get the current regs
         let cur = &mut env.top().regs;
@@ -181,19 +181,21 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         env.push_context(&mut self.context);
 
         // swap to the generator
-        RegContext::swap_link(cur, &mut top.regs, top.stack.end(), 0);
+        let ret = RegContext::swap_link(cur, &mut top.regs, top.stack.end(), para);
 
         // comes back, check the panic status
         // this would propagate the panic until root context
         // if it's a coroutine just stop propagate
         if !self.context.local_data.is_null() {
-            return;
+            return ret;
         }
 
         if let Some(err) = self.context.err.take() {
             // pass the error to the parent until root
             panic::resume_unwind(err);
         }
+
+        ret
     }
 
     #[inline]
@@ -236,7 +238,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // every time we call the function, increase the ref count
         // yiled will decrease it and return will not
         self.context._ref += 1;
-        self.resume_gen();
+        self.resume_gen(0);
 
         self.ret.take()
     }
@@ -255,7 +257,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // every time we call the function, increase the ref count
         // yiled will decrease it and return will not
         self.context._ref += 1;
-        self.resume_gen();
+        self.resume_gen(0);
 
         self.ret.take()
     }
@@ -275,7 +277,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // save the old panic hook, we don't want to print anything for the Cancel
         let old = ::std::panic::take_hook();
         ::std::panic::set_hook(Box::new(|_| {}));
-        self.resume_gen();
+        self.resume_gen(0);
         ::std::panic::set_hook(old);
     }
 
@@ -373,7 +375,7 @@ impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
 //
 // the first arg is the env data
 // the second arg is the peer stack pointer
-fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, _sp: StackPointer) {
+fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
     fn check_err(cause: Box<Any + Send + 'static>) {
         match cause.downcast_ref::<Error>() {
             // this is not an error at all, ignore it
@@ -388,7 +390,7 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, _sp: StackPointer) {
     let f: F = unsafe { decode_usize(env) };
     // the first invoke doesn't necessarily pass in anything
     // just for init and return to the parent caller
-    // let (data, stack_ptr) = arch::swap(0, stack_ptr);
+    ::yield_::yield_now(sp);
 
     // the first data is only for start the generator and is not used
     // TODO: how to use the second returned data here?

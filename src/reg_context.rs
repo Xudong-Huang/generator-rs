@@ -23,6 +23,11 @@ impl RegContext {
     }
 
     #[inline]
+    pub fn set_sp(&mut self, sp: StackPointer) {
+        self.regs.set_sp(sp)
+    }
+
+    #[inline]
     pub fn prefetch(&self) {
         self.regs.prefetch();
     }
