@@ -388,18 +388,14 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
 
     // Retrieve our environment from the caller and return control to it.
     let f: F = unsafe { decode_usize(env) };
+
     // the first invoke doesn't necessarily pass in anything
     // just for init and return to the parent caller
-    ::yield_::yield_now(sp);
-
-    // the first data is only for start the generator and is not used
-    // TODO: how to use the second returned data here?
-    // actually it's saved in the generator
-    // let data: Input = yield_now();
-    // See the second half of Yielder::suspend_bare.
-    // let input: Input = decode_usize(data);
-    // Run the body of the generator.
-    // let yielder = Yielder::new(stack_ptr);
+    let env = ContextStack::current();
+    let cur = env.top();
+    let parent = env.pop_context(cur as *mut _);
+    parent.regs.set_sp(sp);
+    RegContext::swap(&mut cur.regs, &mut parent.regs, 0);
 
     // we can't panic inside the generator context
     // need to propagate the panic to the main thread
@@ -407,6 +403,6 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
         check_err(cause);
     }
 
-    // return to caller by assembly code!
-    // after finished the control will be in caller's stack
+    // when finished pop the current ctx and return to the caller
+    env.pop_context(cur as *mut _);
 }

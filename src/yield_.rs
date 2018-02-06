@@ -4,7 +4,6 @@
 //!
 
 use std::any::Any;
-use stack::StackPointer;
 use gen_impl::Generator;
 use reg_context::RegContext;
 use rt::{Context, ContextStack, Error};
@@ -20,16 +19,6 @@ pub fn done<T>() -> T {
     // set the done bit for this special return
     ContextStack::current().top()._ref = 0xf;
     unsafe { ::std::mem::uninitialized() }
-}
-
-/// switch back to parent context
-#[inline]
-pub fn yield_now(sp: StackPointer) {
-    let env = ContextStack::current();
-    let cur = env.top();
-    let parent = unsafe { &mut *cur.parent };
-    parent.regs.set_sp(sp);
-    raw_yield_now(&env, cur);
 }
 
 #[inline]
@@ -53,6 +42,7 @@ fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
 
     // here we just panic to exit the func
     if context._ref != 1 {
+        #[cold]
         panic!(Error::Cancel);
     }
 }
