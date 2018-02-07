@@ -138,25 +138,18 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         T: 'a,
     {
         // make sure the last one is finished
-        if self.context._ref == 0 {
-            unsafe {
-                self.cancel();
-            }
-        }
+        unsafe { self.cancel() };
 
         // init ctx parent to itself, this would be the new top
         self.context.parent = &mut self.context;
-
-        // init the ref to 0 means that it's ready to start
-        self.context._ref = 0;
 
         let ret = &mut self.ret as *mut _;
         let contex = &mut self.context as *mut Context;
         self.return_wrap(move || {
             let r = f();
             let ret = unsafe { &mut *ret };
-            let _ref = unsafe { (*contex)._ref };
-            if _ref == 0xf {
+            let is_done = unsafe { (*contex).regs.get_sp().is_zero() };
+            if is_done {
                 *ret = None; // this is a done return
             } else {
                 *ret = Some(r); // normal return
@@ -170,7 +163,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // switch to new context, always use the top ctx's reg
         // for normal generator self.context.parent == self.context
         // for coroutine self.context.parent == top generator context
-        assert!(!self.context.parent.is_null());
+        // assert!(!self.context.parent.is_null());
         let top = unsafe { &mut *self.context.parent };
 
         // save current generator context on stack
@@ -225,14 +218,10 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     #[inline]
     pub fn resume(&mut self) -> Option<T> {
         if self.is_done() {
+            #[cold]
             return None;
         }
-
-        // every time we call the function, increase the ref count
-        // yiled will decrease it and return will not
-        self.context._ref += 1;
         self.resume_gen(0);
-
         self.ret.take()
     }
 
@@ -247,9 +236,6 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // the yield part would read out this value in the next round
         self.para = para;
 
-        // every time we call the function, increase the ref count
-        // yiled will decrease it and return will not
-        self.context._ref += 1;
         self.resume_gen(0);
 
         self.ret.take()
@@ -264,13 +250,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// cancel the generator without any check
     #[inline]
     unsafe fn raw_cancel(&mut self) {
-        // tell the func to panic
-        // so that we can stop the inner func
-        self.context._ref = 2;
         // save the old panic hook, we don't want to print anything for the Cancel
         let old = ::std::panic::take_hook();
         ::std::panic::set_hook(Box::new(|_| {}));
-        self.resume_gen(0);
+        // tell the func to panic
+        // so that we can stop the inner func
+        self.resume_gen(1);
         ::std::panic::set_hook(old);
     }
 
@@ -287,9 +272,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// is finished
     #[inline]
     pub fn is_done(&self) -> bool {
-        // let sp: usize = unsafe { self.context.regs.get_sp() };
-        // sp == 0
-        (self.context._ref & 0x3) != 0
+        self.context.regs.get_sp().is_zero()
     }
 
     /// get stack total size and used size in word
@@ -381,10 +364,7 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
     parent.regs.set_sp(sp);
     parent.regs.swap(0);
 
-    // check if cancled
-    if cur._ref != 1 {
-        // if cancled we do nothing
-    } else if let Err(cause) = panic::catch_unwind(panic::AssertUnwindSafe(f)) {
+    if let Err(cause) = panic::catch_unwind(panic::AssertUnwindSafe(f)) {
         // we can't panic inside the generator context
         // need to propagate the panic to the main thread
         check_err(cause);

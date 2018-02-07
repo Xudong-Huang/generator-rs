@@ -118,4 +118,9 @@ impl StackPointer {
     pub unsafe fn offset(&self, count: isize) -> *mut usize {
         self.0.as_ptr().offset(count)
     }
+
+    #[inline(always)]
+    pub fn is_zero(&self) -> bool {
+        self.0.as_ptr().is_null()
+    }
 }

@@ -49,8 +49,6 @@ pub struct Context {
     pub para: *mut Any,
     /// this is just a buffer for the return value
     pub ret: *mut Any,
-    /// track generator ref, yield will -1, send will +1
-    pub _ref: u32,
     /// propagate panic
     pub err: Option<Box<Any + Send>>,
     /// context local storage
@@ -70,7 +68,6 @@ impl Context {
             stack: Stack::empty(),
             para: unsafe { mem::uninitialized() },
             ret: unsafe { mem::uninitialized() },
-            _ref: 1, // none zero means it's not running
             err: None,
             child: ptr::null_mut(),
             parent: ptr::null_mut(),
@@ -85,7 +82,6 @@ impl Context {
             stack: Stack::new(size),
             para: unsafe { mem::uninitialized() },
             ret: unsafe { mem::uninitialized() },
-            _ref: 1, // none zero means it's not running
             err: None,
             child: ptr::null_mut(),
             parent: ptr::null_mut(),

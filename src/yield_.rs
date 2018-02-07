@@ -15,35 +15,37 @@ macro_rules! done { () => ({ return $crate::done() }) }
 /// don't use it directly, use done!() macro instead
 #[inline]
 pub fn done<T>() -> T {
-    // set the done bit for this special return
-    ContextStack::current().top()._ref = 0xf;
+    let env = ContextStack::current();
+    let context = env.top();
+    // set self sp as 0 to indicate it's done
+    // it safe to do so because it's not used yet before
+    // siwtch to the parent
+    context
+        .regs
+        .set_sp(unsafe { ::std::mem::transmute(0usize) });
     unsafe { ::std::mem::uninitialized() }
 }
 
 #[inline]
 pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
+    // check the context
+    if !cur.is_generator() {
+        #[cold]
+        panic!("yield from none generator context");
+    }
+
     let parent = env.pop_context(cur as *mut _);
-    parent.regs.swap(0);
+    if parent.regs.swap(0) != 0 {
+        #[cold]
+        panic!(Error::Cancel);
+    }
 }
 
 /// raw yiled without catch passed in para
 #[inline]
 fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
-    // check the context
-    if !context.is_generator() {
-        #[cold]
-        panic!("yield from none generator context");
-    }
-
     context.set_ret(v);
-    context._ref -= 1;
-    raw_yield_now(env, context);
-
-    // here we just panic to exit the func
-    if context._ref != 1 {
-        #[cold]
-        panic!(Error::Cancel);
-    }
+    raw_yield_now(env, context)
 }
 
 /// yiled something without catch passed in para
@@ -112,25 +114,21 @@ pub fn co_yield_with<T: Any>(v: T) {
     let env = ContextStack::current();
     let context = env.co_ctx().unwrap();
 
+    // TODO: do more checks about cancel
     // check the context, already checked in co_ctx()
     // if !context.is_generator() {
     //     info!("yield from none coroutine context");
     //     // do nothing, just return
     //     return;
     // }
-
-    // here we just panic to exit the func
-    if context._ref != 1 {
-        #[cold]
-        panic!(Error::Cancel);
-    }
-
     context.set_ret(v);
-    context._ref -= 1;
 
     let parent = env.pop_context(context);
     // here we should use the top regs
-    parent.regs.swap(0);
+    if parent.regs.swap(0) != 0 {
+        #[cold]
+        panic!(Error::Cancel);
+    }
 }
 
 /// coroutine get passed in yield para

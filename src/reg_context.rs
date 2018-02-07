@@ -36,6 +36,11 @@ impl RegContext {
     }
 
     #[inline]
+    pub fn get_sp(&self) -> StackPointer {
+        self.regs.get_sp()
+    }
+
+    #[inline]
     pub fn prefetch(&self) {
         self.regs.prefetch();
     }
