@@ -46,7 +46,7 @@ fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
     }
 
     let para = NoDrop::new(v).encode_usize();
-    raw_yield_now(env, context, para)
+    raw_yield_now(env, context, &para as *const _ as usize)
 }
 
 /// yiled something without catch passed in para
@@ -125,7 +125,7 @@ pub fn co_yield_with<T: Any>(v: T) {
 
     let parent = env.pop_context(context);
     let para = NoDrop::new(v).encode_usize();
-    if parent.regs.swap(para) != 0 {
+    if parent.regs.swap(&para as *const _ as usize) != 0 {
         #[cold]
         panic!(Error::Cancel);
     }

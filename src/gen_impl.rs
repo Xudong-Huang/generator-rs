@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 
 use scope::Scope;
 use stack::StackPointer;
-use no_drop::{decode_usize, NoDrop};
+use no_drop::{self, NoDrop};
 use rt::{Context, ContextStack, Error};
 
 // default stack size, in usize
@@ -160,7 +160,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             }
         }
 
-        unsafe { Some(decode_usize::<T>(ret)) }
+        unsafe { no_drop::decode_ptr::<T>(ret as *mut usize) }
     }
 
     /// prepare the para that passed into generator before send
@@ -324,7 +324,7 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
         ContextStack::current().top().err = Some(cause);
     }
 
-    let f: F = unsafe { decode_usize(para) };
+    let f: F = unsafe { no_drop::decode_usize(para) };
     // the first invoke doesn't necessarily pass in anything
     // just for init and return to the parent caller
     let env = ContextStack::current();
@@ -332,7 +332,8 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
     let parent = env.pop_context(cur as *mut _);
     parent.regs.set_sp(sp);
 
-    let mut ret: usize = 0;
+    let ret;
+    let mut ret_addr: usize = 0;
     // the swap return indicate if it's a cancel resume
     if parent.regs.swap(0) == 0 {
         match panic::catch_unwind(panic::AssertUnwindSafe(f)) {
@@ -340,12 +341,13 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
             // need to propagate the panic to the main thread
             Err(cause) => check_err(cause),
             Ok(v) => {
-                ret = if cur.regs.get_sp().is_zero() {
+                ret_addr = if cur.regs.get_sp().is_zero() {
                     // this is a done return
                     0
                 } else {
                     // normal return
-                    NoDrop::new(v).encode_usize()
+                    ret = NoDrop::new(v).encode_usize();
+                    &ret as *const _ as usize
                 };
             }
         }
@@ -354,5 +356,5 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
     parent.regs.restore_context();
     // when finished pop the current ctx and return to the caller
     env.pop_context(cur as *mut _);
-    unsafe { ::detail::asm::set_ret(ret) };
+    unsafe { ::detail::asm::set_ret(ret_addr) };
 }

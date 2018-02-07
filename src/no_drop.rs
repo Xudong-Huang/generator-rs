@@ -37,3 +37,12 @@ pub unsafe fn decode_usize<T>(val: usize) -> T {
         ptr::read(val as *const T)
     }
 }
+
+// Unpack a usize ptr produced by encode_usize.
+pub unsafe fn decode_ptr<T>(ptr: *mut usize) -> Option<T> {
+    if ptr.is_null() {
+        None
+    } else {
+        Some(decode_usize(*ptr))
+    }
+}
