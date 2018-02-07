@@ -47,8 +47,6 @@ pub struct Context {
     pub stack: Stack,
     /// passed in para for send
     pub para: *mut Any,
-    /// this is just a buffer for the return value
-    pub ret: *mut Any,
     /// propagate panic
     pub err: Option<Box<Any + Send>>,
     /// context local storage
@@ -67,7 +65,6 @@ impl Context {
             regs: RegContext::root(),
             stack: Stack::empty(),
             para: unsafe { mem::uninitialized() },
-            ret: unsafe { mem::uninitialized() },
             err: None,
             child: ptr::null_mut(),
             parent: ptr::null_mut(),
@@ -81,7 +78,6 @@ impl Context {
             regs: RegContext::empty(),
             stack: Stack::new(size),
             para: unsafe { mem::uninitialized() },
-            ret: unsafe { mem::uninitialized() },
             err: None,
             child: ptr::null_mut(),
             parent: ptr::null_mut(),
@@ -105,19 +101,6 @@ impl Context {
         match para.downcast_mut::<Option<A>>() {
             Some(v) => v.take(),
             None => type_error::<A>("get yield type mismatch error detected"),
-        }
-    }
-
-    /// set current generator return value
-    #[inline]
-    pub fn set_ret<T>(&mut self, v: T)
-    where
-        T: Any,
-    {
-        let ret = unsafe { &mut *self.ret };
-        match ret.downcast_mut::<Option<T>>() {
-            Some(r) => *r = Some(v),
-            None => type_error::<T>("yield type mismatch error detected"),
         }
     }
 }

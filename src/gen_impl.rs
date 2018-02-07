@@ -11,8 +11,8 @@ use std::marker::PhantomData;
 
 use scope::Scope;
 use stack::StackPointer;
+use no_drop::{decode_usize, NoDrop};
 use rt::{Context, ContextStack, Error};
-use no_drop::{decode_usize, encode_usize, NoDrop};
 
 // default stack size, in usize
 // windows has a minimal size as 0x4a8!!!!
@@ -74,23 +74,19 @@ impl<A: Any> Gn<A> {
 }
 
 /// `GeneratorImpl`
-pub struct GeneratorImpl<'a, A, T> {
+pub struct GeneratorImpl<'a, A, T: 'a> {
     // run time context
     context: Context,
     // save the input
     para: Option<A>,
-    // save the output
-    // TODO: need to save here, yield should return it
-    ret: Option<T>,
     // phantom
-    phantom: PhantomData<&'a u8>,
+    phantom: PhantomData<&'a T>,
 }
 
 impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
     /// create a new generator with default stack size
     pub fn init_context(&mut self) {
         self.context.para = &mut self.para as &mut Any;
-        self.context.ret = &mut self.ret as &mut Any;
     }
 }
 
@@ -99,7 +95,6 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     pub fn new(size: usize) -> Box<Self> {
         Box::new(GeneratorImpl {
             para: None,
-            ret: None,
             context: Context::new(size),
             phantom: PhantomData,
         })
@@ -113,21 +108,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// get the scope object
     pub fn get_scope(&mut self) -> Scope<A, T> {
-        Scope::new(&mut self.para, &mut self.ret)
-    }
-
-    /// prefech the generator into cache
-    #[inline]
-    fn return_wrap<F: FnOnce() + 'a>(&mut self, f: F) {
-        self.context
-            .regs
-            .init_with(gen_wrapper::<F, A>, &self.context.stack);
-
-        // Transfer environment to the callee.
-        let f = NoDrop::new(f);
-        let arg = unsafe { encode_usize(&f) };
-        // for the first time, the arg is f that transfer to the callee stack
-        self.resume_gen(arg);
+        Scope::new(&mut self.para)
     }
 
     /// init a heap based generator
@@ -142,23 +123,19 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // init ctx parent to itself, this would be the new top
         self.context.parent = &mut self.context;
 
-        let ret = &mut self.ret as *mut _;
-        let contex = &mut self.context as *mut Context;
-        self.return_wrap(move || {
-            let r = f();
-            let ret = unsafe { &mut *ret };
-            let is_done = unsafe { (*contex).regs.get_sp().is_zero() };
-            if is_done {
-                *ret = None; // this is a done return
-            } else {
-                *ret = Some(r); // normal return
-            }
-        });
+        self.context
+            .regs
+            .init_with(gen_wrapper::<F, A, T>, &self.context.stack);
+
+        // Transfer environment to the callee.
+        let arg = NoDrop::new(f).encode_usize();
+        // for the first time, the arg is f that transfer to the callee stack
+        self.resume_gen(arg);
     }
 
     /// resume the generator
     #[inline]
-    fn resume_gen(&mut self, para: usize) -> usize {
+    fn resume_gen(&mut self, para: usize) -> Option<T> {
         // switch to new context, always use the top ctx's reg
         // for normal generator self.context.parent == self.context
         // for coroutine self.context.parent == top generator context
@@ -175,17 +152,15 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // comes back, check the panic status
         // this would propagate the panic until root context
         // if it's a coroutine just stop propagate
-        if !self.context.local_data.is_null() {
-            return ret;
+        if self.context.local_data.is_null() {
+            if let Some(err) = self.context.err.take() {
+                // pass the error to the parent until root
+                #[cold]
+                panic::resume_unwind(err);
+            }
         }
 
-        if let Some(err) = self.context.err.take() {
-            // pass the error to the parent until root
-            #[cold]
-            panic::resume_unwind(err);
-        }
-
-        ret
+        unsafe { Some(decode_usize::<T>(ret)) }
     }
 
     /// prepare the para that passed into generator before send
@@ -220,24 +195,21 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             #[cold]
             return None;
         }
-        self.resume_gen(0);
-        self.ret.take()
+        self.resume_gen(0)
     }
 
     /// `raw_send`
     #[inline]
     pub fn raw_send(&mut self, para: Option<A>) -> Option<T> {
         if self.is_done() {
+            #[cold]
             return None;
         }
 
         // this is the passed in value of the send primitive
         // the yield part would read out this value in the next round
         self.para = para;
-
-        self.resume_gen(0);
-
-        self.ret.take()
+        self.resume_gen(0)
     }
 
     /// send interface
@@ -339,9 +311,9 @@ impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
 
 // the init function passed to reg_context
 //
-// the first arg is the env data
+// the first arg is the passed in data
 // the second arg is the peer stack pointer
-fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
+fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPointer) {
     fn check_err(cause: Box<Any + Send + 'static>) {
         match cause.downcast_ref::<Error>() {
             // this is not an error at all, ignore it
@@ -352,9 +324,7 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
         ContextStack::current().top().err = Some(cause);
     }
 
-    // Retrieve our environment from the caller and return control to it.
-    let f: F = unsafe { decode_usize(env) };
-
+    let f: F = unsafe { decode_usize(para) };
     // the first invoke doesn't necessarily pass in anything
     // just for init and return to the parent caller
     let env = ContextStack::current();
@@ -362,17 +332,27 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
     let parent = env.pop_context(cur as *mut _);
     parent.regs.set_sp(sp);
 
-    if parent.regs.swap(0) != 0 {
-        // this is a fresh cancel without start the functor
-    } else if let Err(cause) = panic::catch_unwind(panic::AssertUnwindSafe(f)) {
-        // we can't panic inside the generator context
-        // need to propagate the panic to the main thread
-        check_err(cause);
+    let mut ret: usize = 0;
+    // the swap return indicate if it's a cancel resume
+    if parent.regs.swap(0) == 0 {
+        match panic::catch_unwind(panic::AssertUnwindSafe(f)) {
+            // we can't panic inside the generator context
+            // need to propagate the panic to the main thread
+            Err(cause) => check_err(cause),
+            Ok(v) => {
+                ret = if cur.regs.get_sp().is_zero() {
+                    // this is a done return
+                    0
+                } else {
+                    // normal return
+                    NoDrop::new(v).encode_usize()
+                };
+            }
+        }
     }
-
     // we need to restore the TIB!
     parent.regs.restore_context();
     // when finished pop the current ctx and return to the caller
     env.pop_context(cur as *mut _);
-    unsafe { ::detail::asm::set_ret(42 as *mut usize) };
+    unsafe { ::detail::asm::set_ret(ret) };
 }

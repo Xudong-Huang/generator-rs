@@ -3,33 +3,28 @@
 //! generator yield implmentation
 //!
 
-// use generator::Generator;
+use std::marker::PhantomData;
+
+use no_drop::NoDrop;
+use yield_::raw_yield_now;
 use gen_impl::GeneratorImpl;
 use rt::{Context, ContextStack};
-use yield_::raw_yield_now;
 
 /// passed in scope tpye
 /// it not use the context to pass data, but keep it's own data ref
 /// this struct provide both compile type info and runtime data
 pub struct Scope<A, T> {
     para: *mut Option<A>,
-    ret: *mut Option<T>,
+    phantom: PhantomData<T>,
 }
 
 impl<A, T> Scope<A, T> {
     /// create a new scope object
-    pub fn new(para: *mut Option<A>, ret: *mut Option<T>) -> Self {
+    pub fn new(para: *mut Option<A>) -> Self {
         Scope {
             para: para,
-            ret: ret,
+            phantom: PhantomData,
         }
-    }
-
-    /// set current generator return value
-    #[inline]
-    fn set_ret(&mut self, v: T) {
-        let ret = unsafe { &mut *self.ret };
-        *ret = Some(v);
     }
 
     /// raw yiled without catch passed in para
@@ -41,9 +36,9 @@ impl<A, T> Scope<A, T> {
             panic!("yield from none generator context");
         }
 
-        self.set_ret(v);
+        let para = NoDrop::new(v).encode_usize();
         // here we just panic to exit the func
-        raw_yield_now(env, context)
+        raw_yield_now(env, context, para)
     }
 
     /// yiled something without catch passed in para

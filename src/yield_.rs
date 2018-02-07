@@ -4,6 +4,7 @@
 //!
 
 use std::any::Any;
+use no_drop::NoDrop;
 use gen_impl::Generator;
 use rt::{Context, ContextStack, Error};
 
@@ -27,9 +28,9 @@ pub fn done<T>() -> T {
 }
 
 #[inline]
-pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
+pub fn raw_yield_now(env: &ContextStack, cur: &mut Context, para: usize) {
     let parent = env.pop_context(cur as *mut _);
-    if parent.regs.swap(0) != 0 {
+    if parent.regs.swap(para) != 0 {
         #[cold]
         panic!(Error::Cancel);
     }
@@ -44,8 +45,8 @@ fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
         panic!("yield from none generator context");
     }
 
-    context.set_ret(v);
-    raw_yield_now(env, context)
+    let para = NoDrop::new(v).encode_usize();
+    raw_yield_now(env, context, para)
 }
 
 /// yiled something without catch passed in para
@@ -121,11 +122,10 @@ pub fn co_yield_with<T: Any>(v: T) {
     //     // do nothing, just return
     //     return;
     // }
-    context.set_ret(v);
 
     let parent = env.pop_context(context);
-    // here we should use the top regs
-    if parent.regs.swap(0) != 0 {
+    let para = NoDrop::new(v).encode_usize();
+    if parent.regs.swap(para) != 0 {
         #[cold]
         panic!(Error::Cancel);
     }

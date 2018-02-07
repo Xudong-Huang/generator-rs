@@ -120,7 +120,7 @@ mod tests {
                 let para = root.swap(recv);
                 if para == 0 {
                     RegContext::restore_context(root);
-                    unsafe { ::detail::asm::set_ret(100 as *mut usize) };
+                    unsafe { ::detail::asm::set_ret(100) };
                     return;
                 }
                 recv += 1;

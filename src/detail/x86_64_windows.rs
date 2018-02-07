@@ -104,7 +104,7 @@ pub unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &
 
 // set the return address
 #[inline(always)]
-pub unsafe fn set_ret(ret: *mut usize) {
+pub unsafe fn set_ret(ret: usize) {
     asm!(
     ""
     :

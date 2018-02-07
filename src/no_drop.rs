@@ -12,18 +12,18 @@ impl<T> NoDrop<T> {
     pub fn new(t: T) -> Self {
         NoDrop { inner: t }
     }
-}
 
-// Try to pack a value into a usize if it fits, otherwise pass its address as a usize.
-pub unsafe fn encode_usize<T>(val: &NoDrop<T>) -> usize {
-    if mem::size_of::<T>() <= mem::size_of::<usize>()
-        && mem::align_of::<T>() <= mem::align_of::<usize>()
-    {
-        let mut out = 0;
-        ptr::copy_nonoverlapping(&val.inner, &mut out as *mut usize as *mut T, 1);
-        out
-    } else {
-        &val.inner as *const T as usize
+    // Try to pack a value into a usize if it fits, otherwise pass its address as a usize.
+    pub fn encode_usize(&self) -> usize {
+        if mem::size_of::<T>() <= mem::size_of::<usize>()
+            && mem::align_of::<T>() <= mem::align_of::<usize>()
+        {
+            let mut out = 0;
+            unsafe { ptr::copy_nonoverlapping(&self.inner, &mut out as *mut usize as *mut T, 1) };
+            out
+        } else {
+            unsafe { &self.inner as *const T as usize }
+        }
     }
 }
 
