@@ -29,4 +29,5 @@ pub mod asm;
 #[path = "x86_64_windows.rs"]
 pub mod asm;
 
-pub use self::asm::{initialize_call_frame, prefetch, restore_context, swap, swap_link, Registers};
+pub use self::asm::{initialize_call_frame, prefetch, restore_context, set_ret, swap, swap_link,
+                    Registers};

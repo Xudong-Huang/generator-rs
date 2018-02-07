@@ -374,4 +374,5 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
     parent.regs.restore_context();
     // when finished pop the current ctx and return to the caller
     env.pop_context(cur as *mut _);
+    unsafe { ::detail::asm::set_ret(42 as *mut usize) };
 }

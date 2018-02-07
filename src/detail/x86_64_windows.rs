@@ -102,6 +102,18 @@ pub unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &
     regs.reg[3] = 0;
 }
 
+// set the return address
+#[inline(always)]
+pub unsafe fn set_ret(ret: *mut usize) {
+    asm!(
+    ""
+    :
+    : "{rcx}" (ret)
+    : // no clobers
+    : "volatile"
+    );
+}
+
 // load TIB context into the root regs
 #[inline(always)]
 unsafe fn load_context(regs: *mut Registers) {

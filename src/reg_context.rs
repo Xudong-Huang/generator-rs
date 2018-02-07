@@ -120,6 +120,7 @@ mod tests {
                 let para = root.swap(recv);
                 if para == 0 {
                     RegContext::restore_context(root);
+                    unsafe { ::detail::asm::set_ret(100 as *mut usize) };
                     return;
                 }
                 recv += 1;
@@ -139,9 +140,8 @@ mod tests {
         let ret = ctx.swap_link(stk.end(), ret + 1);
         assert_eq!(ret, 44);
         // finish the generator
-        let _ret = ctx.swap_link(stk.end(), 0);
-        // CAUSION: the last ret is undefined
-        // println!("ret = {}", _ret);
+        let ret = ctx.swap_link(stk.end(), 0);
+        assert_eq!(ret, 100);
         let sp = unsafe { ctx.regs.get_sp().offset(0) as usize };
         assert_eq!(sp, 0);
     }
