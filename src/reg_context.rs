@@ -102,18 +102,23 @@ mod tests {
 
     #[test]
     fn test_swap_context() {
+        thread_local!(static ROOT: RegContext = RegContext::root());
+        let _ = ROOT.with(|_r| {});
         fn callback(sp: StackPointer) {
             // construct a dst ctx
-            let mut dst = RegContext::root();
-            let mut out = 42;
+            let root = ROOT.with(|r| r as *const _ as *mut RegContext);
+            let root = unsafe { &mut *root };
+            root.regs.set_sp(sp);
+
+            let mut recv = 42;
             loop {
-                dst.regs.set_sp(sp);
-                let para = RegContext::swap(&mut dst, out);
+                let para = RegContext::swap(root, recv);
                 if para == 0 {
+                    RegContext::restore_context(root);
                     return;
                 }
-                out += 1;
-                assert_eq!(para, out);
+                recv += 1;
+                assert_eq!(para, recv);
             }
         }
 
@@ -129,8 +134,11 @@ mod tests {
         let ret = RegContext::swap_link(&mut ctx, stk.end(), ret + 1);
         assert_eq!(ret, 44);
         // finish the generator
-        RegContext::swap_link(&mut ctx, stk.end(), 0);
+        let ret = RegContext::swap_link(&mut ctx, stk.end(), 0);
         let sp = unsafe { ctx.regs.get_sp().offset(0) as usize };
+        // FIXME: seems that when the last return from generator need to call
+        // a function with the sp arg to fully recover
+        let _s = format!("sp = {}, ret = {}", sp, ret);
         assert_eq!(sp, 0);
     }
 }

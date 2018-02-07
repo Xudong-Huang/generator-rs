@@ -121,7 +121,7 @@ unsafe fn load_context(regs: *mut Registers) {
     "#
     :
     : "{rcx}" (regs)
-    : "r10", "memory"
+    : "rax", "r10", "memory"
     : "volatile"
     );
 }
@@ -147,7 +147,7 @@ pub unsafe fn restore_context(regs: *mut Registers) {
     "#
     :
     : "{rcx}" (regs)
-    : "r10", "memory"
+    : "rax", "r10", "memory"
     : "volatile");
 }
 
