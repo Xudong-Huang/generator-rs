@@ -38,7 +38,7 @@ impl<A, T> Scope<A, T> {
 
         let para = NoDrop::new(v).encode_usize();
         // here we just panic to exit the func
-        raw_yield_now(env, context, &para as *const _ as usize)
+        raw_yield_now(env, context, &para as *const _ as usize);
     }
 
     /// yiled something without catch passed in para
