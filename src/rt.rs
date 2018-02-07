@@ -4,7 +4,7 @@
 //!
 use std::mem;
 use std::ptr;
-use std::any::Any;
+use std::any::{Any, TypeId};
 
 use stack::Stack;
 use reg_context::RegContext;
@@ -47,6 +47,8 @@ pub struct Context {
     pub stack: Stack,
     /// passed in para for send
     pub para: *mut Any,
+    /// type id for yield out value
+    pub ret_type: TypeId,
     /// propagate panic
     pub err: Option<Box<Any + Send>>,
     /// context local storage
@@ -65,6 +67,7 @@ impl Context {
             regs: RegContext::root(),
             stack: Stack::empty(),
             para: unsafe { mem::uninitialized() },
+            ret_type: TypeId::of::<()>(),
             err: None,
             child: ptr::null_mut(),
             parent: ptr::null_mut(),
@@ -78,6 +81,7 @@ impl Context {
             regs: RegContext::empty(),
             stack: Stack::new(size),
             para: unsafe { mem::uninitialized() },
+            ret_type: TypeId::of::<()>(),
             err: None,
             child: ptr::null_mut(),
             parent: ptr::null_mut(),

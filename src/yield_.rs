@@ -2,8 +2,8 @@
 //!
 //! generator yield implmentation
 //!
+use std::any::{Any, TypeId};
 
-use std::any::Any;
 use no_drop::NoDrop;
 use gen_impl::Generator;
 use rt::{Context, ContextStack, Error};
@@ -44,6 +44,8 @@ fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
         #[cold]
         panic!("yield from none generator context");
     }
+
+    assert_eq!(TypeId::of::<T>(), context.ret_type);
 
     let para = NoDrop::new(v).encode_usize();
     raw_yield_now(env, context, &para as *const _ as usize)

@@ -68,7 +68,6 @@ fn test_yield_with() {
 }
 
 #[test]
-#[ignore]
 #[should_panic]
 fn test_yield_with_type_error() {
     let mut g = Gn::<()>::new(|| {
@@ -91,7 +90,6 @@ fn test_get_yield_type_error() {
 }
 
 #[test]
-#[ignore]
 #[should_panic]
 fn test_deep_yield_with_type_error() {
     let mut g = Gn::<()>::new(|| {

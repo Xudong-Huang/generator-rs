@@ -6,7 +6,7 @@
 use std::fmt;
 use std::panic;
 use std::thread;
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::marker::PhantomData;
 
 use scope::Scope;
@@ -87,6 +87,7 @@ impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
     /// create a new generator with default stack size
     pub fn init_context(&mut self) {
         self.context.para = &mut self.para as &mut Any;
+        self.context.ret_type = TypeId::of::<T>();
     }
 }
 
