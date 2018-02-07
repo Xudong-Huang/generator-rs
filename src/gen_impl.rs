@@ -178,7 +178,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         env.push_context(&mut self.context);
 
         // swap to the generator
-        let ret = RegContext::swap_link(&mut top.regs, top.stack.end(), para);
+        let ret = top.regs.swap_link(top.stack.end(), para);
 
         // comes back, check the panic status
         // this would propagate the panic until root context
@@ -379,7 +379,7 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
     let cur = env.top();
     let parent = env.pop_context(cur as *mut _);
     parent.regs.set_sp(sp);
-    RegContext::swap(&mut parent.regs, 0);
+    parent.regs.swap(0);
 
     // check if cancled
     if cur._ref != 1 {

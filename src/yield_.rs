@@ -5,7 +5,6 @@
 
 use std::any::Any;
 use gen_impl::Generator;
-use reg_context::RegContext;
 use rt::{Context, ContextStack, Error};
 
 /// it's a special return instruction that yield nothing
@@ -24,7 +23,7 @@ pub fn done<T>() -> T {
 #[inline]
 pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
     let parent = env.pop_context(cur as *mut _);
-    RegContext::swap(&mut parent.regs, 0);
+    parent.regs.swap(0);
 }
 
 /// raw yiled without catch passed in para
@@ -131,7 +130,7 @@ pub fn co_yield_with<T: Any>(v: T) {
 
     let parent = env.pop_context(context);
     // here we should use the top regs
-    RegContext::swap(&mut parent.regs, 0);
+    parent.regs.swap(0);
 }
 
 /// coroutine get passed in yield para

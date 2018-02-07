@@ -50,8 +50,8 @@ impl RegContext {
 
     // save the TIB context, only used by windows
     #[inline]
-    pub fn restore_context(regs: &mut RegContext) {
-        unsafe { restore_context(&mut regs.regs) };
+    pub fn restore_context(&mut self) {
+        unsafe { restore_context(&mut self.regs) };
     }
 
     /// Switch execution contexts to another stack
@@ -66,22 +66,22 @@ impl RegContext {
     /// usually we use NoDop and decode_usize/encode_usize to convert data
     /// between different stacks
     #[inline]
-    pub fn swap(dst: &mut RegContext, arg: usize) -> usize {
-        Self::restore_context(dst);
-        let sp = dst.regs.get_sp();
+    pub fn swap(&mut self, arg: usize) -> usize {
+        self.restore_context();
+        let sp = self.regs.get_sp();
         let (ret, sp) = unsafe { swap(arg, sp) };
-        dst.regs.set_sp(sp);
+        self.regs.set_sp(sp);
         ret
     }
 
     /// same as swap, but used for resume to link the ret address
     #[inline]
-    pub fn swap_link(dst: &mut RegContext, base: *mut usize, arg: usize) -> usize {
-        Self::restore_context(dst);
-        let sp = dst.regs.get_sp();
+    pub fn swap_link(&mut self, base: *mut usize, arg: usize) -> usize {
+        self.restore_context();
+        let sp = self.regs.get_sp();
         let (ret, sp) = unsafe { swap_link(arg, sp, base) };
         // if sp is None means the generator is finished
-        dst.regs.set_sp(unsafe { ::std::mem::transmute(sp) });
+        self.regs.set_sp(unsafe { ::std::mem::transmute(sp) });
         ret
     }
 }
@@ -112,7 +112,7 @@ mod tests {
 
             let mut recv = 42;
             loop {
-                let para = RegContext::swap(root, recv);
+                let para = root.swap(recv);
                 if para == 0 {
                     RegContext::restore_context(root);
                     return;
@@ -127,14 +127,14 @@ mod tests {
         ctx.init_with(init_fn, &stk);
 
         // send the function to the generator
-        let ret = RegContext::swap_link(&mut ctx, stk.end(), callback as usize);
+        let ret = ctx.swap_link(stk.end(), callback as usize);
         assert_eq!(ret, 42);
-        let ret = RegContext::swap_link(&mut ctx, stk.end(), ret + 1);
+        let ret = ctx.swap_link(stk.end(), ret + 1);
         assert_eq!(ret, 43);
-        let ret = RegContext::swap_link(&mut ctx, stk.end(), ret + 1);
+        let ret = ctx.swap_link(stk.end(), ret + 1);
         assert_eq!(ret, 44);
         // finish the generator
-        let ret = RegContext::swap_link(&mut ctx, stk.end(), 0);
+        let ret = ctx.swap_link(stk.end(), 0);
         let sp = unsafe { ctx.regs.get_sp().offset(0) as usize };
         // FIXME: seems that when the last return from generator need to call
         // a function with the sp arg to fully recover
