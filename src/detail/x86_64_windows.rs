@@ -156,7 +156,7 @@ pub unsafe fn swap_link(
     arg: usize,
     new_sp: StackPointer,
     new_stack_base: *mut usize,
-) -> (usize, Option<StackPointer>) {
+) -> (usize, StackPointer) {
     let ret: usize;
     let ret_sp: usize;
     asm!(

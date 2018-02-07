@@ -139,11 +139,10 @@ mod tests {
         let ret = ctx.swap_link(stk.end(), ret + 1);
         assert_eq!(ret, 44);
         // finish the generator
-        let ret = ctx.swap_link(stk.end(), 0);
+        let _ret = ctx.swap_link(stk.end(), 0);
+        // CAUSION: the last ret is undefined
+        // println!("ret = {}", _ret);
         let sp = unsafe { ctx.regs.get_sp().offset(0) as usize };
-        // FIXME: seems that when the last return from generator need to call
-        // a function with the sp arg to fully recover
-        let _s = format!("sp = {}, ret = {}", sp, ret);
         assert_eq!(sp, 0);
     }
 }

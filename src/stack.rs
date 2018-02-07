@@ -2,7 +2,7 @@
 //!
 //!
 
-use std::ptr::{self, NonNull};
+use std::ptr;
 
 #[cfg(nightly)]
 use alloc::raw_vec::RawVec;
@@ -88,39 +88,43 @@ impl Stack {
     }
 
     /// Point to the high end of the allocated stack
+    #[inline]
     pub fn end(&self) -> *mut usize {
         self.base
     }
 
     /// Point to the low end of the allocated stack
-    #[allow(dead_code)]
+    #[inline]
     pub fn begin(&self) -> *mut usize {
         self.buf.ptr()
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct StackPointer(NonNull<usize>);
+pub struct StackPointer(usize);
 
 impl StackPointer {
     #[inline(always)]
     pub unsafe fn push(&mut self, val: usize) {
-        self.0 = NonNull::new_unchecked(self.0.as_ptr().offset(-1));
-        *self.0.as_mut() = val;
+        let mut ptr = self.0 as *mut usize;
+        ptr = ptr.offset(-1);
+        *ptr = val;
+        self.0 = ptr as usize;
     }
 
     #[inline(always)]
     pub unsafe fn new(sp: *mut usize) -> StackPointer {
-        StackPointer(NonNull::new_unchecked(sp as *mut usize))
+        StackPointer(sp as usize)
     }
 
     #[inline(always)]
     pub unsafe fn offset(&self, count: isize) -> *mut usize {
-        self.0.as_ptr().offset(count)
+        let ptr = self.0 as *mut usize;
+        ptr.offset(count)
     }
 
     #[inline(always)]
     pub fn is_zero(&self) -> bool {
-        self.0.as_ptr().is_null()
+        self.0 == 0
     }
 }

@@ -11,7 +11,6 @@ use std::marker::PhantomData;
 
 use scope::Scope;
 use stack::StackPointer;
-use reg_context::RegContext;
 use rt::{Context, ContextStack, Error};
 use no_drop::{decode_usize, encode_usize, NoDrop};
 
@@ -362,16 +361,17 @@ fn gen_wrapper<'a, F: FnOnce() + 'a, Input>(env: usize, sp: StackPointer) {
     let cur = env.top();
     let parent = env.pop_context(cur as *mut _);
     parent.regs.set_sp(sp);
-    parent.regs.swap(0);
 
-    if let Err(cause) = panic::catch_unwind(panic::AssertUnwindSafe(f)) {
+    if parent.regs.swap(0) != 0 {
+        // this is a fresh cancel without start the functor
+    } else if let Err(cause) = panic::catch_unwind(panic::AssertUnwindSafe(f)) {
         // we can't panic inside the generator context
         // need to propagate the panic to the main thread
         check_err(cause);
     }
 
     // we need to restore the TIB!
-    RegContext::restore_context(&mut parent.regs);
+    parent.regs.restore_context();
     // when finished pop the current ctx and return to the caller
     env.pop_context(cur as *mut _);
 }

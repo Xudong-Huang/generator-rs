@@ -28,12 +28,6 @@ pub fn done<T>() -> T {
 
 #[inline]
 pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
-    // check the context
-    if !cur.is_generator() {
-        #[cold]
-        panic!("yield from none generator context");
-    }
-
     let parent = env.pop_context(cur as *mut _);
     if parent.regs.swap(0) != 0 {
         #[cold]
@@ -44,6 +38,12 @@ pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
 /// raw yiled without catch passed in para
 #[inline]
 fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
+    // check the context
+    if !context.is_generator() {
+        #[cold]
+        panic!("yield from none generator context");
+    }
+
     context.set_ret(v);
     raw_yield_now(env, context)
 }

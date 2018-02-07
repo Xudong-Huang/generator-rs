@@ -35,6 +35,12 @@ impl<A, T> Scope<A, T> {
     /// raw yiled without catch passed in para
     #[inline]
     fn raw_yield(&mut self, env: &ContextStack, context: &mut Context, v: T) {
+        // check the context
+        if !context.is_generator() {
+            #[cold]
+            panic!("yield from none generator context");
+        }
+
         self.set_ret(v);
         // here we just panic to exit the func
         raw_yield_now(env, context)
