@@ -8,6 +8,7 @@ use std::any::{Any, TypeId};
 
 use stack::Stack;
 use reg_context::RegContext;
+use detail::{swap, swap_link};
 
 /// each thread has it's own generator context stack
 thread_local!(static ROOT_CONTEXT: Box<Context> = {
@@ -106,6 +107,57 @@ impl Context {
             Some(v) => v.take(),
             None => type_error::<A>("get yield type mismatch error detected"),
         }
+    }
+
+    /// Switch execution contexts to parent stack
+    ///
+    /// Suspend the current execution context and resume another by
+    /// saving the registers values of the executing thread to a Context
+    /// then loading the registers from a previously saved Context.
+    /// after the peer call the swap again, this function would return
+    /// the passed in arg would be catch by the peer swap and the return
+    /// value is the peer swap arg
+    ///
+    /// usually we use NoDop and decode_usize/encode_usize to convert data
+    /// between different stacks
+    #[inline]
+    pub fn swap_yield(&mut self, parent: &mut Context, arg: usize) -> usize {
+        // we have finished the context stack pop
+        // self is current generator context
+        parent.regs.restore_context();
+        let sp = parent.regs.get_sp();
+        let (ret, sp) = unsafe { swap(arg, sp) };
+        // the parent is cached as the last env which maybe not correct
+        // we need to update it here after resume back!, but the self
+        // is always the last context, so we need to get the current context
+        // to get the correct parent here.
+        let parent = unsafe { &mut *self.parent };
+        parent.regs.set_sp(sp);
+        ret
+    }
+
+    /// same as swap, but used for resume to link the ret address
+    #[inline]
+    pub fn swap_resume(&mut self, arg: usize) -> usize {
+        // we already finish the context stack push
+        // self is just the target generator
+
+        // switch to new context, always use the top ctx's reg
+        // for normal generator self.context.parent == self.context
+        // for coroutine self.context.parent == top generator context
+        // assert!(!self.parent.is_null());
+        let base = self.stack.end();
+
+        self.regs.restore_context();
+        let sp = self.regs.get_sp();
+        let (ret, sp) = unsafe { swap_link(arg, sp, base) };
+
+        // come back, the target should not be changed
+        // note that the target is alredy popped up
+
+        // if sp is None means the generator is finished
+        self.regs.set_sp(unsafe { ::std::mem::transmute(sp) });
+        ret
     }
 }
 

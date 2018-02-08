@@ -1,5 +1,5 @@
 use stack::{Stack, StackPointer};
-use detail::{initialize_call_frame, restore_context, swap, swap_link, Registers};
+use detail::{initialize_call_frame, restore_context, Registers};
 
 // Hold the registers of the generator
 // the most important register the stack pointer
@@ -58,45 +58,9 @@ impl RegContext {
     pub fn restore_context(&mut self) {
         unsafe { restore_context(&mut self.regs) };
     }
-
-    /// Switch execution contexts to another stack
-    ///
-    /// Suspend the current execution context and resume another by
-    /// saving the registers values of the executing thread to a Context
-    /// then loading the registers from a previously saved Context.
-    /// after the peer call the swap again, this function would return
-    /// the passed in arg would be catch by the peer swap and the return
-    /// value is the peer swap arg
-    ///
-    /// usually we use NoDop and decode_usize/encode_usize to convert data
-    /// between different stacks
-    #[inline]
-    pub fn swap(&mut self, arg: usize) -> usize {
-        self.restore_context();
-        let sp = self.regs.get_sp();
-        let (ret, sp) = unsafe { swap(arg, sp) };
-        // the parent is cached as the last env which maybe not correct
-        // we need to update it here after resume back!, but the self
-        // is always the last context, so we need to get the current context
-        // to get the correct parent here.
-        //parent = cur.parent;
-        //parent.regs.set_sp(sp);
-        self.regs.set_sp(sp);
-        ret
-    }
-
-    /// same as swap, but used for resume to link the ret address
-    #[inline]
-    pub fn swap_link(&mut self, base: *mut usize, arg: usize) -> usize {
-        self.restore_context();
-        let sp = self.regs.get_sp();
-        let (ret, sp) = unsafe { swap_link(arg, sp, base) };
-        // if sp is None means the generator is finished
-        self.regs.set_sp(unsafe { ::std::mem::transmute(sp) });
-        ret
-    }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,3 +116,4 @@ mod tests {
         assert_eq!(sp, 0);
     }
 }
+*/

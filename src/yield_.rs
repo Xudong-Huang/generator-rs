@@ -30,7 +30,7 @@ pub fn done<T>() -> T {
 #[inline]
 pub fn raw_yield_now(env: &ContextStack, cur: &mut Context, para: usize) {
     let parent = env.pop_context(cur as *mut _);
-    if parent.regs.swap(para) != 0 {
+    if cur.swap_yield(parent, para) != 0 {
         #[cold]
         panic!(Error::Cancel);
     }
@@ -127,7 +127,7 @@ pub fn co_yield_with<T: Any>(v: T) {
 
     let parent = env.pop_context(context);
     let para = NoDrop::new(v);
-    if parent.regs.swap(para.encode_usize()) != 0 {
+    if context.swap_yield(parent, para.encode_usize()) != 0 {
         #[cold]
         panic!(Error::Cancel);
     }

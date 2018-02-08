@@ -137,18 +137,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// resume the generator
     #[inline]
     fn resume_gen(&mut self, para: usize) -> Option<T> {
-        // switch to new context, always use the top ctx's reg
-        // for normal generator self.context.parent == self.context
-        // for coroutine self.context.parent == top generator context
-        // assert!(!self.context.parent.is_null());
-        let top = unsafe { &mut *self.context.parent };
-
         // save current generator context on stack
         let env = ContextStack::current();
         env.push_context(&mut self.context);
 
         // swap to the generator
-        let ret = top.regs.swap_link(top.stack.end(), para);
+        let ret = self.context.swap_resume(para);
 
         // comes back, check the panic status
         // this would propagate the panic until root context
@@ -330,13 +324,14 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
     // just for init and return to the parent caller
     let env = ContextStack::current();
     let cur = env.top();
+    // we need to setup the parent sp for the first resume to here
     let parent = env.pop_context(cur as *mut _);
     parent.regs.set_sp(sp);
 
     let ret;
     let mut ret_addr: usize = 0;
     // the swap return indicate if it's a cancel resume
-    if parent.regs.swap(0) == 0 {
+    if cur.swap_yield(parent, 0) == 0 {
         match panic::catch_unwind(panic::AssertUnwindSafe(f)) {
             // we can't panic inside the generator context
             // need to propagate the panic to the main thread
@@ -348,7 +343,7 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
                     0
                 } else {
                     // normal return
-                    &ret as *const _ as usize
+                    ret.encode_usize()
                 };
             }
         }
@@ -360,6 +355,7 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
     let parent = env.pop_context(cur as *mut _);
     // we need to restore the TIB!
     parent.regs.restore_context();
-    
+
     unsafe { ::detail::asm::set_ret(ret_addr) };
+    // after ruturn back the trampoline_2 asm will handle the execution
 }
