@@ -8,6 +8,7 @@ fn main() {
     fn square<'a, T: Iterator<Item = u32> + 'a>(input: T) -> Generator<'a, (), u32> {
         Gn::new_scoped(|mut s| {
             for i in input {
+                println!("square input = {}", i);
                 s.yield_with(i * i);
             }
             done!();
@@ -19,6 +20,7 @@ fn main() {
         Gn::new_scoped(|mut s| {
             let mut acc = 0;
             for i in input {
+                println!("sum input = {}", i);
                 acc += i;
                 s.yield_with(acc);
             }

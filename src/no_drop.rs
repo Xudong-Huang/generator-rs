@@ -15,34 +15,18 @@ impl<T> NoDrop<T> {
 
     // Try to pack a value into a usize if it fits, otherwise pass its address as a usize.
     pub fn encode_usize(&self) -> usize {
-        if mem::size_of::<T>() <= mem::size_of::<usize>()
-            && mem::align_of::<T>() <= mem::align_of::<usize>()
-        {
-            let mut out = 0;
-            unsafe { ptr::copy_nonoverlapping(&self.inner, &mut out as *mut usize as *mut T, 1) };
-            out
-        } else {
-            unsafe { &self.inner as *const T as usize }
-        }
+        unsafe { &self.inner as *const T as usize }
     }
 }
 
 // Unpack a usize produced by encode_usize.
-pub unsafe fn decode_usize<T>(val: usize) -> T {
-    if mem::size_of::<T>() <= mem::size_of::<usize>()
-        && mem::align_of::<T>() <= mem::align_of::<usize>()
-    {
-        ptr::read(&val as *const usize as *const T)
-    } else {
-        ptr::read(val as *const T)
-    }
-}
-
-// Unpack a usize ptr produced by encode_usize.
-pub unsafe fn decode_ptr<T>(ptr: *mut usize) -> Option<T> {
-    if ptr.is_null() {
+pub unsafe fn decode_usize<T>(val: usize) -> Option<T> {
+    if val == 0 {
+        #[cold]
         None
     } else {
-        Some(decode_usize(*ptr))
+        let mut v = mem::uninitialized();
+        ptr::copy_nonoverlapping(val as *const T, &mut v, 1);
+        Some(v)
     }
 }

@@ -48,8 +48,8 @@ impl RegContext {
     /// init the generator stack and registers
     #[inline]
     pub fn init_with(&mut self, init: InitFn, stack: &Stack) {
-        // this would swap into the generator and then yield back to there
-        // thus the registers will be updated accordingly
+        // this would setup the generator context
+        // thus the registers and stack will be updated accordingly
         unsafe { initialize_call_frame(&mut self.regs, init, stack) };
     }
 
@@ -75,6 +75,12 @@ impl RegContext {
         self.restore_context();
         let sp = self.regs.get_sp();
         let (ret, sp) = unsafe { swap(arg, sp) };
+        // the parent is cached as the last env which maybe not correct
+        // we need to update it here after resume back!, but the self
+        // is always the last context, so we need to get the current context
+        // to get the correct parent here.
+        //parent = cur.parent;
+        //parent.regs.set_sp(sp);
         self.regs.set_sp(sp);
         ret
     }

@@ -36,9 +36,9 @@ impl<A, T> Scope<A, T> {
             panic!("yield from none generator context");
         }
 
-        let para = NoDrop::new(v).encode_usize();
+        let para = NoDrop::new(v);
         // here we just panic to exit the func
-        raw_yield_now(env, context, &para as *const _ as usize);
+        raw_yield_now(env, context, para.encode_usize());
     }
 
     /// yiled something without catch passed in para

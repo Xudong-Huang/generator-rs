@@ -129,9 +129,9 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             .init_with(gen_wrapper::<F, A, T>, &self.context.stack);
 
         // Transfer environment to the callee.
-        let arg = NoDrop::new(f).encode_usize();
+        let arg = NoDrop::new(f);
         // for the first time, the arg is f that transfer to the callee stack
-        self.resume_gen(arg);
+        self.resume_gen(arg.encode_usize());
     }
 
     /// resume the generator
@@ -161,7 +161,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             }
         }
 
-        unsafe { no_drop::decode_ptr::<T>(ret as *mut usize) }
+        unsafe { no_drop::decode_usize::<T>(ret) }
     }
 
     /// prepare the para that passed into generator before send
@@ -325,7 +325,7 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
         ContextStack::current().top().err = Some(cause);
     }
 
-    let f: F = unsafe { no_drop::decode_usize(para) };
+    let f: F = unsafe { no_drop::decode_usize(para).expect("bad functor") };
     // the first invoke doesn't necessarily pass in anything
     // just for init and return to the parent caller
     let env = ContextStack::current();
@@ -342,20 +342,24 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
             // need to propagate the panic to the main thread
             Err(cause) => check_err(cause),
             Ok(v) => {
+                ret = NoDrop::new(v);
                 ret_addr = if cur.regs.get_sp().is_zero() {
                     // this is a done return
                     0
                 } else {
                     // normal return
-                    ret = NoDrop::new(v).encode_usize();
                     &ret as *const _ as usize
                 };
             }
         }
     }
+
+    // when finished pop the current ctx and return to the caller
+    // the parent is cached as the last env which maybe not correct
+    // we need to update it here after resume back!
+    let parent = env.pop_context(cur as *mut _);
     // we need to restore the TIB!
     parent.regs.restore_context();
-    // when finished pop the current ctx and return to the caller
-    env.pop_context(cur as *mut _);
+    
     unsafe { ::detail::asm::set_ret(ret_addr) };
 }
