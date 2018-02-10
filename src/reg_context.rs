@@ -60,12 +60,57 @@ impl RegContext {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::mem::transmute;
+
+    use super::*;
+    use detail::{swap, swap_link};
     const MIN_STACK: usize = 2 * 1024 * 1024;
+
+    trait RegExt {
+        fn swap(&mut self, arg: usize) -> usize;
+        fn swap_link(&mut self, base: *mut usize, arg: usize) -> usize;
+    }
+
+    impl RegExt for RegContext {
+        /// Switch execution contexts to another stack
+        ///
+        /// Suspend the current execution context and resume another by
+        /// saving the registers values of the executing thread to a Context
+        /// then loading the registers from a previously saved Context.
+        /// after the peer call the swap again, this function would return
+        /// the passed in arg would be catch by the peer swap and the return
+        /// value is the peer swap arg
+        ///
+        /// usually we use NoDop and decode_usize/encode_usize to convert data
+        /// between different stacks
+        #[inline]
+        fn swap(&mut self, arg: usize) -> usize {
+            self.restore_context();
+            let sp = self.regs.get_sp();
+            let (ret, sp) = unsafe { swap(arg, sp) };
+            // the parent is cached as the last env which maybe not correct
+            // we need to update it here after resume back!, but the self
+            // is always the last context, so we need to get the current context
+            // to get the correct parent here.
+            //parent = cur.parent;
+            //parent.regs.set_sp(sp);
+            self.regs.set_sp(sp);
+            ret
+        }
+
+        /// same as swap, but used for resume to link the ret address
+        #[inline]
+        fn swap_link(&mut self, base: *mut usize, arg: usize) -> usize {
+            self.restore_context();
+            let sp = self.regs.get_sp();
+            let (ret, sp) = unsafe { swap_link(arg, sp, base) };
+            // if sp is None means the generator is finished
+            self.regs.set_sp(unsafe { transmute(sp) });
+            ret
+        }
+    }
 
     // this target funcion call
     // the argument is passed in through the first swap
@@ -116,4 +161,3 @@ mod tests {
         assert_eq!(sp, 0);
     }
 }
-*/
