@@ -288,9 +288,10 @@ impl Registers {
 
     #[inline]
     pub fn prefetch(&self) {
-        unsafe {
-            prefetch_asm(self as *const _ as *const usize);
-            prefetch_asm(self.reg[0] as *const usize);
+        if self.reg[0] == 0 {
+            #[cold]
+            return;
         }
+        unsafe { prefetch_asm(self.reg[0] as *const usize) };
     }
 }
