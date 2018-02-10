@@ -2,17 +2,9 @@ use std::mem;
 use reg_context::InitFn;
 use stack::{Stack, StackPointer};
 
-#[allow(dead_code)]
-#[inline]
-pub fn prefetch(data: *const usize) {
-    unsafe {
-        prefetch_asm(data);
-    }
-}
-
 /// prefetch data
-#[inline]
-pub unsafe fn prefetch_asm(data: *const usize) {
+#[inline(always)]
+unsafe fn prefetch(data: *const usize) {
     asm!("prefetcht1 $0"
              : // no output
              : "m"(*data)
@@ -20,7 +12,7 @@ pub unsafe fn prefetch_asm(data: *const usize) {
              : "volatile");
 }
 
-pub unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &Stack) {
+unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &Stack) {
     #[naked]
     unsafe extern "C" fn trampoline_1() {
         asm!(
@@ -141,7 +133,7 @@ unsafe fn load_context(regs: *mut Registers) {
 
 // this is only used in windows platform which need to save the TIB info
 #[inline(always)]
-pub unsafe fn restore_context(regs: *mut Registers) {
+unsafe fn restore_context(regs: *mut Registers) {
     // load tib and save in the src
     // load dst and save to the tib
     asm!(
@@ -287,12 +279,21 @@ impl Registers {
         self.reg[0] = unsafe { mem::transmute(sp) };
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn prefetch(&self) {
         if self.reg[0] == 0 {
             #[cold]
             return;
         }
-        unsafe { prefetch_asm(self.reg[0] as *const usize) };
+        unsafe { prefetch(self.reg[0] as *const usize) };
+    }
+
+    #[inline(always)]
+    pub unsafe fn restore_context(&mut self) {
+        restore_context(self);
+    }
+
+    pub unsafe fn init_with(&mut self, fptr: InitFn, stack: &Stack) {
+        initialize_call_frame(self, fptr, stack);
     }
 }

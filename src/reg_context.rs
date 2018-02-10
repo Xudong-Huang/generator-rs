@@ -1,5 +1,5 @@
+use detail::Registers;
 use stack::{Stack, StackPointer};
-use detail::{initialize_call_frame, restore_context, Registers};
 
 // Hold the registers of the generator
 // the most important register the stack pointer
@@ -50,13 +50,13 @@ impl RegContext {
     pub fn init_with(&mut self, init: InitFn, stack: &Stack) {
         // this would setup the generator context
         // thus the registers and stack will be updated accordingly
-        unsafe { initialize_call_frame(&mut self.regs, init, stack) };
+        unsafe { self.regs.init_with(init, stack) };
     }
 
     // save the TIB context, only used by windows
     #[inline]
     pub fn restore_context(&mut self) {
-        unsafe { restore_context(&mut self.regs) };
+        unsafe { self.regs.restore_context() };
     }
 }
 
