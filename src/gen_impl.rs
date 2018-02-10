@@ -137,10 +137,6 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// resume the generator
     #[inline]
     fn resume_gen(&mut self, para: usize) -> Option<T> {
-        // save current generator context on stack
-        let env = ContextStack::current();
-        env.push_context(&mut self.context);
-
         // swap to the generator
         let ret = self.context.swap_resume(para);
 
@@ -322,10 +318,10 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
     let f: F = unsafe { no_drop::decode_usize(para).expect("bad functor") };
     // the first invoke doesn't necessarily pass in anything
     // just for init and return to the parent caller
-    let env = ContextStack::current();
+    let mut env = ContextStack::current();
     let cur = env.top();
     // we need to setup the parent sp for the first resume to here
-    let parent = env.pop_context(cur as *mut _);
+    let mut parent = env.pop_context(cur as *mut _);
     parent.regs.set_sp(sp);
 
     let ret;
@@ -352,7 +348,8 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
     // when finished pop the current ctx and return to the caller
     // the parent is cached as the last env which maybe not correct
     // we need to update it here after resume back!
-    let parent = env.pop_context(cur as *mut _);
+    env = ContextStack::current();
+    parent = env.pop_context(cur as *mut _);
     // we need to restore the TIB!
     parent.regs.restore_context();
 

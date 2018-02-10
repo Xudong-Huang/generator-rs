@@ -115,9 +115,11 @@ pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
 /// coroutine yield
 pub fn co_yield_with<T: Any>(v: T) {
     let env = ContextStack::current();
+    // this is coroutine context
     let context = env.co_ctx().unwrap();
 
-    // TODO: do more checks about cancel
+    // CAUSION: do more checks about cancel
+    assert_eq!(TypeId::of::<T>(), context.ret_type);
     // check the context, already checked in co_ctx()
     // if !context.is_generator() {
     //     info!("yield from none coroutine context");

@@ -146,17 +146,21 @@ impl Context {
         // for normal generator self.context.parent == self.context
         // for coroutine self.context.parent == top generator context
         // assert!(!self.parent.is_null());
-        let base = self.stack.end();
+        let top = unsafe { &mut *self.parent };
+        // save current generator context on stack
+        let env = ContextStack::current();
 
-        self.regs.restore_context();
-        let sp = self.regs.get_sp();
+        env.push_context(self);
+        top.regs.restore_context();
+
+        let base = top.stack.end();
+        let sp = top.regs.get_sp();
         let (ret, sp) = unsafe { swap_link(arg, sp, base) };
 
-        // come back, the target should not be changed
+        // when come back it maybe not the same generator!!
         // note that the target is alredy popped up
-
-        // if sp is None means the generator is finished
-        self.regs.set_sp(unsafe { ::std::mem::transmute(sp) });
+        let top = unsafe { &mut *self.parent };
+        top.regs.set_sp(unsafe { ::std::mem::transmute(sp) });
         ret
     }
 }
