@@ -5,18 +5,19 @@ use stack::{Stack, StackPointer};
 /// prefetch data
 #[inline(always)]
 unsafe fn prefetch(data: *const usize) {
-    asm!("prefetcht1 $0"
-             : // no output
-             : "m"(*data)
-             :
-             : "volatile");
+    asm!(
+    "prefetcht1 $0"
+    : // no output
+    : "m"(*data)
+    :
+    : "volatile")
 }
 
 unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &Stack) {
     #[naked]
     unsafe extern "C" fn trampoline_1() {
         asm!(
-      r#"
+        r#"
         # This nop is here so that the initial swap doesn't return to the start
         # of the trampoline, which confuses the unwinder since it will look for
         # frame information in the previous symbol rather than this one. It is
@@ -27,14 +28,14 @@ unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &Stac
         # 1-byte symbols, so we add a second nop here. This instruction isn't
         # executed either, it is only here to pad the symbol size.
         nop
-      "#
-      : : : : "volatile")
+        "#
+        : : : : "volatile")
     }
 
     #[naked]
     unsafe extern "C" fn trampoline_2() {
         asm!(
-      r#"
+        r#"
         # This nop is here so that the return address of the swap trampoline
         # doesn't point to the start of the symbol. This confuses gdb's backtraces,
         # causing them to think the parent function is trampoline_1 instead of
@@ -59,8 +60,8 @@ unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &Stac
         # to avoid return address mispredictions (~8ns per `ret` on Ivy Bridge).
         popq    %rax
         jmpq    *%rax
-      "#
-      : : : : "volatile")
+        "#
+        : : : : "volatile")
     }
 
     // We set up the stack in a somewhat special way so that to the unwinder it
@@ -103,8 +104,7 @@ pub unsafe fn set_ret(ret: usize, sp: usize) {
     : "{rcx}" (ret)
       "{rdx}" (sp)
     : // no clobers
-    : "volatile"
-    );
+    : "volatile")
 }
 
 // load TIB context into the root regs
@@ -112,23 +112,22 @@ pub unsafe fn set_ret(ret: usize, sp: usize) {
 unsafe fn load_context(regs: *mut Registers) {
     asm!(
     r#"
-        /* load NT_TIB */
-        movq  %gs:(0x30), %r10
-        /* save current stack base */
-        movq  0x08(%r10), %rax
-        mov  %rax, (1*8)(%rcx)
-        /* save current stack limit */
-        movq  0x10(%r10), %rax
-        mov  %rax, (2*8)(%rcx)
-        /* save current deallocation stack */
-        movq  0x1478(%r10), %rax
-        mov  %rax, (3*8)(%rcx)
+    /* load NT_TIB */
+    movq  %gs:(0x30), %r10
+    /* save current stack base */
+    movq  0x08(%r10), %rax
+    mov  %rax, (1*8)(%rcx)
+    /* save current stack limit */
+    movq  0x10(%r10), %rax
+    mov  %rax, (2*8)(%rcx)
+    /* save current deallocation stack */
+    movq  0x1478(%r10), %rax
+    mov  %rax, (3*8)(%rcx)
     "#
     :
     : "{rcx}" (regs)
     : "rax", "r10", "memory"
-    : "volatile"
-    );
+    : "volatile")
 }
 
 // this is only used in windows platform which need to save the TIB info
@@ -138,22 +137,22 @@ unsafe fn restore_context(regs: *mut Registers) {
     // load dst and save to the tib
     asm!(
     r#"
-        /* load NT_TIB */
-        movq  %gs:(0x30), %r10
-        /* restore deallocation stack */
-        mov  (3*8)(%rcx), %rax
-        movq  %rax, 0x1478(%r10)
-        /* restore stack limit */
-        mov  (2*8)(%rcx), %rax
-        movq  %rax, 0x10(%r10)
-        /* restore stack base */
-        mov  (1*8)(%rcx), %rax
-        movq  %rax, 0x8(%r10)
+    /* load NT_TIB */
+    movq  %gs:(0x30), %r10
+    /* restore deallocation stack */
+    mov  (3*8)(%rcx), %rax
+    movq  %rax, 0x1478(%r10)
+    /* restore stack limit */
+    mov  (2*8)(%rcx), %rax
+    movq  %rax, 0x10(%r10)
+    /* restore stack base */
+    mov  (1*8)(%rcx), %rax
+    movq  %rax, 0x8(%r10)
     "#
     :
     : "{rcx}" (regs)
     : "rax", "r10", "memory"
-    : "volatile");
+    : "volatile")
 }
 
 #[inline(always)]
@@ -166,33 +165,33 @@ pub unsafe fn swap_link(
     let ret_sp: usize;
     asm!(
     r#"
-        # Push the return address
-        leaq    0f(%rip), %rax
-        pushq   %rax
+    # Push the return address
+    leaq    0f(%rip), %rax
+    pushq   %rax
 
-        # Save frame pointer explicitly; the unwinder uses it to find CFA of
-        # the caller, and so it has to have the correct value immediately after
-        # the call instruction that invoked the trampoline.
-        pushq   %rbp
+    # Save frame pointer explicitly; the unwinder uses it to find CFA of
+    # the caller, and so it has to have the correct value immediately after
+    # the call instruction that invoked the trampoline.
+    pushq   %rbp
 
-        # Link the call stacks together by writing the current stack bottom
-        # address to the CFA slot in the new stack.
-        movq    %rsp, -32(%rdi)
+    # Link the call stacks together by writing the current stack bottom
+    # address to the CFA slot in the new stack.
+    movq    %rsp, -32(%rdi)
 
-        # Pass the stack pointer of the old context to the new one.
-        movq    %rsp, %rdx
+    # Pass the stack pointer of the old context to the new one.
+    movq    %rsp, %rdx
 
-        # Load stack pointer of the new context.
-        movq    %rsi, %rsp
+    # Load stack pointer of the new context.
+    movq    %rsi, %rsp
 
-        # Restore frame pointer of the new context.
-        popq    %rbp
+    # Restore frame pointer of the new context.
+    popq    %rbp
 
-        # Return into the new context. Use `pop` and `jmp` instead of a `ret`
-        # to avoid return address mispredictions (~8ns per `ret` on Ivy Bridge).
-        popq    %rax
-        jmpq    *%rax
-      0:
+    # Return into the new context. Use `pop` and `jmp` instead of a `ret`
+    # to avoid return address mispredictions (~8ns per `ret` on Ivy Bridge).
+    popq    %rax
+    jmpq    *%rax
+    0:
     "#
     : "={rcx}" (ret)
       "={rdx}" (ret_sp)
@@ -223,15 +222,15 @@ pub unsafe fn swap(arg: usize, new_sp: StackPointer) -> (usize, StackPointer) {
     let ret_sp: usize;
     asm!(
     r#"
-        leaq    0f(%rip), %rax
-        pushq   %rax
-        pushq   %rbp
-        movq    %rsp, %rdx
-        movq    %rsi, %rsp
-        popq    %rbp
-        popq    %rax
-        jmpq    *%rax
-      0:
+    leaq    0f(%rip), %rax
+    pushq   %rax
+    pushq   %rbp
+    movq    %rsp, %rdx
+    movq    %rsi, %rsp
+    popq    %rbp
+    popq    %rax
+    jmpq    *%rax
+    0:
     "#
     : "={rcx}" (ret)
       "={rdx}" (ret_sp)
