@@ -135,7 +135,8 @@ mod tests {
                 let para = root.swap(recv);
                 if para == 0 {
                     RegContext::restore_context(root);
-                    unsafe { ::detail::asm::set_ret(100) };
+                    let sp = unsafe { root.get_sp().offset(0) as usize };
+                    unsafe { ::detail::asm::set_ret(100, sp) };
                     return;
                 }
                 recv += 1;

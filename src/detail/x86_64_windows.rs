@@ -54,7 +54,7 @@ pub unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &
 
         # Restore the stack pointer of the parent context. No CFI adjustments
         # are needed since we have the same stack frame as trampoline_1.
-        movq    (%rsp), %rsp
+        movq    %rdx, %rsp
 
         # Restore frame pointer of the parent context.
         popq    %rbp
@@ -104,11 +104,12 @@ pub unsafe fn initialize_call_frame(regs: &mut Registers, fptr: InitFn, stack: &
 
 // set the return address
 #[inline(always)]
-pub unsafe fn set_ret(ret: usize) {
+pub unsafe fn set_ret(ret: usize, sp: usize) {
     asm!(
     ""
     :
     : "{rcx}" (ret)
+      "{rdx}" (sp)
     : // no clobers
     : "volatile"
     );

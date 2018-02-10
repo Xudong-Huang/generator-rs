@@ -350,9 +350,11 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
     // we need to update it here after resume back!
     env = ContextStack::current();
     parent = env.pop_context(cur as *mut _);
+    // setup the return value and sp target
+    let ret_sp = unsafe { parent.regs.get_sp().offset(0) as usize };
     // we need to restore the TIB!
     parent.regs.restore_context();
 
-    unsafe { ::detail::asm::set_ret(ret_addr) };
+    unsafe { ::detail::asm::set_ret(ret_addr, ret_sp) };
     // after ruturn back the trampoline_2 asm will handle the execution
 }
