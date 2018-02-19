@@ -18,8 +18,19 @@ use rt::{Context, ContextStack, Error};
 // windows has a minimal size as 0x4a8!!!!
 pub const DEFAULT_STACK_SIZE: usize = 0x1000;
 
+trait FnBox<T> {
+    fn call_box(self: Box<Self>) -> T;
+}
+
+impl<T, F: FnOnce() -> T> FnBox<T> for F {
+    #[cfg_attr(feature = "cargo-clippy", allow(boxed_local))]
+    fn call_box(self: Box<Self>) -> T {
+        self()
+    }
+}
+
 /// Generator helper
-pub struct Gn<A> {
+pub struct Gn<A = ()> {
     dummy: PhantomData<A>,
 }
 
@@ -74,13 +85,13 @@ impl<A: Any> Gn<A> {
 }
 
 /// `GeneratorImpl`
-pub struct GeneratorImpl<'a, A, T: 'a> {
+pub struct GeneratorImpl<'a, A, T> {
     // run time context
     context: Context,
     // save the input
     para: Option<A>,
-    // phantom
-    phantom: PhantomData<&'a T>,
+    // boxed functor
+    f: Option<Box<FnBox<T> + 'a>>,
 }
 
 impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
@@ -96,8 +107,8 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     pub fn new(size: usize) -> Box<Self> {
         Box::new(GeneratorImpl {
             para: None,
+            f: None,
             context: Context::new(size),
-            phantom: PhantomData,
         })
     }
 
@@ -119,26 +130,41 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         T: 'a,
     {
         // make sure the last one is finished
-        unsafe { self.cancel() };
+        if self.f.is_none() {
+            unsafe {
+                self.cancel();
+            }
+        }
+
+        self.f = Some(Box::new(f));
 
         // init ctx parent to itself, this would be the new top
         self.context.parent = &mut self.context;
 
         self.context
             .regs
-            .init_with(gen_wrapper::<F, A, T>, &self.context.stack);
-
-        // Transfer environment to the callee.
-        let arg = NoDrop::new(f);
-        // for the first time, the arg is f that transfer to the callee stack
-        self.resume_gen(arg.encode_usize());
+            .init_with(gen_wrapper::<A, T>, &self.context.stack);
     }
 
     /// resume the generator
     #[inline]
     fn resume_gen(&mut self, para: usize) -> Option<T> {
-        // swap to the generator
-        let ret = self.context.swap_resume(para);
+        // for the first time the start the generator
+        // para is not used at all
+        let ret = if self.f.is_some() {
+            #[cold]
+            {
+                let f = self.f.take().unwrap();
+                // Transfer environment to the callee.
+                let arg = NoDrop::new(f);
+                // TODO: how to avoid this extra context switch?
+                // for the first time, the arg is f that transfer to the callee stack
+                self.context.swap_resume(arg.encode_usize())
+            }
+        } else {
+            // swap to the generator
+            self.context.swap_resume(para)
+        };
 
         // comes back, check the panic status
         // this would propagate the panic until root context
@@ -253,6 +279,11 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
             return;
         }
 
+        if self.f.is_some() {
+            // not started yet, just drop the gen
+            return;
+        }
+
         if !self.is_done() {
             warn!("generator is not done while drop");
             unsafe { self.raw_cancel() }
@@ -304,7 +335,7 @@ impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
 //
 // the first arg is the passed in data
 // the second arg is the peer stack pointer
-fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPointer) {
+fn gen_wrapper<'a, Input, T: 'a>(para: usize, sp: StackPointer) {
     fn check_err(cause: Box<Any + Send + 'static>) {
         match cause.downcast_ref::<Error>() {
             // this is not an error at all, ignore it
@@ -315,33 +346,31 @@ fn gen_wrapper<'a, F: FnOnce() -> T + 'a, Input, T: 'a>(para: usize, sp: StackPo
         ContextStack::current().top().err = Some(cause);
     }
 
-    let f: F = unsafe { no_drop::decode_usize(para).expect("bad functor") };
+    let f: Box<FnBox<T>> = unsafe { no_drop::decode_usize(para).expect("bad functor") };
     // the first invoke doesn't necessarily pass in anything
     // just for init and return to the parent caller
     let mut env = ContextStack::current();
     let cur = env.top();
     // we need to setup the parent sp for the first resume to here
-    let mut parent = env.pop_context(cur as *mut _);
+    let mut parent = unsafe { &mut *(cur.parent) };
     parent.regs.set_sp(sp);
 
     let ret;
     let mut ret_addr: usize = 0;
     // the swap return indicate if it's a cancel resume
-    if cur.swap_yield(parent, 0) == 0 {
-        match panic::catch_unwind(panic::AssertUnwindSafe(f)) {
-            // we can't panic inside the generator context
-            // need to propagate the panic to the main thread
-            Err(cause) => check_err(cause),
-            Ok(v) => {
-                ret = NoDrop::new(v);
-                ret_addr = if cur.regs.get_sp().is_zero() {
-                    // this is a done return
-                    0
-                } else {
-                    // normal return
-                    ret.encode_usize()
-                };
-            }
+    match panic::catch_unwind(panic::AssertUnwindSafe(|| f.call_box())) {
+        // we can't panic inside the generator context
+        // need to propagate the panic to the main thread
+        Err(cause) => check_err(cause),
+        Ok(v) => {
+            ret = NoDrop::new(v);
+            ret_addr = if cur.regs.get_sp().is_zero() {
+                // this is a done return
+                0
+            } else {
+                // normal return
+                ret.encode_usize()
+            };
         }
     }
 
