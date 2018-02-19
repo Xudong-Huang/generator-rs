@@ -143,7 +143,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         self.context
             .regs
-            .init_with(gen_wrapper::<A, T>, &self.context.stack);
+            .init_with(gen_wrapper::<T>, &self.context.stack);
     }
 
     /// resume the generator
@@ -335,7 +335,7 @@ impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
 //
 // the first arg is the passed in data
 // the second arg is the peer stack pointer
-fn gen_wrapper<'a, Input, T: 'a>(para: usize, sp: StackPointer) {
+fn gen_wrapper<T>(para: usize, sp: StackPointer) {
     fn check_err(cause: Box<Any + Send + 'static>) {
         match cause.downcast_ref::<Error>() {
             // this is not an error at all, ignore it
