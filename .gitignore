@@ -13,3 +13,5 @@ Cargo.lock
 
 temp/
 fuzz/
+
+.vscode/
