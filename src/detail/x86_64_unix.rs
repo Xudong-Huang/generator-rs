@@ -39,10 +39,15 @@ mod asm {
     }
     #[inline(never)]
     #[naked]
-    pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
+    pub unsafe extern "C" fn swap_registers(_out_regs: *mut Registers, _in_regs: *const Registers) {
         // The first argument is in %rdi, and the second one is in %rsi
-        // Save registers
-        asm!("
+
+        // introduce this function to workaround rustc bug! (#6)
+        // the naked function is not correct any more
+        #[naked]
+        unsafe extern "C" fn _swap_reg() {
+            // Save registers
+            asm!("
         mov %rbx, (0*8)(%rdi)
         mov %rsp, (1*8)(%rdi)
         mov %rbp, (2*8)(%rdi)
@@ -64,9 +69,11 @@ mod asm {
         mov (3*8)(%rsi), %rdi
         "
         :
-        : "{rdi}"(out_regs), "{rsi}"(in_regs)
+        : //"{rdi}"(out_regs), "{rsi}"(in_regs)
         : "memory"
         : "volatile");
+        }
+        _swap_reg()
     }
 }
 #[cfg(nightly)]

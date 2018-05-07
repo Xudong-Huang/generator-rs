@@ -47,11 +47,14 @@ mod asm {
 
     #[inline(never)]
     #[naked]
-    pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
+    pub unsafe extern "C" fn swap_registers(_out_regs: *mut Registers, _in_regs: *const Registers) {
         // The first argument is in %rcx, and the second one is in %rdx
 
-        // Save registers
-        asm!("
+        // introduce this function to workaround rustc bug! (#6)
+        #[naked]
+        unsafe extern "C" fn _swap_reg() {
+            // Save registers
+            asm!("
             mov %rbx, (0*8)(%rcx)
             mov %rsp, (1*8)(%rcx)
             mov %rbp, (2*8)(%rcx)
@@ -137,9 +140,12 @@ mod asm {
         // the naked function should only use the asm block, debug version breaks
         // since rustc 1.27.0-nightly, we have to use O2 level optimization (#6)
         :
-        : "{rcx}"(out_regs), "{rdx}"(in_regs)
+        : //"{rcx}"(out_regs), "{rdx}"(in_regs)
         : "memory"
         : "volatile");
+        }
+
+        _swap_reg()
     }
 }
 #[cfg(nightly)]
