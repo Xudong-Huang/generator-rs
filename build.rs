@@ -3,6 +3,7 @@ extern crate rustc_version;
 
 use std::env;
 use std::path::PathBuf;
+
 use rustc_version::{version_meta, Channel};
 
 fn main() {
@@ -10,7 +11,6 @@ fn main() {
     if let Channel::Nightly = version_meta().unwrap().channel {
         return println!("cargo:rustc-cfg=nightly");
     }
-    // println!("cargo:rustc-cfg=nightly");
 
     // for the stable build asm lib
     let target: String = env::var("TARGET").unwrap();

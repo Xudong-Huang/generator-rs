@@ -133,6 +133,9 @@ mod asm {
     
             mov (3*8)(%rdx), %rcx
         "
+        // why save the rcx and rdx in stack? this will overwite something!
+        // the naked function should only use the asm block, debug version breaks
+        // since rustc 1.27.0-nightly, we have to use O2 level optimization (#6)
         :
         : "{rcx}"(out_regs), "{rdx}"(in_regs)
         : "memory"

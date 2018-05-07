@@ -25,5 +25,14 @@ log = "0.4"
 rustc_version = "0.2"
 cc = "1.0"
 
+# debug build (#6)
+[profile.dev]
+opt-level = 1
+
+# test build (#6)
+[profile.test]
+opt-level = 1
+
+# release build
 [profile.release]
 lto = true
