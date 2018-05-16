@@ -46,9 +46,15 @@ mod asm {
     }
 
     #[inline(never)]
-    #[naked]
-    pub unsafe extern "C" fn swap_registers(_out_regs: *mut Registers, _in_regs: *const Registers) {
+    pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
         // The first argument is in %rcx, and the second one is in %rdx
+        asm!(
+            ""
+            :
+            : "{rcx}"(out_regs), "{rdx}"(in_regs)
+            :
+            :
+        );
 
         // introduce this function to workaround rustc bug! (#6)
         #[naked]
