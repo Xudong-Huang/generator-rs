@@ -37,6 +37,7 @@ mod asm {
         : "memory"
         : "volatile");
     }
+
     #[inline(never)]
     pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
         // The first argument is in %rdi, and the second one is in %rsi
