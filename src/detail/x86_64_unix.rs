@@ -43,7 +43,7 @@ mod asm {
         asm!(
             ""
             :
-            : "{rcx}"(out_regs), "{rdx}"(in_regs)
+            : "{rdi}"(out_regs), "{rsi}"(in_regs)
             :
             :
         );
