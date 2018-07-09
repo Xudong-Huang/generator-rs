@@ -4,9 +4,6 @@
 
 use std::ptr;
 
-#[cfg(nightly)]
-use alloc::raw_vec::RawVec;
-#[cfg(not(nightly))]
 use alloc::RawVec;
 
 #[cfg(windows)]
