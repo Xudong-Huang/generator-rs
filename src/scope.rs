@@ -19,10 +19,7 @@ pub struct Scope<A, T> {
 impl<A, T> Scope<A, T> {
     /// create a new scope object
     pub fn new(para: *mut Option<A>, ret: *mut Option<T>) -> Self {
-        Scope {
-            para: para,
-            ret: ret,
-        }
+        Scope { para, ret }
     }
 
     /// set current generator return value
@@ -87,6 +84,7 @@ impl<A, T> Scope<A, T> {
             }
             p = self.get_yield();
         }
+        drop(g); // explicitly consume g
         p
     }
 }

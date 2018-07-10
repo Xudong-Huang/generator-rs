@@ -3,16 +3,16 @@
 //! Rust generator implementation
 //!
 
+use std::any::Any;
 use std::fmt;
+use std::marker::PhantomData;
 use std::panic;
 use std::thread;
-use std::any::Any;
-use std::marker::PhantomData;
 
+use reg_context::RegContext;
+use rt::{Context, ContextStack, Error};
 use scope::Scope;
 use yield_::yield_now;
-use rt::{Context, ContextStack, Error};
-use reg_context::RegContext;
 
 // default stack size, in usize
 // windows has a minimal size as 0x4a8!!!!
@@ -65,6 +65,7 @@ impl<A> Gn<A> {
 
 impl<A: Any> Gn<A> {
     /// create a new generator with default stack size
+    #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
     pub fn new<'a, T: Any, F>(f: F) -> Generator<'a, A, T>
     where
         F: FnOnce() -> T + 'a,
@@ -181,7 +182,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         env.push_context(&mut self.context);
 
         // swap to the generator
-        RegContext::swap(cur, &mut top.regs);
+        RegContext::swap(cur, &top.regs);
 
         // comes back, check the panic status
         // this would propagate the panic until root context
@@ -380,10 +381,9 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
     };
 
     fn check_err(cause: Box<Any + Send + 'static>) {
-        match cause.downcast_ref::<Error>() {
+        if let Some(&Error::Cancel) = cause.downcast_ref::<Error>() {
             // this is not an error at all, ignore it
-            Some(_e @ &Error::Cancel) => return,
-            _ => {}
+            return;
         }
         error!("set panicked inside generator");
         ContextStack::current().top().err = Some(cause);

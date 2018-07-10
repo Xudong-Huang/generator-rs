@@ -3,15 +3,19 @@
 //! generator yield implmentation
 //!
 
-use std::any::Any;
 use gen_impl::Generator;
-use rt::{Context, ContextStack, Error};
 use reg_context::RegContext;
+use rt::{Context, ContextStack, Error};
+use std::any::Any;
 
 /// it's a special return instruction that yield nothing
 /// but only terminate the generator safely
 #[macro_export]
-macro_rules! done { () => ({ return $crate::done() }) }
+macro_rules! done {
+    () => {{
+        return $crate::done();
+    }};
+}
 
 /// don't use it directly, use done!() macro instead
 #[inline]
@@ -108,6 +112,7 @@ pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
         }
         p = context.get_para();
     }
+    drop(g); // explicitly consume g
     p
 }
 

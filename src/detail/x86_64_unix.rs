@@ -11,7 +11,7 @@ extern "C" {
 }
 
 #[cfg(nightly)]
-mod asm {
+mod asm_impl {
     use super::Registers;
     /// prefetch data
     #[inline]
@@ -84,7 +84,7 @@ mod asm {
     }
 }
 #[cfg(nightly)]
-pub use self::asm::*;
+pub use self::asm_impl::*;
 
 #[repr(C)]
 #[derive(Debug)]
