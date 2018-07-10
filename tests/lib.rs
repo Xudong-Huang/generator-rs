@@ -104,8 +104,9 @@ fn test_deep_yield_with_type_error() {
 
 #[test]
 fn test_scoped() {
-    use std::rc::Rc;
     use std::cell::RefCell;
+    use std::rc::Rc;
+
     let x = Rc::new(RefCell::new(10));
 
     let x1 = x.clone();

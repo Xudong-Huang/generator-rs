@@ -4,6 +4,7 @@ extern crate generator;
 extern crate test;
 
 use std::panic;
+
 use generator::*;
 use test::Bencher;
 

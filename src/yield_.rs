@@ -2,11 +2,11 @@
 //!
 //! generator yield implmentation
 //!
+use std::any::Any;
 
 use gen_impl::Generator;
 use reg_context::RegContext;
 use rt::{Context, ContextStack, Error};
-use std::any::Any;
 
 /// it's a special return instruction that yield nothing
 /// but only terminate the generator safely

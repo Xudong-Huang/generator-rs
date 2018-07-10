@@ -75,8 +75,8 @@ impl RegContext {
 mod test {
     use std::mem::transmute;
 
-    use stack::Stack;
     use reg_context::RegContext;
+    use stack::Stack;
 
     const MIN_STACK: usize = 2 * 1024 * 1024;
 

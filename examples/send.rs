@@ -1,5 +1,7 @@
 extern crate generator;
+
 use std::mem;
+
 use generator::{yield_, Gn};
 
 fn sum(a: u32) -> u32 {

@@ -2,12 +2,12 @@
 //!
 //! generator run time context management
 //!
+use std::any::Any;
 use std::mem;
 use std::ptr;
-use std::any::Any;
 
-use stack::Stack;
 use reg_context::RegContext;
+use stack::Stack;
 
 /// each thread has it's own generator context stack
 thread_local!(static ROOT_CONTEXT: Box<Context> = {
