@@ -156,7 +156,7 @@ impl ContextStack {
     #[inline]
     pub fn current() -> ContextStack {
         let root = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
-        ContextStack { root: root }
+        ContextStack { root }
     }
 
     /// get the top context

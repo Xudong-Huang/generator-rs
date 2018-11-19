@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate generator;
 
 use generator::*;
@@ -380,20 +379,20 @@ fn test_yield_from_send_type_miss_match() {
     let n = g.send(0);
     assert!(n == 0);
     assert!(g.is_done());
-} /*
+}
 
 // windows has it's own check, this test would make the app abort
-#[test]
-#[should_panic]
-fn test_stack_overflow() {
-    // here the stack size is not big enough
-    // and will panic when get detected in drop
-    let clo = || {
-        let big_data = [0usize; 0x400];
-        println!("this would overflow the stack, {}", big_data[100]);
-    };
-    Gn::<()>::new_opt(clo, 10);
-} */
+// #[test]
+// #[should_panic]
+// fn test_stack_overflow() {
+//     // here the stack size is not big enough
+//     // and will panic when get detected in drop
+//     let clo = || {
+//         let big_data = [0usize; 0x400];
+//         println!("this would overflow the stack, {}", big_data[100]);
+//     };
+//     Gn::<()>::new_opt(clo, 10);
+// }
 
 #[test]
 fn test_scope_gen() {

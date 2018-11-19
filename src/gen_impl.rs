@@ -23,7 +23,7 @@ trait FnBox {
 }
 
 impl<F: FnOnce()> FnBox for F {
-    #[cfg_attr(feature = "cargo-clippy", allow(boxed_local))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::boxed_local))]
     fn call_box(self: Box<Self>) {
         self()
     }
@@ -65,7 +65,7 @@ impl<A> Gn<A> {
 
 impl<A: Any> Gn<A> {
     /// create a new generator with default stack size
-    #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::new_ret_no_self))]
     pub fn new<'a, T: Any, F>(f: F) -> Generator<'a, A, T>
     where
         F: FnOnce() -> T + 'a,
@@ -107,6 +107,7 @@ impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
 
 impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// create a new generator with specified stack size
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::new_ret_no_self))]
     pub fn new(size: usize) -> Box<Self> {
         Box::new(GeneratorImpl {
             para: None,

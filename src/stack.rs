@@ -78,7 +78,7 @@ impl Stack {
 
     /// Point to the high end of the allocated stack
     pub fn end(&self) -> *mut usize {
-        unsafe { self.buf.ptr().offset(self.buf.cap() as isize) as *mut usize }
+        unsafe { self.buf.ptr().add(self.buf.cap()) as *mut usize }
     }
 
     /// Point to the low end of the allocated stack
