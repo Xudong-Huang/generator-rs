@@ -15,3 +15,4 @@ evn:
 
 script:
   - cargo test
+  - cargo test --release
