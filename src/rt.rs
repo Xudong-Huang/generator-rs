@@ -112,6 +112,19 @@ impl Context {
         }
     }
 
+    /// set current generator send para
+    #[inline]
+    pub fn set_para<A>(&self, data: A)
+    where
+        A: Any,
+    {
+        let para = unsafe { &mut *self.para };
+        match para.downcast_mut::<Option<A>>() {
+            Some(v) => *v = Some(data),
+            None => type_error::<A>("set yield type mismatch error detected"),
+        }
+    }
+
     /// set current generator return value
     #[inline]
     pub fn set_ret<T>(&mut self, v: T)

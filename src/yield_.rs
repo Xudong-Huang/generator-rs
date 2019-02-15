@@ -149,3 +149,10 @@ pub fn co_get_yield<A: Any>() -> Option<A> {
         None => None,
     }
 }
+
+/// set current coroutine para in user space
+pub fn co_set_para<A: Any>(para: A) {
+    if let Some(ctx) = ContextStack::current().co_ctx() {
+        ctx.set_para(para)
+    }
+}
