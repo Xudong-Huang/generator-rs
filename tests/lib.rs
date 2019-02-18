@@ -446,8 +446,7 @@ fn test_re_init() {
     };
 
     let mut g = GeneratorImpl::new(0x800);
-    let s = g.get_scope();
-    g.init(|| clo()(s));
+    g.scoped_init(clo());
 
     assert_eq!(g.next(), Some(0));
     assert_eq!(g.next(), Some(3));
@@ -455,8 +454,7 @@ fn test_re_init() {
     assert_eq!(g.is_done(), true);
 
     // re-init generator
-    let s = g.get_scope();
-    g.init(|| clo()(s));
+    g.scoped_init(clo());
 
     assert_eq!(g.next(), Some(0));
     assert_eq!(g.next(), Some(3));

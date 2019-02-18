@@ -11,22 +11,21 @@ use yield_::raw_yield_now;
 /// passed in scope tpye
 /// it not use the context to pass data, but keep it's own data ref
 /// this struct provide both compile type info and runtime data
-pub struct Scope<A, T> {
-    para: *mut Option<A>,
-    ret: *mut Option<T>,
+pub struct Scope<'a, A, T> {
+    para: &'a mut Option<A>,
+    ret: &'a mut Option<T>,
 }
 
-impl<A, T> Scope<A, T> {
+impl<'a, A, T> Scope<'a, A, T> {
     /// create a new scope object
-    pub fn new(para: *mut Option<A>, ret: *mut Option<T>) -> Self {
+    pub(crate) fn new(para: &'a mut Option<A>, ret: &'a mut Option<T>) -> Self {
         Scope { para, ret }
     }
 
     /// set current generator return value
     #[inline]
     fn set_ret(&mut self, v: T) {
-        let ret = unsafe { &mut *self.ret };
-        *ret = Some(v);
+        *self.ret = Some(v);
     }
 
     /// raw yiled without catch passed in para
@@ -58,8 +57,7 @@ impl<A, T> Scope<A, T> {
     /// get current generator send para
     #[inline]
     pub fn get_yield(&mut self) -> Option<A> {
-        let para = unsafe { &mut *self.para };
-        para.take()
+        self.para.take()
     }
 
     /// yiled and get the send para

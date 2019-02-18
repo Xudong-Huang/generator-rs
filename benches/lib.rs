@@ -161,11 +161,10 @@ fn init_gen(b: &mut Bencher) {
     assert_eq!(g.is_done(), true);
 
     b.iter(|| {
-        let s = g.get_scope();
         let clo = clo_gen();
         // this cost about 20ns on unix and 60ns on windows
         // because windows Box::new take more time
-        g.init(move || clo(s));
+        g.scoped_init(clo);
         // this cost about 70ns
         // assert_eq!(g.next(), Some(0));
     });

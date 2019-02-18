@@ -57,8 +57,7 @@ impl<A> Gn<A> {
         A: 'a,
     {
         let mut g = GeneratorImpl::<A, T>::new(size);
-        let scope = g.get_scope();
-        g.init(move || f(scope));
+        g.scoped_init(f);
         g
     }
 }
@@ -123,9 +122,15 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.context.regs.prefetch();
     }
 
-    /// get the scope object
-    pub fn get_scope(&mut self) -> Scope<A, T> {
-        Scope::new(&mut self.para, &mut self.ret)
+    /// init a heap based generator with scoped closure
+    pub fn scoped_init<F: FnOnce(Scope<'a, A, T>) -> T + 'a>(&mut self, f: F)
+    where
+        T: 'a,
+        A: 'a,
+    {
+        use std::mem::transmute;
+        let scope = unsafe { transmute(Scope::new(&mut self.para, &mut self.ret)) };
+        self.init(move || f(scope));
     }
 
     /// init a heap based generator
