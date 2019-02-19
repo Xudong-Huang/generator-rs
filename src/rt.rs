@@ -9,13 +9,15 @@ use std::ptr;
 use reg_context::RegContext;
 use stack::Stack;
 
-/// each thread has it's own generator context stack
-thread_local!(static ROOT_CONTEXT: Box<Context> = {
-    let mut root = Box::new(Context::empty());
-    let p = &mut *root as *mut _;
-    root.parent = p; // init top to current
-    root
-});
+thread_local!(
+    /// each thread has it's own generator context stack
+    static ROOT_CONTEXT: Box<Context> = {
+        let mut root = Box::new(Context::empty());
+        let p = &mut *root as *mut _;
+        root.parent = p; // init top to current
+        root
+    }
+);
 
 // fast access pointer, this is will be init only once
 // when ROOT_CONTEXT get inialized. but in debug mode it
