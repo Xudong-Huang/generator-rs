@@ -16,26 +16,28 @@ mod asm_impl {
     /// prefetch data
     #[inline]
     pub unsafe extern "C" fn prefetch(data: *const usize) {
-        asm!("
-        prefetcht1 $0
-        "
-        : // no output
-        : "m"(*data)
-        :
-        : "volatile");
+        asm!(
+            "prefetcht1 $0"
+            : // no output
+            : "m"(*data)
+            :
+            : "volatile"
+        );
     }
+
     #[inline(never)]
-    #[naked]
     pub unsafe extern "C" fn bootstrap_green_task() {
-        asm!("
-        mov %r12, %rdi     // setup the function arg
-        mov %r13, %rsi     // setup the function arg
-        mov %r14, 8(%rsp)  // this is the new return adrress
-        "
-        : // no output
-        : // no input
-        : "memory"
-        : "volatile");
+        asm!(
+            "
+                mov %r12, %rdi     // setup the function arg
+                mov %r13, %rsi     // setup the function arg
+                mov %r14, 8(%rsp)  // this is the new return adrress
+            "
+            : // no output
+            : // no input
+            : "memory"
+            : "volatile"
+        );
     }
 
     #[inline(never)]
@@ -54,31 +56,33 @@ mod asm_impl {
         #[naked]
         unsafe extern "C" fn _swap_reg() {
             // Save registers
-            asm!("
-        mov %rbx, (0*8)(%rdi)
-        mov %rsp, (1*8)(%rdi)
-        mov %rbp, (2*8)(%rdi)
-        mov %r12, (4*8)(%rdi)
-        mov %r13, (5*8)(%rdi)
-        mov %r14, (6*8)(%rdi)
-        mov %r15, (7*8)(%rdi)
+            asm!(
+                "
+                    mov %rbx, (0*8)(%rdi)
+                    mov %rsp, (1*8)(%rdi)
+                    mov %rbp, (2*8)(%rdi)
+                    mov %r12, (4*8)(%rdi)
+                    mov %r13, (5*8)(%rdi)
+                    mov %r14, (6*8)(%rdi)
+                    mov %r15, (7*8)(%rdi)
 
-        mov %rdi, (3*8)(%rdi)
+                    mov %rdi, (3*8)(%rdi)
 
-        mov (0*8)(%rsi), %rbx
-        mov (1*8)(%rsi), %rsp
-        mov (2*8)(%rsi), %rbp
-        mov (4*8)(%rsi), %r12
-        mov (5*8)(%rsi), %r13
-        mov (6*8)(%rsi), %r14
-        mov (7*8)(%rsi), %r15
+                    mov (0*8)(%rsi), %rbx
+                    mov (1*8)(%rsi), %rsp
+                    mov (2*8)(%rsi), %rbp
+                    mov (4*8)(%rsi), %r12
+                    mov (5*8)(%rsi), %r13
+                    mov (6*8)(%rsi), %r14
+                    mov (7*8)(%rsi), %r15
 
-        mov (3*8)(%rsi), %rdi
-        "
-        :
-        : //"{rdi}"(out_regs), "{rsi}"(in_regs)
-        : "memory"
-        : "volatile");
+                    mov (3*8)(%rsi), %rdi
+                "
+                :
+                : //"{rdi}"(out_regs), "{rsi}"(in_regs)
+                : "memory"
+                : "volatile"
+            );
         }
         _swap_reg()
     }

@@ -23,26 +23,29 @@ mod asm_impl {
     use super::Registers;
     /// prefetch data
     #[inline]
-    pub unsafe fn prefetch_asm(data: *const usize) {
-        asm!("prefetcht1 $0"
-             : // no output
-             : "m"(*data)
-             :
-             : "volatile");
+    pub unsafe extern "C" fn prefetch_asm(data: *const usize) {
+        asm!(
+            "prefetcht1 $0"
+            : // no output
+            : "m"(*data)
+            :
+            : "volatile"
+        );
     }
 
     #[inline(never)]
-    #[naked]
     pub unsafe extern "C" fn bootstrap_green_task() {
-        asm!("
-            mov %r12, %rcx     // setup the function arg
-            mov %r13, %rdx     // setup the function arg
-            mov %r14, 8(%rsp)  // this is the new return adrress
-        "
-        : // no output
-        : // no input
-        : "memory"
-        : "volatile");
+        asm!(
+            "
+                mov %r12, %rcx     // setup the function arg
+                mov %r13, %rdx     // setup the function arg
+                mov %r14, 8(%rsp)  // this is the new return adrress
+            "
+            : // no output
+            : // no input
+            : "memory"
+            : "volatile"
+        );
     }
 
     #[inline(never)]
@@ -60,95 +63,97 @@ mod asm_impl {
         #[naked]
         unsafe extern "C" fn _swap_reg() {
             // Save registers
-            asm!("
-            mov %rbx, (0*8)(%rcx)
-            mov %rsp, (1*8)(%rcx)
-            mov %rbp, (2*8)(%rcx)
-            mov %r12, (4*8)(%rcx)
-            mov %r13, (5*8)(%rcx)
-            mov %r14, (6*8)(%rcx)
-            mov %r15, (7*8)(%rcx)
-            mov %rdi, (9*8)(%rcx)
-            mov %rsi, (10*8)(%rcx)
+            asm!(
+                "
+                    mov %rbx, (0*8)(%rcx)
+                    mov %rsp, (1*8)(%rcx)
+                    mov %rbp, (2*8)(%rcx)
+                    mov %r12, (4*8)(%rcx)
+                    mov %r13, (5*8)(%rcx)
+                    mov %r14, (6*8)(%rcx)
+                    mov %r15, (7*8)(%rcx)
+                    mov %rdi, (9*8)(%rcx)
+                    mov %rsi, (10*8)(%rcx)
 
-            // mov %rcx, %r10
-            // and $$0xf0, %r10b
-    
-            // Save non-volatile XMM registers:
-            movapd %xmm6, (16*8)(%rcx)
-            movapd %xmm7, (18*8)(%rcx)
-            movapd %xmm8, (20*8)(%rcx)
-            movapd %xmm9, (22*8)(%rcx)
-            movapd %xmm10, (24*8)(%rcx)
-            movapd %xmm11, (26*8)(%rcx)
-            movapd %xmm12, (28*8)(%rcx)
-            movapd %xmm13, (30*8)(%rcx)
-            movapd %xmm14, (32*8)(%rcx)
-            movapd %xmm15, (34*8)(%rcx)
-    
-            /* load NT_TIB */
-            movq  %gs:(0x30), %r10
-            /* save current stack base */
-            movq  0x08(%r10), %rax
-            mov  %rax, (11*8)(%rcx)
-            /* save current stack limit */
-            movq  0x10(%r10), %rax
-             mov  %rax, (12*8)(%rcx)
-            /* save current deallocation stack */
-            movq  0x1478(%r10), %rax
-            mov  %rax, (13*8)(%rcx)
-            /* save fiber local storage */
-            // movq  0x18(%r10), %rax
-            // mov  %rax, (14*8)(%rcx)
-    
-            mov %rcx, (3*8)(%rcx)
-    
-            mov (0*8)(%rdx), %rbx
-            mov (1*8)(%rdx), %rsp
-            mov (2*8)(%rdx), %rbp
-            mov (4*8)(%rdx), %r12
-            mov (5*8)(%rdx), %r13
-            mov (6*8)(%rdx), %r14
-            mov (7*8)(%rdx), %r15
-            mov (9*8)(%rdx), %rdi
-            mov (10*8)(%rdx), %rsi
-    
-            // Restore non-volatile XMM registers:
-            movapd (16*8)(%rdx), %xmm6
-            movapd (18*8)(%rdx), %xmm7
-            movapd (20*8)(%rdx), %xmm8
-            movapd (22*8)(%rdx), %xmm9
-            movapd (24*8)(%rdx), %xmm10
-            movapd (26*8)(%rdx), %xmm11
-            movapd (28*8)(%rdx), %xmm12
-            movapd (30*8)(%rdx), %xmm13
-            movapd (32*8)(%rdx), %xmm14
-            movapd (34*8)(%rdx), %xmm15
-    
-            /* load NT_TIB */
-            movq  %gs:(0x30), %r10
-            /* restore fiber local storage */
-            // mov (14*8)(%rdx), %rax
-            // movq  %rax, 0x18(%r10)
-            /* restore deallocation stack */
-            mov (13*8)(%rdx), %rax
-            movq  %rax, 0x1478(%r10)
-            /* restore stack limit */
-            mov (12*8)(%rdx), %rax
-            movq  %rax, 0x10(%r10)
-            /* restore stack base */
-            mov  (11*8)(%rdx), %rax
-            movq  %rax, 0x8(%r10)
-    
-            mov (3*8)(%rdx), %rcx
-        "
-        // why save the rcx and rdx in stack? this will overwite something!
-        // the naked function should only use the asm block, debug version breaks
-        // since rustc 1.27.0-nightly, we have to use O2 level optimization (#6)
-        :
-        : //"{rcx}"(out_regs), "{rdx}"(in_regs)
-        : "memory"
-        : "volatile");
+                    // mov %rcx, %r10
+                    // and $$0xf0, %r10b
+
+                    // Save non-volatile XMM registers:
+                    movapd %xmm6, (16*8)(%rcx)
+                    movapd %xmm7, (18*8)(%rcx)
+                    movapd %xmm8, (20*8)(%rcx)
+                    movapd %xmm9, (22*8)(%rcx)
+                    movapd %xmm10, (24*8)(%rcx)
+                    movapd %xmm11, (26*8)(%rcx)
+                    movapd %xmm12, (28*8)(%rcx)
+                    movapd %xmm13, (30*8)(%rcx)
+                    movapd %xmm14, (32*8)(%rcx)
+                    movapd %xmm15, (34*8)(%rcx)
+
+                    /* load NT_TIB */
+                    movq  %gs:(0x30), %r10
+                    /* save current stack base */
+                    movq  0x08(%r10), %rax
+                    mov  %rax, (11*8)(%rcx)
+                    /* save current stack limit */
+                    movq  0x10(%r10), %rax
+                     mov  %rax, (12*8)(%rcx)
+                    /* save current deallocation stack */
+                    movq  0x1478(%r10), %rax
+                    mov  %rax, (13*8)(%rcx)
+                    /* save fiber local storage */
+                    // movq  0x18(%r10), %rax
+                    // mov  %rax, (14*8)(%rcx)
+
+                    mov %rcx, (3*8)(%rcx)
+
+                    mov (0*8)(%rdx), %rbx
+                    mov (1*8)(%rdx), %rsp
+                    mov (2*8)(%rdx), %rbp
+                    mov (4*8)(%rdx), %r12
+                    mov (5*8)(%rdx), %r13
+                    mov (6*8)(%rdx), %r14
+                    mov (7*8)(%rdx), %r15
+                    mov (9*8)(%rdx), %rdi
+                    mov (10*8)(%rdx), %rsi
+
+                    // Restore non-volatile XMM registers:
+                    movapd (16*8)(%rdx), %xmm6
+                    movapd (18*8)(%rdx), %xmm7
+                    movapd (20*8)(%rdx), %xmm8
+                    movapd (22*8)(%rdx), %xmm9
+                    movapd (24*8)(%rdx), %xmm10
+                    movapd (26*8)(%rdx), %xmm11
+                    movapd (28*8)(%rdx), %xmm12
+                    movapd (30*8)(%rdx), %xmm13
+                    movapd (32*8)(%rdx), %xmm14
+                    movapd (34*8)(%rdx), %xmm15
+
+                    /* load NT_TIB */
+                    movq  %gs:(0x30), %r10
+                    /* restore fiber local storage */
+                    // mov (14*8)(%rdx), %rax
+                    // movq  %rax, 0x18(%r10)
+                    /* restore deallocation stack */
+                    mov (13*8)(%rdx), %rax
+                    movq  %rax, 0x1478(%r10)
+                    /* restore stack limit */
+                    mov (12*8)(%rdx), %rax
+                    movq  %rax, 0x10(%r10)
+                    /* restore stack base */
+                    mov  (11*8)(%rdx), %rax
+                    movq  %rax, 0x8(%r10)
+
+                    mov (3*8)(%rdx), %rcx
+                "
+                // why save the rcx and rdx in stack? this will overwite something!
+                // the naked function should only use the asm block, debug version breaks
+                // since rustc 1.27.0-nightly, we have to use O2 level optimization (#6)
+                :
+                : //"{rcx}"(out_regs), "{rdx}"(in_regs)
+                : "memory"
+                : "volatile"
+            );
         }
 
         _swap_reg()
