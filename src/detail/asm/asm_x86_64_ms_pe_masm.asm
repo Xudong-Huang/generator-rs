@@ -11,7 +11,8 @@ bootstrap_green_task PROC FRAME
     .endprolog
     mov rcx, r12     ; setup the function arg
     mov rdx, r13     ; setup the function arg
-    mov [rsp+8], r14 ; this is the new return adrress
+    and rsp, -16     ; align the stack pointer
+    mov [rsp], r14   ; this is the new return adrress
     ret
 bootstrap_green_task ENDP
 

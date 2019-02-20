@@ -10,12 +10,10 @@ extern "C" {
     pub fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers);
 }
 
-#[allow(dead_code)]
 #[inline]
+#[allow(dead_code)]
 pub fn prefetch(data: *const usize) {
-    unsafe {
-        prefetch_asm(data);
-    }
+    unsafe { prefetch_asm(data) }
 }
 
 #[cfg(nightly)]
@@ -33,13 +31,15 @@ mod asm_impl {
         );
     }
 
+    #[naked]
     #[inline(never)]
     pub unsafe extern "C" fn bootstrap_green_task() {
         asm!(
             "
                 mov %r12, %rcx     // setup the function arg
                 mov %r13, %rdx     // setup the function arg
-                mov %r14, 8(%rsp)  // this is the new return adrress
+                and $$-16, %rsp    // align the stack pointer
+                mov %r14, (%rsp)   // this is the new return adrress
             "
             : // no output
             : // no input
@@ -48,6 +48,7 @@ mod asm_impl {
         );
     }
 
+    #[naked]
     #[inline(never)]
     pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
         // The first argument is in %rcx, and the second one is in %rdx
@@ -146,7 +147,7 @@ mod asm_impl {
 
                     mov (3*8)(%rdx), %rcx
                 "
-                // why save the rcx and rdx in stack? this will overwite something!
+                // why save the rcx and rdx in stack? this will overwrite something!
                 // the naked function should only use the asm block, debug version breaks
                 // since rustc 1.27.0-nightly, we have to use O2 level optimization (#6)
                 :
@@ -219,17 +220,11 @@ pub fn initialize_call_frame(
 
     let sp = align_down(stack.end());
 
-    // These registers are frobbed by rust_bootstrap_green_task into the right
+    // These registers are frobbed by bootstrap_green_task into the right
     // location so we can invoke the "real init function", `fptr`.
     regs.gpr[RUSTRT_R12] = arg;
     regs.gpr[RUSTRT_R13] = arg2 as usize;
     regs.gpr[RUSTRT_R14] = fptr as usize;
-
-    // These registers are picked up by the regular context switch paths. These
-    // will put us in "mostly the right context" except for frobbing all the
-    // arguments to the right place. We have the small trampoline code inside of
-    // rust_bootstrap_green_task to do that.
-    regs.gpr[RUSTRT_RSP] = mut_offset(sp, -4) as usize;
 
     // Last base pointer on the stack should be 0
     regs.gpr[RUSTRT_RBP] = 0;
@@ -240,12 +235,11 @@ pub fn initialize_call_frame(
 
     // setup the init stack
     // this is prepared for the swap context
-    // different platform/debug has different offset between sp and ret
+    regs.gpr[RUSTRT_RSP] = mut_offset(sp, -2) as usize;
+
     unsafe {
-        *mut_offset(sp, -4) = bootstrap_green_task as usize;
-        *mut_offset(sp, -3) = bootstrap_green_task as usize;
         // leave enough space for RET
-        *mut_offset(sp, -2) = 0;
+        *mut_offset(sp, -2) = bootstrap_green_task as usize;
         *mut_offset(sp, -1) = 0;
     }
 }

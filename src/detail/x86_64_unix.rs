@@ -25,13 +25,15 @@ mod asm_impl {
         );
     }
 
+    #[naked]
     #[inline(never)]
     pub unsafe extern "C" fn bootstrap_green_task() {
         asm!(
             "
                 mov %r12, %rdi     // setup the function arg
                 mov %r13, %rsi     // setup the function arg
-                mov %r14, 8(%rsp)  // this is the new return adrress
+                and $$-16, %rsp    // align the stack pointer
+                mov %r14, (%rsp)   // this is the new return adrress
             "
             : // no output
             : // no input
@@ -40,6 +42,7 @@ mod asm_impl {
         );
     }
 
+    #[naked]
     #[inline(never)]
     pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
         // The first argument is in %rdi, and the second one is in %rsi
@@ -52,7 +55,6 @@ mod asm_impl {
         );
 
         // introduce this function to workaround rustc bug! (#6)
-        // the naked function is not correct any more
         #[naked]
         unsafe extern "C" fn _swap_reg() {
             // Save registers
@@ -84,6 +86,7 @@ mod asm_impl {
                 : "volatile"
             );
         }
+
         _swap_reg()
     }
 }
@@ -126,29 +129,22 @@ pub fn initialize_call_frame(
 
     let sp = align_down(stack.end());
 
-    // These registers are frobbed by rust_bootstrap_green_task into the right
+    // These registers are frobbed by bootstrap_green_task into the right
     // location so we can invoke the "real init function", `fptr`.
     regs.gpr[RUSTRT_R12] = arg;
     regs.gpr[RUSTRT_R13] = arg2 as usize;
     regs.gpr[RUSTRT_R14] = fptr as usize;
 
-    // These registers are picked up by the regular context switch paths. These
-    // will put us in "mostly the right context" except for frobbing all the
-    // arguments to the right place. We have the small trampoline code inside of
-    // rust_bootstrap_green_task to do that.
-    regs.gpr[RUSTRT_RSP] = mut_offset(sp, -4) as usize;
+    // Last base pointer on the stack should be 0
+    regs.gpr[RUSTRT_RBP] = 0;
 
     // setup the init stack
     // this is prepared for the swap context
-    // different platform/debug has different offset between sp and ret
+    regs.gpr[RUSTRT_RSP] = mut_offset(sp, -2) as usize;
+
     unsafe {
-        *mut_offset(sp, -4) = bootstrap_green_task as usize;
-        *mut_offset(sp, -3) = bootstrap_green_task as usize;
         // leave enough space for RET
-        *mut_offset(sp, -2) = 0;
+        *mut_offset(sp, -2) = bootstrap_green_task as usize;
         *mut_offset(sp, -1) = 0;
     }
-
-    // Last base pointer on the stack should be 0
-    regs.gpr[RUSTRT_RBP] = 0;
 }

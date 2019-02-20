@@ -11,7 +11,8 @@ _prefetch:
 _bootstrap_green_task:
     mov %r12, %rdi     /* setup the function arg */
     mov %r13, %rsi     /* setup the function arg */
-    mov %r14, 8(%rsp)  /* this is the new return adrress */
+    and $-16, %rsp     /* align the stack pointer */
+    mov %r14, (%rsp)   /* this is the new return adrress */
     ret
 
 .text

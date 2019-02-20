@@ -22,7 +22,8 @@ bootstrap_green_task:
 .seh_endprologue
     mov %r12, %rcx     /* setup the function arg */
     mov %r13, %rdx     /* setup the function arg */
-    mov %r14, 8(%rsp)  /* this is the new return adrress */
+    and $-16, %rsp     /* align the stack pointer */
+    mov %r14, (%rsp)   /* this is the new return adrress */
     ret
 .seh_endproc
 
