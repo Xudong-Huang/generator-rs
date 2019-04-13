@@ -37,6 +37,19 @@ fn generator_is_done1() {
 }
 
 #[test]
+fn generator_is_done_with_drop() {
+    let mut g = Gn::new_scoped(|mut s| {
+        s.yield_(String::from("string"));
+        done!();
+    });
+
+    assert_eq!(g.next(), Some(String::from("string")));
+    assert!(!g.is_done());
+    assert_eq!(g.next(), None);
+    assert!(g.is_done());
+}
+
+#[test]
 fn test_yield_a() {
     let mut g = Gn::<i32>::new(|| {
         let r: i32 = yield_(10).unwrap();

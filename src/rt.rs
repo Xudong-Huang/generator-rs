@@ -20,7 +20,7 @@ thread_local!(
 );
 
 // fast access pointer, this is will be init only once
-// when ROOT_CONTEXT get inialized. but in debug mode it
+// when ROOT_CONTEXT get initialized. but in debug mode it
 // will be zero in generator context since the stack changed
 // to a different place, be careful about that.
 #[cfg(nightly)]

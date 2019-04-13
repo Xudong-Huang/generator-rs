@@ -1,6 +1,6 @@
-//! # yeild
+//! # yield
 //!
-//! generator yield implmentation
+//! generator yield implementation
 //!
 
 // use generator::Generator;
@@ -8,7 +8,7 @@ use gen_impl::GeneratorImpl;
 use rt::{Context, ContextStack, Error};
 use yield_::raw_yield_now;
 
-/// passed in scope tpye
+/// passed in scope type
 /// it not use the context to pass data, but keep it's own data ref
 /// this struct provide both compile type info and runtime data
 pub struct Scope<'a, A, T> {
@@ -28,7 +28,7 @@ impl<'a, A, T> Scope<'a, A, T> {
         *self.ret = Some(v);
     }
 
-    /// raw yiled without catch passed in para
+    /// raw yield without catch passed in para
     #[inline]
     fn raw_yield(&mut self, env: &ContextStack, context: &mut Context, v: T) {
         // check the context
@@ -46,7 +46,7 @@ impl<'a, A, T> Scope<'a, A, T> {
         }
     }
 
-    /// yiled something without catch passed in para
+    /// yield something without catch passed in para
     #[inline]
     pub fn yield_with(&mut self, v: T) {
         let env = ContextStack::current();
@@ -60,7 +60,7 @@ impl<'a, A, T> Scope<'a, A, T> {
         self.para.take()
     }
 
-    /// yiled and get the send para
+    /// yield and get the send para
     // it's totally safe that we can refer to the function block
     // since we will come back later
     #[inline]
@@ -69,7 +69,7 @@ impl<'a, A, T> Scope<'a, A, T> {
         self.get_yield()
     }
 
-    /// `yiled_from`
+    /// `yield_from`
     /// the from generator must has the same type as itself
     pub fn yield_from(&mut self, mut g: Box<GeneratorImpl<A, T>>) -> Option<A> {
         let env = ContextStack::current();

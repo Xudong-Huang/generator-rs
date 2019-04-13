@@ -1,6 +1,6 @@
-//! # yeild
+//! # yield
 //!
-//! generator yield implmentation
+//! generator yield implementation
 //!
 use std::any::Any;
 
@@ -39,7 +39,7 @@ pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
     RegContext::swap(&mut cur.regs, &parent.regs);
 }
 
-/// raw yiled without catch passed in para
+/// raw yield without catch passed in para
 #[inline]
 fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
     // check the context
@@ -57,7 +57,7 @@ fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
     }
 }
 
-/// yiled something without catch passed in para
+/// yield something without catch passed in para
 #[inline]
 // #[deprecated(since="0.5.0", note="please use `scope` instead")]
 pub fn yield_with<T: Any>(v: T) {
@@ -86,8 +86,8 @@ fn raw_get_yield<A: Any>(context: &mut Context) -> Option<A> {
     context.get_para()
 }
 
-/// yiled and get the send para
-// here yield need to return a static lifttime value, which is Any required
+/// yield and get the send para
+// here yield need to return a static lifetime value, which is Any required
 // this is fine, but it's totally safe that we can refer to the function block
 // since we will come back later
 #[inline]
@@ -99,7 +99,7 @@ pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
     raw_get_yield(context)
 }
 
-/// `yiled_from`
+/// `yield_from`
 // #[deprecated(since="0.5.0", note="please use `scope` instead")]
 pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
     let env = ContextStack::current();

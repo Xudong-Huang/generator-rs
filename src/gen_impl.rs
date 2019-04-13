@@ -116,7 +116,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         })
     }
 
-    /// prefech the generator into cache
+    /// prefetch the generator into cache
     #[inline]
     pub fn prefetch(&self) {
         self.context.regs.prefetch();
@@ -159,6 +159,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             let ret = unsafe { &mut *ret };
             let _ref = unsafe { (*contex)._ref };
             if _ref == 0xf {
+                ::std::mem::forget(r);
                 *ret = None; // this is a done return
             } else {
                 *ret = Some(r); // normal return
@@ -242,7 +243,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         }
 
         // every time we call the function, increase the ref count
-        // yiled will decrease it and return will not
+        // yield will decrease it and return will not
         self.context._ref += 1;
         self.resume_gen();
 
@@ -261,7 +262,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.para = para;
 
         // every time we call the function, increase the ref count
-        // yiled will decrease it and return will not
+        // yield will decrease it and return will not
         self.context._ref += 1;
         self.resume_gen();
 
