@@ -152,12 +152,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // init the ref to 0 means that it's ready to start
         self.context._ref = 0;
         let ret = &mut self.ret as *mut _;
-        let contex = &mut self.context as *mut Context;
+        let context = &mut self.context as *mut Context;
         // windows box::new is quite slow than unix
         self.f = Some(Box::new(move || {
             let r = f();
             let ret = unsafe { &mut *ret };
-            let _ref = unsafe { (*contex)._ref };
+            let _ref = unsafe { (*context)._ref };
             if _ref == 0xf {
                 ::std::mem::forget(r);
                 *ret = None; // this is a done return
@@ -179,7 +179,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // get the current regs
         let cur = &mut env.top().regs;
 
-        // switch to new context, always use the top ctx's reg
+        // switch to new context, always use the top context's reg
         // for normal generator self.context.parent == self.context
         // for coroutine self.context.parent == top generator context
         assert!(!self.context.parent.is_null());
