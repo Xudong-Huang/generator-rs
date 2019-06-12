@@ -13,8 +13,8 @@ enum State {
     Stopped,
 }
 
-use Action::*;
-use State::*;
+use crate::Action::*;
+use crate::State::*;
 
 fn main() {
     let mut cd_player = Gn::new_scoped(|mut s| {

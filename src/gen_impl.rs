@@ -9,25 +9,14 @@ use std::marker::PhantomData;
 use std::panic;
 use std::thread;
 
-use reg_context::RegContext;
-use rt::{Context, ContextStack, Error};
-use scope::Scope;
-use yield_::yield_now;
+use crate::reg_context::RegContext;
+use crate::rt::{Context, ContextStack, Error};
+use crate::scope::Scope;
+use crate::yield_::yield_now;
 
 // default stack size, in usize
 // windows has a minimal size as 0x4a8!!!!
 pub const DEFAULT_STACK_SIZE: usize = 0x1000;
-
-trait FnBox {
-    fn call_box(self: Box<Self>);
-}
-
-impl<F: FnOnce()> FnBox for F {
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::boxed_local))]
-    fn call_box(self: Box<Self>) {
-        self()
-    }
-}
 
 /// Generator helper
 pub struct Gn<A> {
@@ -93,20 +82,19 @@ pub struct GeneratorImpl<'a, A, T> {
     // save the output
     ret: Option<T>,
     // boxed functor
-    f: Option<Box<FnBox + 'a>>,
+    f: Option<Box<dyn FnOnce() + 'a>>,
 }
 
 impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
     /// create a new generator with default stack size
     pub fn init_context(&mut self) {
-        self.context.para = &mut self.para as &mut Any;
-        self.context.ret = &mut self.ret as &mut Any;
+        self.context.para = &mut self.para as &mut dyn Any;
+        self.context.ret = &mut self.ret as &mut dyn Any;
     }
 }
 
 impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// create a new generator with specified stack size
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::new_ret_no_self))]
     pub fn new(size: usize) -> Box<Self> {
         Box::new(GeneratorImpl {
             para: None,
@@ -230,7 +218,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// get the generator panic data
     #[inline]
-    pub fn get_panic_data(&mut self) -> Option<Box<Any + Send>> {
+    pub fn get_panic_data(&mut self) -> Option<Box<dyn Any + Send>> {
         self.context.err.take()
     }
 
@@ -382,12 +370,12 @@ impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
 fn gen_init(_: usize, f: *mut usize) -> ! {
     let clo = move || {
         // consume self.f
-        let f: &mut Option<Box<FnBox>> = unsafe { &mut *(f as *mut _) };
+        let f: &mut Option<Box<dyn FnOnce()>> = unsafe { &mut *(f as *mut _) };
         let func = f.take().unwrap();
-        func.call_box();
+        func();
     };
 
-    fn check_err(cause: Box<Any + Send + 'static>) {
+    fn check_err(cause: Box<dyn Any + Send + 'static>) {
         if let Some(&Error::Cancel) = cause.downcast_ref::<Error>() {
             // this is not an error at all, ignore it
             return;

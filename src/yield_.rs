@@ -4,9 +4,9 @@
 //!
 use std::any::Any;
 
-use gen_impl::Generator;
-use reg_context::RegContext;
-use rt::{Context, ContextStack, Error};
+use crate::gen_impl::Generator;
+use crate::reg_context::RegContext;
+use crate::rt::{Context, ContextStack, Error};
 
 /// it's a special return instruction that yield nothing
 /// but only terminate the generator safely

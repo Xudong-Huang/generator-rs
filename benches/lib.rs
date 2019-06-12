@@ -1,5 +1,4 @@
 #![feature(test)]
-#![feature(fnbox)]
 extern crate generator;
 extern crate test;
 
@@ -172,11 +171,9 @@ fn init_gen(b: &mut Bencher) {
 
 #[bench]
 fn fnbox_bench(b: &mut Bencher) {
-    use std::boxed::FnBox;
-
     b.iter(|| {
         let a: [usize; 100] = [0; 100];
-        let f: Box<FnBox()> = Box::new(|| {
+        let f: Box<dyn FnOnce()> = Box::new(|| {
             test::black_box(a);
         });
         test::black_box(f);

@@ -1,5 +1,5 @@
-use detail::{initialize_call_frame, swap_registers, Registers};
-use stack::Stack;
+use crate::detail::{initialize_call_frame, swap_registers, Registers};
+use crate::stack::Stack;
 
 #[derive(Debug)]
 pub struct RegContext {
@@ -75,8 +75,8 @@ impl RegContext {
 mod test {
     use std::mem::transmute;
 
-    use reg_context::RegContext;
-    use stack::Stack;
+    use crate::reg_context::RegContext;
+    use crate::stack::Stack;
 
     const MIN_STACK: usize = 2 * 1024 * 1024;
 

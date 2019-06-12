@@ -4,9 +4,9 @@
 //!
 
 // use generator::Generator;
-use gen_impl::GeneratorImpl;
-use rt::{Context, ContextStack, Error};
-use yield_::raw_yield_now;
+use crate::gen_impl::GeneratorImpl;
+use crate::rt::{Context, ContextStack, Error};
+use crate::yield_::raw_yield_now;
 
 /// passed in scope type
 /// it not use the context to pass data, but keep it's own data ref

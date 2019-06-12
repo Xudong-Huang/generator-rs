@@ -4,7 +4,7 @@
 
 use std::ptr;
 
-use alloc::RawVec;
+use crate::alloc::RawVec;
 
 #[cfg(windows)]
 const MIN_STACK_SIZE: usize = 0x4b0;

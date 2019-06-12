@@ -23,9 +23,9 @@ mod scope;
 mod stack;
 mod yield_;
 
-pub use gen_impl::{Generator, GeneratorImpl, Gn};
-pub use rt::{get_local_data, is_generator, Error};
-pub use scope::Scope;
-pub use yield_::{
+pub use crate::gen_impl::{Generator, GeneratorImpl, Gn};
+pub use crate::rt::{get_local_data, is_generator, Error};
+pub use crate::scope::Scope;
+pub use crate::yield_::{
     co_get_yield, co_set_para, co_yield_with, done, get_yield, yield_, yield_from, yield_with,
 };

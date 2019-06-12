@@ -6,8 +6,8 @@ use std::any::Any;
 use std::mem;
 use std::ptr;
 
-use reg_context::RegContext;
-use stack::Stack;
+use crate::reg_context::RegContext;
+use crate::stack::Stack;
 
 thread_local!(
     /// each thread has it's own generator context stack
@@ -48,13 +48,13 @@ pub struct Context {
     /// generator execution stack
     pub stack: Stack,
     /// passed in para for send
-    pub para: *mut Any,
+    pub para: *mut dyn Any,
     /// this is just a buffer for the return value
-    pub ret: *mut Any,
+    pub ret: *mut dyn Any,
     /// track generator ref, yield will -1, send will +1
     pub _ref: u32,
     /// propagate panic
-    pub err: Option<Box<Any + Send>>,
+    pub err: Option<Box<dyn Any + Send>>,
     /// context local storage
     pub local_data: *mut u8,
 
