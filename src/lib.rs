@@ -14,7 +14,6 @@
 #[macro_use]
 extern crate log;
 
-mod alloc;
 mod detail;
 mod gen_impl;
 mod reg_context;

@@ -19,12 +19,20 @@ exclude = [
     "benches/**/*",
 ]
 
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["memoryapi", "sysinfoapi"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [dependencies]
 log = "0.4"
 
+
 [build-dependencies]
-rustc_version = "0.2"
 cc = "1.0"
+rustc_version = "0.2"
 
 # release build
 [profile.release]

@@ -78,7 +78,7 @@ mod test {
     use crate::reg_context::RegContext;
     use crate::stack::Stack;
 
-    const MIN_STACK: usize = 2 * 1024 * 1024;
+    const MIN_STACK: usize = 1024;
 
     fn init_fn(arg: usize, f: *mut usize) -> ! {
         let func: fn() = unsafe { transmute(f) };
