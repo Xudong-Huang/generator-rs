@@ -1,6 +1,6 @@
-use detail::{align_down, mut_offset};
-use reg_context::InitFn;
-use stack::Stack;
+use crate::detail::{align_down, mut_offset};
+use crate::reg_context::InitFn;
+use crate::stack::Stack;
 
 #[cfg(not(nightly))]
 #[link(name = "asm", kind = "static")]
