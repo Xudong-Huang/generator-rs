@@ -8,23 +8,13 @@ use std::io;
 use std::os::raw::c_void;
 use std::ptr;
 
-// #[cfg(windows)]
-// const MIN_STACK_SIZE: usize = 0x4b0;
-
-// #[cfg(unix)]
-// const MIN_STACK_SIZE: usize = 0x100;
-
 #[cfg(all(unix, target_arch = "x86_64"))]
-#[path = "unix/mod.rs"]
+#[path = "unix.rs"]
 pub mod sys;
 
 #[cfg(all(windows, target_arch = "x86_64"))]
-#[path = "windows/mod.rs"]
+#[path = "windows.rs"]
 pub mod sys;
-
-// pub use self::sys::{
-//     allocate_stack, deallocate_stack, max_stack_size, min_stack_size, page_size, protect_stack,
-// };
 
 /// Error type returned by stack allocation methods.
 #[derive(Debug)]
@@ -77,7 +67,7 @@ pub struct SysStack {
 impl SysStack {
     /// Creates a (non-owning) representation of some stack memory.
     ///
-    /// It is unsafe because it is your reponsibility to make sure that `top` and `buttom` are valid
+    /// It is unsafe because it is your responsibility to make sure that `top` and `bottom` are valid
     /// addresses.
     #[inline]
     pub unsafe fn new(top: *mut c_void, bottom: *mut c_void) -> SysStack {
