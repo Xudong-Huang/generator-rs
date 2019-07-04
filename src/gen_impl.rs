@@ -170,7 +170,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // switch to new context, always use the top context's reg
         // for normal generator self.context.parent == self.context
         // for coroutine self.context.parent == top generator context
-        assert!(!self.context.parent.is_null());
+        debug_assert!(!self.context.parent.is_null());
         let top = unsafe { &mut *self.context.parent };
 
         // save current generator context on stack

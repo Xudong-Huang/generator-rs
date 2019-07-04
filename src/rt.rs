@@ -159,6 +159,7 @@ impl ContextStack {
     pub fn current() -> ContextStack {
         unsafe {
             if ROOT_CONTEXT_P.is_null() {
+                #[cold]
                 init_root_p();
             }
             ContextStack {
