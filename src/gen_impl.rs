@@ -19,7 +19,7 @@ use crate::yield_::yield_now;
 pub const DEFAULT_STACK_SIZE: usize = 0x1000;
 
 /// Generator helper
-pub struct Gn<A> {
+pub struct Gn<A = ()> {
     dummy: PhantomData<A>,
 }
 
@@ -227,6 +227,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     #[inline]
     pub fn resume(&mut self) -> Option<T> {
         if self.is_done() {
+            #[cold]
             return None;
         }
 
@@ -242,6 +243,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     #[inline]
     pub fn raw_send(&mut self, para: Option<A>) -> Option<T> {
         if self.is_done() {
+            #[cold]
             return None;
         }
 
