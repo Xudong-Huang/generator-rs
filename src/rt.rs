@@ -115,18 +115,33 @@ impl Context {
         }
     }
 
-    /// set current generator send para
+    /// get coroutine send para
     #[inline]
-    pub fn set_para<A>(&self, data: A)
-    where
-        A: Any,
-    {
-        let para = unsafe { &mut *self.para };
-        match para.downcast_mut::<Option<A>>() {
-            Some(v) => *v = Some(data),
-            #[cold]
-            None => type_error::<A>("set yield type mismatch error detected"),
-        }
+    pub fn co_get_para<A>(&self) -> Option<A> {
+        let para = unsafe { &mut *(self.para as *mut Option<A>) };
+        para.take()
+    }
+
+    /// set current generator send para
+    // #[inline]
+    // pub fn set_para<A>(&self, data: A)
+    // where
+    //     A: Any,
+    // {
+    //     let para = unsafe { &mut *self.para };
+    //     match para.downcast_mut::<Option<A>>() {
+    //         Some(v) => *v = Some(data),
+    //         #[cold]
+    //         None => type_error::<A>("set yield type mismatch error detected"),
+    //     }
+    // }
+
+    /// set coroutine send para
+    /// without check the data type for coroutine performance reason
+    #[inline]
+    pub fn co_set_para<A>(&self, data: A) {
+        let para = unsafe { &mut *(self.para as *mut Option<A>) };
+        *para = Some(data);
     }
 
     /// set current generator return value
@@ -141,6 +156,14 @@ impl Context {
             #[cold]
             None => type_error::<T>("yield type mismatch error detected"),
         }
+    }
+
+    /// set coroutine return value
+    /// without check the data type for coroutine performance reason
+    #[inline]
+    pub fn co_set_ret<T>(&mut self, v: T) {
+        let ret = unsafe { &mut *(self.ret as *mut Option<T>) };
+        *ret = Some(v);
     }
 }
 

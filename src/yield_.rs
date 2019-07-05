@@ -140,7 +140,7 @@ pub fn co_yield_with<T: Any>(v: T) {
         panic!(Error::Cancel);
     }
 
-    context.set_ret(v);
+    context.co_set_ret(v);
     context._ref -= 1;
 
     let parent = env.pop_context(context);
@@ -152,7 +152,7 @@ pub fn co_yield_with<T: Any>(v: T) {
 /// coroutine get passed in yield para
 pub fn co_get_yield<A: Any>() -> Option<A> {
     match ContextStack::current().co_ctx() {
-        Some(ctx) => ctx.get_para(),
+        Some(ctx) => ctx.co_get_para(),
         #[cold]
         None => None,
     }
@@ -161,7 +161,7 @@ pub fn co_get_yield<A: Any>() -> Option<A> {
 /// set current coroutine para in user space
 pub fn co_set_para<A: Any>(para: A) {
     match ContextStack::current().co_ctx() {
-        Some(ctx) => ctx.set_para(para),
+        Some(ctx) => ctx.co_set_para(para),
         #[cold]
         None => {}
     }
