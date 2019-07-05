@@ -110,6 +110,7 @@ impl Context {
         let para = unsafe { &mut *self.para };
         match para.downcast_mut::<Option<A>>() {
             Some(v) => v.take(),
+            #[cold]
             None => type_error::<A>("get yield type mismatch error detected"),
         }
     }
@@ -123,6 +124,7 @@ impl Context {
         let para = unsafe { &mut *self.para };
         match para.downcast_mut::<Option<A>>() {
             Some(v) => *v = Some(data),
+            #[cold]
             None => type_error::<A>("set yield type mismatch error detected"),
         }
     }
@@ -136,6 +138,7 @@ impl Context {
         let ret = unsafe { &mut *self.ret };
         match ret.downcast_mut::<Option<T>>() {
             Some(r) => *r = Some(v),
+            #[cold]
             None => type_error::<T>("yield type mismatch error detected"),
         }
     }

@@ -44,6 +44,7 @@ pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
 fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
     // check the context
     if !context.is_generator() {
+        #[cold]
         panic!("yield from none generator context");
     }
 
@@ -111,6 +112,7 @@ pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
     let mut p = context.get_para();
     while !g.is_done() {
         match g.raw_send(p) {
+            #[cold]
             None => return None,
             Some(r) => raw_yield(&env, context, r),
         }
@@ -151,13 +153,16 @@ pub fn co_yield_with<T: Any>(v: T) {
 pub fn co_get_yield<A: Any>() -> Option<A> {
     match ContextStack::current().co_ctx() {
         Some(ctx) => ctx.get_para(),
+        #[cold]
         None => None,
     }
 }
 
 /// set current coroutine para in user space
 pub fn co_set_para<A: Any>(para: A) {
-    if let Some(ctx) = ContextStack::current().co_ctx() {
-        ctx.set_para(para)
+    match ContextStack::current().co_ctx() {
+        Some(ctx) => ctx.set_para(para),
+        #[cold]
+        None => {}
     }
 }

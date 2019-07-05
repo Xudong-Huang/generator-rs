@@ -188,6 +188,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         if let Some(err) = self.context.err.take() {
             // pass the error to the parent until root
+            #[cold]
             panic::resume_unwind(err);
         }
     }
