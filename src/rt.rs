@@ -70,8 +70,8 @@ impl Context {
         Context {
             regs: RegContext::empty(),
             stack: Stack::empty(),
-            para: unsafe { mem::uninitialized() },
-            ret: unsafe { mem::uninitialized() },
+            para: unsafe { mem::MaybeUninit::uninit().assume_init() },
+            ret: unsafe { mem::MaybeUninit::uninit().assume_init() },
             _ref: 1, // none zero means it's not running
             err: None,
             child: ptr::null_mut(),
@@ -85,8 +85,8 @@ impl Context {
         Context {
             regs: RegContext::empty(),
             stack: Stack::new(size),
-            para: unsafe { mem::uninitialized() },
-            ret: unsafe { mem::uninitialized() },
+            para: unsafe { mem::MaybeUninit::uninit().assume_init() },
+            ret: unsafe { mem::MaybeUninit::uninit().assume_init() },
             _ref: 1, // none zero means it's not running
             err: None,
             child: ptr::null_mut(),

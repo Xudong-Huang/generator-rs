@@ -22,7 +22,7 @@ macro_rules! done {
 pub fn done<T>() -> T {
     // set the done bit for this special return
     ContextStack::current().top()._ref = 0xf;
-    unsafe { ::std::mem::uninitialized() }
+    unsafe { std::mem::MaybeUninit::uninit().assume_init() }
 }
 
 /// switch back to parent context

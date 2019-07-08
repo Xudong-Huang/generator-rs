@@ -95,7 +95,7 @@ pub fn max_stack_size() -> usize {
         let limitret;
 
         unsafe {
-            limit = mem::uninitialized();
+            limit = mem::MaybeUninit::uninit().assume_init();
             limitret = libc::getrlimit(libc::RLIMIT_STACK, &mut limit);
         }
 
