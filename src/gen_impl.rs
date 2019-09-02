@@ -54,6 +54,7 @@ impl<A> Gn<A> {
 impl<A: Any> Gn<A> {
     /// create a new generator with default stack size
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::new_ret_no_self))]
+    #[deprecated(since = "0.6.18", note = "please use `scope` version instead")]
     pub fn new<'a, T: Any, F>(f: F) -> Generator<'a, A, T>
     where
         F: FnOnce() -> T + 'a,
@@ -62,6 +63,7 @@ impl<A: Any> Gn<A> {
     }
 
     /// create a new generator with specified stack size
+    #[deprecated(since = "0.6.18", note = "please use `scope` version instead")]
     pub fn new_opt<'a, T: Any, F>(size: usize, f: F) -> Generator<'a, A, T>
     where
         F: FnOnce() -> T + 'a,
@@ -88,8 +90,10 @@ pub struct GeneratorImpl<'a, A, T> {
 impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
     /// create a new generator with default stack size
     pub fn init_context(&mut self) {
-        self.context.para = &mut self.para as &mut dyn Any;
-        self.context.ret = &mut self.ret as &mut dyn Any;
+        unsafe {
+            *self.context.para.as_mut_ptr() = &mut self.para as &mut dyn Any;
+            *self.context.ret.as_mut_ptr() = &mut self.ret as &mut dyn Any;
+        }
     }
 }
 
@@ -353,6 +357,7 @@ impl<'a, T> Iterator for GeneratorImpl<'a, (), T> {
 
 impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
     #[cfg(nightly)]
+    #[allow(unused_unsafe)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use std::intrinsics::type_name;
         write!(

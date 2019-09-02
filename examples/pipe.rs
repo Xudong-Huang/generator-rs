@@ -1,4 +1,3 @@
-extern crate generator;
 use generator::*;
 
 fn main() {

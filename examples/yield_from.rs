@@ -1,4 +1,5 @@
-extern crate generator;
+#![allow(deprecated)]
+
 use generator::*;
 
 fn xrange(start: u32, end: u32) -> u32 {

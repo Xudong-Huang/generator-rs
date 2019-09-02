@@ -3,7 +3,7 @@
 //! generator run time context management
 //!
 use std::any::Any;
-use std::mem;
+use std::mem::MaybeUninit;
 use std::ptr;
 
 use crate::reg_context::RegContext;
@@ -48,9 +48,9 @@ pub struct Context {
     /// generator execution stack
     pub stack: Stack,
     /// passed in para for send
-    pub para: *mut dyn Any,
+    pub para: MaybeUninit<*mut dyn Any>,
     /// this is just a buffer for the return value
-    pub ret: *mut dyn Any,
+    pub ret: MaybeUninit<*mut dyn Any>,
     /// track generator ref, yield will -1, send will +1
     pub _ref: u32,
     /// propagate panic
@@ -70,8 +70,8 @@ impl Context {
         Context {
             regs: RegContext::empty(),
             stack: Stack::empty(),
-            para: unsafe { mem::MaybeUninit::uninit().assume_init() },
-            ret: unsafe { mem::MaybeUninit::uninit().assume_init() },
+            para: MaybeUninit::zeroed(),
+            ret: MaybeUninit::zeroed(),
             _ref: 1, // none zero means it's not running
             err: None,
             child: ptr::null_mut(),
@@ -85,8 +85,8 @@ impl Context {
         Context {
             regs: RegContext::empty(),
             stack: Stack::new(size),
-            para: unsafe { mem::MaybeUninit::uninit().assume_init() },
-            ret: unsafe { mem::MaybeUninit::uninit().assume_init() },
+            para: MaybeUninit::zeroed(),
+            ret: MaybeUninit::zeroed(),
             _ref: 1, // none zero means it's not running
             err: None,
             child: ptr::null_mut(),
@@ -103,11 +103,15 @@ impl Context {
 
     /// get current generator send para
     #[inline]
-    pub fn get_para<A>(&self) -> Option<A>
+    pub fn get_para<A>(&mut self) -> Option<A>
     where
         A: Any,
     {
-        let para = unsafe { &mut *self.para };
+        let para = unsafe {
+            let para_ptr = *self.para.as_mut_ptr();
+            assert!(!para_ptr.is_null());
+            &mut *para_ptr
+        };
         match para.downcast_mut::<Option<A>>() {
             Some(v) => v.take(),
             #[cold]
@@ -117,8 +121,12 @@ impl Context {
 
     /// get coroutine send para
     #[inline]
-    pub fn co_get_para<A>(&self) -> Option<A> {
-        let para = unsafe { &mut *(self.para as *mut Option<A>) };
+    pub fn co_get_para<A>(&mut self) -> Option<A> {
+        let para = unsafe {
+            let para_ptr = *self.para.as_mut_ptr();
+            debug_assert!(!para_ptr.is_null());
+            &mut *(para_ptr as *mut Option<A>)
+        };
         para.take()
     }
 
@@ -139,8 +147,12 @@ impl Context {
     /// set coroutine send para
     /// without check the data type for coroutine performance reason
     #[inline]
-    pub fn co_set_para<A>(&self, data: A) {
-        let para = unsafe { &mut *(self.para as *mut Option<A>) };
+    pub fn co_set_para<A>(&mut self, data: A) {
+        let para = unsafe {
+            let para_ptr = *self.para.as_mut_ptr();
+            debug_assert!(!para_ptr.is_null());
+            &mut *(para_ptr as *mut Option<A>)
+        };
         *para = Some(data);
     }
 
@@ -150,7 +162,11 @@ impl Context {
     where
         T: Any,
     {
-        let ret = unsafe { &mut *self.ret };
+        let ret = unsafe {
+            let ret_ptr = *self.ret.as_mut_ptr();
+            assert!(!ret_ptr.is_null());
+            &mut *ret_ptr
+        };
         match ret.downcast_mut::<Option<T>>() {
             Some(r) => *r = Some(v),
             #[cold]
@@ -162,7 +178,11 @@ impl Context {
     /// without check the data type for coroutine performance reason
     #[inline]
     pub fn co_set_ret<T>(&mut self, v: T) {
-        let ret = unsafe { &mut *(self.ret as *mut Option<T>) };
+        let ret = unsafe {
+            let ret_ptr = *self.ret.as_mut_ptr();
+            debug_assert!(!ret_ptr.is_null());
+            &mut *(ret_ptr as *mut Option<T>)
+        };
         *ret = Some(v);
     }
 }
@@ -263,6 +283,7 @@ impl ContextStack {
 #[inline]
 fn type_error<A>(msg: &str) -> ! {
     #[cfg(nightly)]
+    #[allow(unused_unsafe)]
     {
         use std::intrinsics::type_name;
         let t = unsafe { type_name::<A>() };

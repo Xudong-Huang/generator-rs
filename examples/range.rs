@@ -1,6 +1,4 @@
-#[macro_use]
-extern crate generator;
-use generator::Gn;
+use generator::{done, Gn};
 
 fn main() {
     let n = 100000;

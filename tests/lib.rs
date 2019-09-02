@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 extern crate generator;
 
 use generator::*;
@@ -479,4 +481,15 @@ fn test_re_init() {
 #[should_panic]
 fn done_in_normal() {
     done!();
+}
+
+#[test]
+#[should_panic]
+fn invaild_yield_in_scope() {
+    let g = Gn::new_scoped(|_| {
+        // invalid use raw yield API with scope
+        yield_::<String, _>(());
+    });
+
+    for () in g {}
 }

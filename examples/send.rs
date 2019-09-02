@@ -1,8 +1,7 @@
-extern crate generator;
-
-use std::mem;
+#![allow(deprecated)]
 
 use generator::{yield_, Gn};
+use std::mem;
 
 fn sum(a: u32) -> u32 {
     let mut sum = a;

@@ -1,4 +1,5 @@
 #![feature(test)]
+#![allow(deprecated)]
 extern crate generator;
 extern crate test;
 
@@ -176,6 +177,6 @@ fn fnbox_bench(b: &mut Bencher) {
         let f: Box<dyn FnOnce()> = Box::new(|| {
             test::black_box(a);
         });
-        test::black_box(f);
+        let _ = test::black_box(f);
     });
 }

@@ -1,4 +1,3 @@
-extern crate generator;
 use generator::*;
 
 fn factors(n: u32) -> Generator<'static, (), u32> {

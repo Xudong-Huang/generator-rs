@@ -1,4 +1,3 @@
-extern crate generator;
 use generator::*;
 
 #[derive(Debug)]

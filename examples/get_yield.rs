@@ -1,4 +1,4 @@
-extern crate generator;
+#![allow(deprecated)]
 use generator::{get_yield, yield_with, Gn};
 
 fn sum(a: u32) -> u32 {
