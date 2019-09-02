@@ -63,7 +63,7 @@ impl<A: Any> Gn<A> {
     }
 
     /// create a new generator with specified stack size
-    #[deprecated(since = "0.6.18", note = "please use `scope` version instead")]
+    // the `may` library use this API so we can't deprecated it yet.
     pub fn new_opt<'a, T: Any, F>(size: usize, f: F) -> Generator<'a, A, T>
     where
         F: FnOnce() -> T + 'a,
