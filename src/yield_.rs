@@ -6,7 +6,7 @@ use std::any::Any;
 
 use crate::gen_impl::Generator;
 use crate::reg_context::RegContext;
-use crate::rt::{Context, ContextStack, Error};
+use crate::rt::{is_generator, Context, ContextStack, Error};
 
 /// it's a special return instruction that yield nothing
 /// but only terminate the generator safely
@@ -18,8 +18,11 @@ macro_rules! done {
 }
 
 /// don't use it directly, use done!() macro instead
+/// would panic if use in none generator context
+#[doc(hidden)]
 #[inline]
 pub fn done<T>() -> T {
+    assert!(is_generator(), "done is only possible in a generator");
     // set the done bit for this special return
     ContextStack::current().top()._ref = 0xf;
     unsafe { std::mem::MaybeUninit::uninit().assume_init() }

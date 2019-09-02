@@ -474,3 +474,9 @@ fn test_re_init() {
     assert_eq!(g.next(), Some(5));
     assert_eq!(g.is_done(), true);
 }
+
+#[test]
+#[should_panic]
+fn done_in_normal() {
+    done!();
+}
