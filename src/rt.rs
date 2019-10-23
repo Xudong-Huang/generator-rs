@@ -45,7 +45,7 @@ pub enum Error {
 #[repr(C)]
 pub struct Context {
     /// generator regs context
-    pub regs: RegContext, // 64
+    pub regs: RegContext,
     /// child context
     child: *mut Context,
     /// parent context
@@ -53,13 +53,13 @@ pub struct Context {
     /// generator execution stack
     pub stack: Stack,
     /// passed in para for send
-    pub para: MaybeUninit<*mut dyn Any>, //16
+    pub para: MaybeUninit<*mut dyn Any>,
     /// this is just a buffer for the return value
-    pub ret: MaybeUninit<*mut dyn Any>, //16
+    pub ret: MaybeUninit<*mut dyn Any>,
     /// track generator ref, yield will -1, send will +1
     pub _ref: usize,
     /// context local storage
-    pub local_data: *mut u8, // 8
+    pub local_data: *mut u8,
     /// propagate panic
     pub err: Option<Box<dyn Any + Send>>,
 }

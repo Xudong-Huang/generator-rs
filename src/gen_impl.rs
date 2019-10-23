@@ -80,6 +80,8 @@ impl<A: Any> Gn<A> {
 pub struct GeneratorImpl<'a, A, T> {
     // run time context
     context: Context,
+    // priority
+    priority: usize,
     // save the input
     para: Option<A>,
     // save the output
@@ -105,6 +107,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             para: None,
             ret: None,
             f: None,
+            priority: 0,
             context: Context::new(size),
         })
     }
@@ -210,10 +213,16 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.para = Some(para);
     }
 
-    /// retrive the para of the generator
+    /// set the priority property, used by coroutine
     #[inline]
-    pub fn get_para(&self) -> Option<&A> {
-        self.para.as_ref()
+    pub fn set_priority(&mut self, priority: usize) {
+        self.priority = priority;
+    }
+
+    /// get the priority property, used by coroutine
+    #[inline]
+    pub fn get_priority(&self) -> usize {
+        self.priority
     }
 
     /// set the generator local data
