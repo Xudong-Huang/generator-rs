@@ -210,6 +210,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.para = Some(para);
     }
 
+    /// retrive the para of the generator
+    #[inline]
+    pub fn get_para(&self) -> Option<&A> {
+        self.para.as_ref()
+    }
+
     /// set the generator local data
     #[inline]
     pub fn set_local_data(&mut self, data: *mut u8) {
