@@ -42,26 +42,26 @@ pub enum Error {
 }
 
 /// generator context
+#[repr(C)]
 pub struct Context {
     /// generator regs context
-    pub regs: RegContext,
-    /// generator execution stack
-    pub stack: Stack,
-    /// passed in para for send
-    pub para: MaybeUninit<*mut dyn Any>,
-    /// this is just a buffer for the return value
-    pub ret: MaybeUninit<*mut dyn Any>,
-    /// track generator ref, yield will -1, send will +1
-    pub _ref: u32,
-    /// propagate panic
-    pub err: Option<Box<dyn Any + Send>>,
-    /// context local storage
-    pub local_data: *mut u8,
-
+    pub regs: RegContext, // 64
     /// child context
     child: *mut Context,
     /// parent context
     pub parent: *mut Context,
+    /// generator execution stack
+    pub stack: Stack,
+    /// passed in para for send
+    pub para: MaybeUninit<*mut dyn Any>, //16
+    /// this is just a buffer for the return value
+    pub ret: MaybeUninit<*mut dyn Any>, //16
+    /// track generator ref, yield will -1, send will +1
+    pub _ref: usize,
+    /// context local storage
+    pub local_data: *mut u8, // 8
+    /// propagate panic
+    pub err: Option<Box<dyn Any + Send>>,
 }
 
 impl Context {

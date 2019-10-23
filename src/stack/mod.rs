@@ -137,7 +137,6 @@ unsafe impl Send for SysStack {}
 /// generator stack
 pub struct Stack {
     buf: SysStack,
-    track: bool,
 }
 
 impl Stack {
@@ -147,7 +146,6 @@ impl Stack {
                 top: ptr::null_mut(),
                 bottom: ptr::null_mut(),
             },
-            track: false,
         }
     }
 
@@ -164,7 +162,7 @@ impl Stack {
 
         let buf = SysStack::allocate(bytes, true).expect("failed to alloc sys stack");
 
-        let stk = Stack { buf, track };
+        let stk = Stack { buf };
 
         // if size is not even we do the full foot print test
         let count = if track {
@@ -194,9 +192,6 @@ impl Stack {
             }
         }
         let cap = self.size();
-        if self.track {
-            eprintln!("stack size={}, used={}", cap, cap - offset);
-        }
         cap - offset
     }
 

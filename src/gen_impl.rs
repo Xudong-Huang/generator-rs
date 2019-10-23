@@ -76,6 +76,7 @@ impl<A: Any> Gn<A> {
 }
 
 /// `GeneratorImpl`
+#[repr(C)]
 pub struct GeneratorImpl<'a, A, T> {
     // run time context
     context: Context,
