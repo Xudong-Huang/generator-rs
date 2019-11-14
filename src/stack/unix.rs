@@ -12,7 +12,9 @@ use super::SysStack;
     target_os = "openbsd",
     target_os = "macos",
     target_os = "ios",
-    target_os = "android"
+    target_os = "android",
+    target_os = "illumos",
+    target_os = "solaris"
 ))]
 const MAP_STACK: libc::c_int = 0;
 
@@ -20,7 +22,9 @@ const MAP_STACK: libc::c_int = 0;
     target_os = "openbsd",
     target_os = "macos",
     target_os = "ios",
-    target_os = "android"
+    target_os = "android",
+    target_os = "illumos",
+    target_os = "solaris"
 )))]
 const MAP_STACK: libc::c_int = libc::MAP_STACK;
 
