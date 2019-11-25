@@ -112,7 +112,7 @@ impl SysStack {
             size = min_stack_size;
         }
 
-        size = (size - 1) & !(page_size - 1);
+        size = (size - 1) & !(page_size.overflowing_sub(1).0);
 
         if let Some(size) = size.checked_add(add) {
             if size <= max_stack_size {

@@ -92,7 +92,10 @@ impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
     /// create a new generator with default stack size
     pub fn init_context(&mut self) {
         unsafe {
-            std::ptr::write(self.context.para.as_mut_ptr(), &mut self.para as &mut dyn Any);
+            std::ptr::write(
+                self.context.para.as_mut_ptr(),
+                &mut self.para as &mut dyn Any,
+            );
             std::ptr::write(self.context.ret.as_mut_ptr(), &mut self.ret as &mut dyn Any);
         }
     }
