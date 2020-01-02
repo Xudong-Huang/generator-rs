@@ -40,13 +40,7 @@ impl Display for StackError {
 }
 
 impl Error for StackError {
-    fn description(&self) -> &str {
-        match *self {
-            StackError::ExceedsMaximumSize(_) => "exceeds maximum stack size",
-            StackError::IoError(ref e) => e.description(),
-        }
-    }
-    fn cause(&self) -> Option<&dyn Error> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         match *self {
             StackError::ExceedsMaximumSize(_) => None,
             StackError::IoError(ref e) => Some(e),
