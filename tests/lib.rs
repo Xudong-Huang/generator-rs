@@ -460,7 +460,7 @@ fn test_re_init() {
         }
     };
 
-    let mut g = GeneratorImpl::new(0x800);
+    let mut g = Gn::new_opt(0x800, || 0);
     g.scoped_init(clo());
 
     assert_eq!(g.next(), Some(0));

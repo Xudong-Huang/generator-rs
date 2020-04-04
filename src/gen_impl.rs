@@ -90,7 +90,7 @@ pub struct GeneratorImpl<'a, A, T> {
 
 impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
     /// create a new generator with default stack size
-    pub fn init_context(&mut self) {
+    fn init_context(&mut self) {
         unsafe {
             std::ptr::write(
                 self.context.para.as_mut_ptr(),
@@ -103,7 +103,7 @@ impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
 
 impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// create a new generator with specified stack size
-    pub fn new(size: usize) -> Box<Self> {
+    fn new(size: usize) -> Box<Self> {
         Box::new(GeneratorImpl {
             para: None,
             ret: None,

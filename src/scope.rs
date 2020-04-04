@@ -4,7 +4,7 @@
 //!
 
 // use generator::Generator;
-use crate::gen_impl::GeneratorImpl;
+use crate::gen_impl::Generator;
 use crate::rt::{Context, ContextStack, Error};
 use crate::yield_::raw_yield_now;
 
@@ -73,7 +73,7 @@ impl<'a, A, T> Scope<'a, A, T> {
 
     /// `yield_from`
     /// the from generator must has the same type as itself
-    pub fn yield_from(&mut self, mut g: Box<GeneratorImpl<A, T>>) -> Option<A> {
+    pub fn yield_from(&mut self, mut g: Generator<A, T>) -> Option<A> {
         let env = ContextStack::current();
         let context = env.top();
         let mut p = self.get_yield();
