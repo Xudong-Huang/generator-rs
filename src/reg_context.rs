@@ -45,19 +45,8 @@ impl RegContext {
     /// then loading the registers from a previously saved Context.
     #[inline]
     pub fn swap(out_context: &mut RegContext, in_context: &RegContext) {
-        // debug!("swapping contexts");
-        let out_regs: &mut Registers = match *out_context {
-            RegContext {
-                regs: ref mut r, ..
-            } => r,
-        };
-        let in_regs: &Registers = match *in_context {
-            RegContext { regs: ref r, .. } => r,
-        };
-
         // debug!("register raw swap");
-
-        unsafe { swap_registers(out_regs, in_regs) }
+        unsafe { swap_registers(&mut out_context.regs, &in_context.regs) }
     }
 
     /// Load the context and switch. This function will never return.

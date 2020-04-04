@@ -78,7 +78,7 @@ swap_registers:
     /* movq  0x18(%r10), %rax */
     /* mov  %rax, (14*8)(%rcx) */
     
-    mov %rcx, (3*8)(%rcx)
+    ; mov %rcx, (3*8)(%rcx)
     
     mov (0*8)(%rdx), %rbx
     mov (1*8)(%rdx), %rsp
@@ -120,7 +120,7 @@ swap_registers:
     mov  (11*8)(%rdx), %rax
     movq  %rax, 0x8(%r10)
     
-    mov (3*8)(%rdx), %rcx
+    ; mov (3*8)(%rdx), %rcx
     ret
 .seh_endproc
 

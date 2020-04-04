@@ -27,8 +27,6 @@ _swap_registers:
     mov %r14, (6*8)(%rdi)
     mov %r15, (7*8)(%rdi)
 
-    mov %rdi, (3*8)(%rdi)
-
     mov (0*8)(%rsi), %rbx
     mov (1*8)(%rsi), %rsp
     mov (2*8)(%rsi), %rbp
@@ -37,5 +35,4 @@ _swap_registers:
     mov (6*8)(%rsi), %r14
     mov (7*8)(%rsi), %r15
 
-    mov (3*8)(%rsi), %rdi
     ret

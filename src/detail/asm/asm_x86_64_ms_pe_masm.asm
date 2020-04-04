@@ -59,7 +59,7 @@ swap_registers PROC FRAME
     ; mov rax, [r10 + 0x18]
     ; mov [rcx + 14*8], rax
 
-    mov [rcx + 3*8], rcx
+    ; mov [rcx + 3*8], rcx
 
     mov rbx, [rdx + 0*8]
     mov rsp, [rdx + 1*8]
@@ -101,7 +101,7 @@ swap_registers PROC FRAME
     mov rax, [rdx + 11*8]
     mov [r10 + 08h], rax
 
-    mov rcx, [rdx + 3*8]
+    ; mov rcx, [rdx + 3*8]
     ret
 swap_registers ENDP
 

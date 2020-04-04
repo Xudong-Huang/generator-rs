@@ -106,7 +106,7 @@ mod asm_impl {
                     // movq  0x18(%r10), %rax
                     // mov  %rax, (14*8)(%rcx)
 
-                    mov %rcx, (3*8)(%rcx)
+                    // mov %rcx, (3*8)(%rcx)
 
                     mov (0*8)(%rdx), %rbx
                     mov (1*8)(%rdx), %rsp
@@ -145,7 +145,7 @@ mod asm_impl {
                     mov  (11*8)(%rdx), %rax
                     movq  %rax, 0x8(%r10)
 
-                    mov (3*8)(%rdx), %rcx
+                    // mov (3*8)(%rdx), %rcx
                 "
                 // why save the rcx and rdx in stack? this will overwrite something!
                 // the naked function should only use the asm block, debug version breaks
