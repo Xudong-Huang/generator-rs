@@ -3,8 +3,9 @@
 //!
 
 use std::error::Error;
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::fmt::{self, Display};
 use std::io;
+use std::mem::MaybeUninit;
 use std::os::raw::c_void;
 use std::ptr;
 
@@ -15,6 +16,60 @@ pub mod sys;
 #[cfg(all(windows, target_arch = "x86_64"))]
 #[path = "windows.rs"]
 pub mod sys;
+
+/// A pointer type for stack allocation.
+pub struct StackBox<T> {
+    ptr: ptr::NonNull<T>,
+    // track the stack offset, saved on stack
+    offset: *mut usize,
+}
+
+const ALIGN: usize = std::mem::size_of::<usize>();
+
+impl<T> StackBox<T> {
+    fn new_unint(stack: &mut Stack) -> MaybeUninit<Self> {
+        let layout = std::alloc::Layout::new::<T>();
+        let align = std::cmp::max(layout.align(), ALIGN);
+        let size = ((layout.size() + align - 1) & !(align - 1)) / std::mem::size_of::<usize>();
+        let offset = stack.get_offset();
+        unsafe {
+            *offset += size;
+            let ptr = ptr::NonNull::new_unchecked(stack.end() as *mut T);
+            std::mem::MaybeUninit::new(StackBox { ptr, offset })
+        }
+    }
+
+    /// move data into
+    pub fn init(&mut self, data: T) {
+        unsafe { ptr::write(self.ptr.as_mut(), data) };
+    }
+}
+
+impl<T> Drop for StackBox<T> {
+    fn drop(&mut self) {
+        let layout = std::alloc::Layout::new::<T>();
+        let align = std::cmp::max(layout.align(), ALIGN);
+        let size = ((layout.size() + align - 1) & !(align - 1)) / std::mem::size_of::<usize>();
+        unsafe {
+            *self.offset -= size;
+            ptr::drop_in_place(self.ptr.as_mut());
+        }
+    }
+}
+
+impl<T> std::ops::Deref for StackBox<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        unsafe { &*self.ptr.as_ref() }
+    }
+}
+
+impl<T> std::ops::DerefMut for StackBox<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        unsafe { &mut *self.ptr.as_mut() }
+    }
+}
 
 /// Error type returned by stack allocation methods.
 #[derive(Debug)]
@@ -27,7 +82,7 @@ pub enum StackError {
 }
 
 impl Display for StackError {
-    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             StackError::ExceedsMaximumSize(size) => write!(
                 fmt,
@@ -134,17 +189,8 @@ pub struct Stack {
 }
 
 impl Stack {
-    pub fn empty() -> Stack {
-        Stack {
-            buf: SysStack {
-                top: ptr::null_mut(),
-                bottom: ptr::null_mut(),
-            },
-        }
-    }
-
     /// Allocate a new stack of `size`. If size = 0, this is a `dummy_stack`
-    pub fn new(size: usize) -> Stack {
+    pub fn new(size: usize) -> StackBox<Stack> {
         let track = (size & 1) != 0;
         let mut bytes = size * std::mem::size_of::<usize>();
         // the minimal size
@@ -156,7 +202,7 @@ impl Stack {
 
         let buf = SysStack::allocate(bytes, true).expect("failed to alloc sys stack");
 
-        let stk = Stack { buf };
+        let mut stk = Stack { buf };
 
         // if size is not even we do the full foot print test
         let count = if track {
@@ -167,10 +213,17 @@ impl Stack {
         };
 
         unsafe {
-            let buf = stk.buf.bottom() as *mut usize;
+            let buf = stk.buf.bottom as *mut usize;
             ptr::write_bytes(buf, 0xEE, count);
         }
-        stk
+        // init the stack box usage
+        let offset = stk.get_offset();
+        unsafe { *offset = 2 };
+
+        let mut stack = unsafe { stk.alloc_uninit_box::<Stack>().assume_init() };
+        stack.init(stk);
+
+        stack
     }
 
     /// get used stack size
@@ -179,7 +232,7 @@ impl Stack {
         unsafe {
             let mut magic: usize = 0xEE;
             ptr::write_bytes(&mut magic, 0xEE, 1);
-            let mut ptr = self.buf.bottom() as *mut usize;
+            let mut ptr = self.buf.bottom as *mut usize;
             while *ptr == magic {
                 offset += 1;
                 ptr = ptr.offset(1);
@@ -197,13 +250,31 @@ impl Stack {
 
     /// Point to the high end of the allocated stack
     pub fn end(&self) -> *mut usize {
-        self.buf.top() as *mut _
+        let offset = self.get_offset();
+        unsafe { (self.buf.top as *mut usize).offset(0 - *offset as isize) }
     }
 
     /// Point to the low end of the allocated stack
     #[allow(dead_code)]
     pub fn begin(&self) -> *mut usize {
-        self.buf.bottom() as *mut _
+        self.buf.bottom as *mut _
+    }
+
+    /// alloc buffer on this stack
+    pub fn alloc_uninit_box<T>(&mut self) -> MaybeUninit<StackBox<T>> {
+        StackBox::<T>::new_unint(self)
+    }
+
+    // get offset
+    fn get_offset(&self) -> *mut usize {
+        unsafe { (self.buf.top as *mut usize).offset(-1) }
+    }
+}
+
+impl fmt::Debug for Stack {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let offset = self.get_offset();
+        write!(f, "Statck<{:?}, Offset={}>", self.buf, unsafe { *offset })
     }
 }
 
@@ -213,7 +284,7 @@ impl Drop for Stack {
             return;
         }
         let page_size = sys::page_size();
-        let guard = (self.buf.bottom() as usize - page_size) as *mut c_void;
+        let guard = (self.buf.bottom as usize - page_size) as *mut c_void;
         let size_with_guard = self.buf.len() + page_size;
         unsafe {
             sys::deallocate_stack(guard, size_with_guard);

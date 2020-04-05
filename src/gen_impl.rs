@@ -6,26 +6,76 @@
 use std::any::Any;
 use std::fmt;
 use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
 use std::panic;
 use std::thread;
 
 use crate::reg_context::RegContext;
 use crate::rt::{Context, ContextStack, Error};
 use crate::scope::Scope;
+use crate::stack::{Stack, StackBox};
 use crate::yield_::yield_now;
 
 // default stack size, in usize
 // windows has a minimal size as 0x4a8!!!!
 pub const DEFAULT_STACK_SIZE: usize = 0x1000;
 
+/// the generator type
+pub struct Generator<'a, A, T> {
+    _stack: StackBox<Stack>,
+    gen: ManuallyDrop<StackBox<GeneratorImpl<'a, A, T>>>,
+}
+
+impl<'a, A, T> std::ops::Deref for Generator<'a, A, T> {
+    type Target = GeneratorImpl<'a, A, T>;
+
+    fn deref(&self) -> &GeneratorImpl<'a, A, T> {
+        &*self.gen
+    }
+}
+
+impl<'a, A, T> std::ops::DerefMut for Generator<'a, A, T> {
+    fn deref_mut(&mut self) -> &mut GeneratorImpl<'a, A, T> {
+        &mut *self.gen
+    }
+}
+
+impl<'a, T> Iterator for Generator<'a, (), T> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        self.resume()
+    }
+}
+
+impl<'a, A, T> fmt::Debug for Generator<'a, A, T> {
+    #[cfg(nightly)]
+    #[allow(unused_unsafe)]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use std::intrinsics::type_name;
+        write!(
+            f,
+            "Generator<{}, Output={}> {{ ... }}",
+            unsafe { type_name::<A>() },
+            unsafe { type_name::<T>() }
+        )
+    }
+
+    #[cfg(not(nightly))]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Generator {{ ... }}")
+    }
+}
+
+impl<'a, A, T> std::ops::Drop for Generator<'a, A, T> {
+    fn drop(&mut self) {
+        unsafe { ManuallyDrop::drop(&mut self.gen) }
+    }
+}
+
 /// Generator helper
 pub struct Gn<A = ()> {
     dummy: PhantomData<A>,
 }
-
-/// the generator type
-pub type Generator<'a, A, T> = Box<GeneratorImpl<'a, A, T>>;
-unsafe impl<A, T> Send for GeneratorImpl<'static, A, T> {}
 
 impl<A> Gn<A> {
     /// create a scoped generator with default stack size
@@ -45,9 +95,13 @@ impl<A> Gn<A> {
         T: 'a,
         A: 'a,
     {
-        let mut g = GeneratorImpl::<A, T>::new(size);
+        let mut stack = Stack::new(size);
+        let mut g = GeneratorImpl::<A, T>::new(&mut stack);
         g.scoped_init(f);
-        g
+        Generator {
+            gen: ManuallyDrop::new(g),
+            _stack: stack,
+        }
     }
 }
 
@@ -68,10 +122,14 @@ impl<A: Any> Gn<A> {
     where
         F: FnOnce() -> T + 'a,
     {
-        let mut g = GeneratorImpl::<A, T>::new(size);
+        let mut stack = Stack::new(size);
+        let mut g = GeneratorImpl::<A, T>::new(&mut stack);
         g.init_context();
-        g.init(f);
-        g
+        g.init_code(f);
+        Generator {
+            gen: ManuallyDrop::new(g),
+            _stack: stack,
+        }
     }
 }
 
@@ -88,6 +146,8 @@ pub struct GeneratorImpl<'a, A, T> {
     f: Option<Box<dyn FnOnce() + 'a>>,
 }
 
+unsafe impl<A, T> Send for GeneratorImpl<'static, A, T> {}
+
 impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
     /// create a new generator with default stack size
     fn init_context(&mut self) {
@@ -103,13 +163,19 @@ impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
 
 impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// create a new generator with specified stack size
-    fn new(size: usize) -> Box<Self> {
-        Box::new(GeneratorImpl {
+    fn new(stack: &mut Stack) -> StackBox<Self> {
+        let mut stack_box = unsafe {
+            stack
+                .alloc_uninit_box::<GeneratorImpl<'a, A, T>>()
+                .assume_init()
+        };
+        stack_box.init(GeneratorImpl {
             para: None,
             ret: None,
             f: None,
-            context: Context::new(size),
-        })
+            context: Context::new(stack),
+        });
+        stack_box
     }
 
     /// prefetch the generator into cache
@@ -126,12 +192,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     {
         use std::mem::transmute;
         let scope = unsafe { transmute(Scope::new(&mut self.para, &mut self.ret)) };
-        self.init(move || f(scope));
+        self.init_code(move || f(scope));
     }
 
     /// init a heap based generator
     // it's can be used to re-init a 'done' generator before it's get dropped
-    pub fn init<F: FnOnce() -> T + 'a>(&mut self, f: F)
+    pub fn init_code<F: FnOnce() -> T + 'a>(&mut self, f: F)
     where
         T: 'a,
     {
@@ -162,7 +228,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             }
         }));
 
-        let stk = &self.context.stack;
+        let stk = unsafe { &*self.context.stack };
         self.context
             .regs
             .init_with(gen_init, 0, &mut self.f as *mut _ as *mut usize, stk);
@@ -311,10 +377,8 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// get stack total size and used size in word
     pub fn stack_usage(&self) -> (usize, usize) {
-        (
-            self.context.stack.size(),
-            self.context.stack.get_used_size(),
-        )
+        let stack = unsafe { &*self.context.stack };
+        (stack.size(), stack.get_used_size())
     }
 }
 
@@ -346,35 +410,6 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
             error!("stack overflow detected!");
             panic!(Error::StackErr);
         }
-    }
-}
-
-impl<'a, T> Iterator for GeneratorImpl<'a, (), T> {
-    type Item = T;
-    // The 'Iterator' trait only requires the 'next' method to be defined. The
-    // return type is 'Option<T>', 'None' is returned when the 'Iterator' is
-    // over, otherwise the next value is returned wrapped in 'Some'
-    fn next(&mut self) -> Option<T> {
-        self.resume()
-    }
-}
-
-impl<'a, A, T> fmt::Debug for GeneratorImpl<'a, A, T> {
-    #[cfg(nightly)]
-    #[allow(unused_unsafe)]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use std::intrinsics::type_name;
-        write!(
-            f,
-            "Generator<{}, Output={}> {{ ... }}",
-            unsafe { type_name::<A>() },
-            unsafe { type_name::<T>() }
-        )
-    }
-
-    #[cfg(not(nightly))]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Generator {{ ... }}")
     }
 }
 

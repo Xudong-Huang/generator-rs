@@ -51,7 +51,7 @@ pub struct Context {
     /// parent context
     pub parent: *mut Context,
     /// generator execution stack
-    pub stack: Stack,
+    pub stack: *mut Stack,
     /// passed in para for send
     pub para: MaybeUninit<*mut dyn Any>,
     /// this is just a buffer for the return value
@@ -69,7 +69,7 @@ impl Context {
     fn empty() -> Self {
         Context {
             regs: RegContext::empty(),
-            stack: Stack::empty(),
+            stack: ptr::null_mut(),
             para: MaybeUninit::zeroed(),
             ret: MaybeUninit::zeroed(),
             _ref: 1, // none zero means it's not running
@@ -81,10 +81,10 @@ impl Context {
     }
 
     /// return a default generator context
-    pub fn new(size: usize) -> Context {
+    pub fn new(stack: &mut Stack) -> Context {
         Context {
             regs: RegContext::empty(),
-            stack: Stack::new(size),
+            stack,
             para: MaybeUninit::zeroed(),
             ret: MaybeUninit::zeroed(),
             _ref: 1, // none zero means it's not running
