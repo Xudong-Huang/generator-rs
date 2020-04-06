@@ -17,34 +17,58 @@ pub mod sys;
 #[path = "windows.rs"]
 pub mod sys;
 
-/// A pointer type for stack allocation.
-pub struct StackBox<T> {
-    ptr: ptr::NonNull<T>,
+// must align with StackBoxHeader
+const ALIGN: usize = std::mem::size_of::<StackBoxHeader>();
+const HEADER_SIZE: usize = std::mem::size_of::<StackBoxHeader>() / std::mem::size_of::<usize>();
+
+struct StackBoxHeader {
     // track the stack offset, saved on stack
     offset: *mut usize,
     // track how big the data is (in usize)
-    size: usize,
+    data_size: usize,
 }
 
-const ALIGN: usize = std::mem::size_of::<usize>();
+/// A pointer type for stack allocation.
+pub struct StackBox<T> {
+    // the stack memory
+    ptr: ptr::NonNull<T>,
+}
 
 impl<T> StackBox<T> {
     /// create uninit stack box
     fn new_unint(stack: &mut Stack) -> MaybeUninit<Self> {
+        let offset = unsafe { &mut *stack.get_offset() };
+        // alloc the data
         let layout = std::alloc::Layout::new::<T>();
         let align = std::cmp::max(layout.align(), ALIGN);
-        let size = ((layout.size() + align - 1) & !(align - 1)) / std::mem::size_of::<usize>();
-        let offset = stack.get_offset();
+        let size = (layout.size() + align - 1) & !(align - 1) / std::mem::size_of::<usize>();
+        let u_align = align / std::mem::size_of::<usize>();
+        let pad_size = u_align - (*offset + size) % u_align;
+        let data_size = size + pad_size;
+        *offset += data_size;
+        let ptr = unsafe { ptr::NonNull::new_unchecked(stack.end() as *mut T) };
+
+        // init the header
+        *offset += HEADER_SIZE;
         unsafe {
-            *offset += size;
-            let ptr = ptr::NonNull::new_unchecked(stack.end() as *mut T);
-            std::mem::MaybeUninit::new(StackBox { ptr, offset, size })
+            let mut header = ptr::NonNull::new_unchecked(stack.end() as *mut StackBoxHeader);
+            let header = header.as_mut();
+            header.data_size = data_size;
+            header.offset = offset;
+            std::mem::MaybeUninit::new(StackBox { ptr })
+        }
+    }
+
+    fn get_header(&self) -> &StackBoxHeader {
+        unsafe {
+            let header = (self.ptr.as_ptr() as *mut usize).offset(0 - HEADER_SIZE as isize);
+            &*(header as *const StackBoxHeader)
         }
     }
 
     /// move data into the box
     pub unsafe fn init(&mut self, data: T) {
-        ptr::write(self.ptr.as_mut(), data);
+        ptr::write(self.ptr.as_ptr(), data);
     }
 }
 
@@ -93,10 +117,11 @@ impl<F: FnOnce()> StackBox<F> {
         unsafe {
             let mut d = Self::new_unint(stack).assume_init();
             d.init(data);
+            let header = d.get_header();
             let f = Func {
-                data: d.ptr.as_mut() as *mut _ as *mut (),
-                size: d.size,
-                offset: d.offset,
+                data: d.ptr.as_ptr() as *mut (),
+                size: header.data_size + HEADER_SIZE,
+                offset: header.offset,
                 is_called: false,
                 func: Self::call_once,
                 drop: Self::drop_inner,
@@ -123,9 +148,10 @@ impl<T> std::ops::DerefMut for StackBox<T> {
 
 impl<T> Drop for StackBox<T> {
     fn drop(&mut self) {
+        let header = self.get_header();
         unsafe {
-            *self.offset -= self.size;
-            ptr::drop_in_place(self.ptr.as_mut());
+            *header.offset -= header.data_size + HEADER_SIZE;
+            ptr::drop_in_place(self.ptr.as_ptr());
         }
     }
 }
@@ -277,7 +303,7 @@ impl Stack {
         }
         // init the stack box usage
         let offset = stk.get_offset();
-        unsafe { *offset = 2 };
+        unsafe { *offset = 1 };
 
         unsafe {
             let mut stack = stk.alloc_uninit_box::<Stack>().assume_init();
