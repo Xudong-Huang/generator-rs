@@ -13,7 +13,7 @@ use std::thread;
 use crate::reg_context::RegContext;
 use crate::rt::{Context, ContextStack, Error};
 use crate::scope::Scope;
-use crate::stack::{Stack, StackBox};
+use crate::stack::{Func, Stack, StackBox};
 use crate::yield_::yield_now;
 
 // default stack size, in usize
@@ -143,7 +143,9 @@ pub struct GeneratorImpl<'a, A, T> {
     // save the output
     ret: Option<T>,
     // boxed functor
-    f: Option<Box<dyn FnOnce() + 'a>>,
+    f: Option<Func>,
+    // phantom lifetime
+    phantom: PhantomData<&'a T>,
 }
 
 unsafe impl<A, T> Send for GeneratorImpl<'static, A, T> {}
@@ -164,18 +166,20 @@ impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
 impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// create a new generator with specified stack size
     fn new(stack: &mut Stack) -> StackBox<Self> {
-        let mut stack_box = unsafe {
-            stack
+        unsafe {
+            let mut stack_box = stack
                 .alloc_uninit_box::<GeneratorImpl<'a, A, T>>()
-                .assume_init()
-        };
-        stack_box.init(GeneratorImpl {
-            para: None,
-            ret: None,
-            f: None,
-            context: Context::new(stack),
-        });
-        stack_box
+                .assume_init();
+
+            stack_box.init(GeneratorImpl {
+                para: None,
+                ret: None,
+                f: None,
+                context: Context::new(stack),
+                phantom: PhantomData,
+            });
+            stack_box
+        }
     }
 
     /// prefetch the generator into cache
@@ -203,9 +207,9 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     {
         // make sure the last one is finished
         if self.f.is_none() && self.context._ref == 0 {
-            unsafe {
-                self.cancel();
-            }
+            unsafe { self.cancel() };
+        } else {
+            let _ = self.f.take();
         }
 
         // init ctx parent to itself, this would be the new top
@@ -213,10 +217,11 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         // init the ref to 0 means that it's ready to start
         self.context._ref = 0;
+        let stack = unsafe { &mut *self.context.stack };
         let ret = &mut self.ret as *mut _;
         let context = &mut self.context as *mut Context;
-        // windows box::new is quite slow than unix
-        self.f = Some(Box::new(move || {
+        // alloc the function on stack
+        let func = StackBox::new_fn_once(stack, move || {
             let r = f();
             let ret = unsafe { &mut *ret };
             let _ref = unsafe { (*context)._ref };
@@ -226,7 +231,9 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             } else {
                 *ret = Some(r); // normal return
             }
-        }));
+        });
+
+        self.f = Some(func);
 
         let stk = unsafe { &*self.context.stack };
         self.context
@@ -417,9 +424,9 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
 fn gen_init(_: usize, f: *mut usize) -> ! {
     let clo = move || {
         // consume self.f
-        let f: &mut Option<Box<dyn FnOnce()>> = unsafe { &mut *(f as *mut _) };
+        let f: &mut Option<Func> = unsafe { &mut *(f as *mut _) };
         let func = f.take().unwrap();
-        func();
+        func.call_once();
     };
 
     fn check_err(cause: Box<dyn Any + Send + 'static>) {

@@ -22,11 +22,14 @@ pub struct StackBox<T> {
     ptr: ptr::NonNull<T>,
     // track the stack offset, saved on stack
     offset: *mut usize,
+    // track how big the data is (in usize)
+    size: usize,
 }
 
 const ALIGN: usize = std::mem::size_of::<usize>();
 
 impl<T> StackBox<T> {
+    /// create uninit stack box
     fn new_unint(stack: &mut Stack) -> MaybeUninit<Self> {
         let layout = std::alloc::Layout::new::<T>();
         let align = std::cmp::max(layout.align(), ALIGN);
@@ -35,24 +38,71 @@ impl<T> StackBox<T> {
         unsafe {
             *offset += size;
             let ptr = ptr::NonNull::new_unchecked(stack.end() as *mut T);
-            std::mem::MaybeUninit::new(StackBox { ptr, offset })
+            std::mem::MaybeUninit::new(StackBox { ptr, offset, size })
         }
     }
 
-    /// move data into
-    pub fn init(&mut self, data: T) {
-        unsafe { ptr::write(self.ptr.as_mut(), data) };
+    /// move data into the box
+    pub unsafe fn init(&mut self, data: T) {
+        ptr::write(self.ptr.as_mut(), data);
     }
 }
 
-impl<T> Drop for StackBox<T> {
+pub struct Func {
+    data: *mut (),
+    size: usize,
+    offset: *mut usize,
+    is_called: bool,
+    func: fn(*mut ()),
+    drop: fn(*mut ()),
+}
+
+impl Func {
+    pub fn call_once(mut self) {
+        (self.func)(self.data);
+        self.is_called = true;
+    }
+}
+
+impl Drop for Func {
     fn drop(&mut self) {
-        let layout = std::alloc::Layout::new::<T>();
-        let align = std::cmp::max(layout.align(), ALIGN);
-        let size = ((layout.size() + align - 1) & !(align - 1)) / std::mem::size_of::<usize>();
+        if !self.is_called {
+            (self.drop)(self.data);
+        }
+        unsafe { *self.offset -= self.size }
+    }
+}
+
+impl<F: FnOnce()> StackBox<F> {
+    fn call_once(data: *mut ()) {
         unsafe {
-            *self.offset -= size;
-            ptr::drop_in_place(self.ptr.as_mut());
+            let data = data as *mut F;
+            let f = data.read();
+            f();
+        }
+    }
+
+    fn drop_inner(data: *mut ()) {
+        unsafe {
+            let data = data as *mut F;
+            ptr::drop_in_place(data);
+        }
+    }
+
+    pub fn new_fn_once(stack: &mut Stack, data: F) -> Func {
+        unsafe {
+            let mut d = Self::new_unint(stack).assume_init();
+            d.init(data);
+            let f = Func {
+                data: d.ptr.as_mut() as *mut _ as *mut (),
+                size: d.size,
+                offset: d.offset,
+                is_called: false,
+                func: Self::call_once,
+                drop: Self::drop_inner,
+            };
+            std::mem::forget(d);
+            f
         }
     }
 }
@@ -68,6 +118,15 @@ impl<T> std::ops::Deref for StackBox<T> {
 impl<T> std::ops::DerefMut for StackBox<T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.ptr.as_mut() }
+    }
+}
+
+impl<T> Drop for StackBox<T> {
+    fn drop(&mut self) {
+        unsafe {
+            *self.offset -= self.size;
+            ptr::drop_in_place(self.ptr.as_mut());
+        }
     }
 }
 
@@ -220,10 +279,11 @@ impl Stack {
         let offset = stk.get_offset();
         unsafe { *offset = 2 };
 
-        let mut stack = unsafe { stk.alloc_uninit_box::<Stack>().assume_init() };
-        stack.init(stk);
-
-        stack
+        unsafe {
+            let mut stack = stk.alloc_uninit_box::<Stack>().assume_init();
+            stack.init(stk);
+            stack
+        }
     }
 
     /// get used stack size
