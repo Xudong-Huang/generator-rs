@@ -67,8 +67,30 @@ impl<T> StackBox<T> {
     }
 
     /// move data into the box
-    pub unsafe fn init(&mut self, data: T) {
+    pub(crate) unsafe fn init(&mut self, data: T) {
         ptr::write(self.ptr.as_ptr(), data);
+    }
+
+    /// Constructs a StackBox from a raw pointer.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because improper use may lead to
+    /// memory problems. For example, a double-free may occur if the
+    /// function is called twice on the same raw pointer.
+    #[inline]
+    pub unsafe fn from_raw(raw: *mut T) -> Self {
+        StackBox {
+            ptr: ptr::NonNull::new_unchecked(raw),
+        }
+    }
+
+    /// Consumes the `StackBox`, returning a wrapped raw pointer.
+    #[inline]
+    pub fn into_raw(b: StackBox<T>) -> *mut T {
+        let ret = b.ptr.as_ptr();
+        std::mem::forget(b);
+        ret
     }
 }
 
@@ -113,7 +135,8 @@ impl<F: FnOnce()> StackBox<F> {
         }
     }
 
-    pub fn new_fn_once(stack: &mut Stack, data: F) -> Func {
+    /// create a functor on the stack
+    pub(crate) fn new_fn_once(stack: &mut Stack, data: F) -> Func {
         unsafe {
             let mut d = Self::new_unint(stack).assume_init();
             d.init(data);
