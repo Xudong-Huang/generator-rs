@@ -4,8 +4,6 @@ use std::os::raw::c_void;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::usize;
 
-use libc;
-
 use super::SysStack;
 
 #[cfg(any(

@@ -41,7 +41,7 @@ impl<T> StackBox<T> {
         // alloc the data
         let layout = std::alloc::Layout::new::<T>();
         let align = std::cmp::max(layout.align(), ALIGN);
-        let size = (layout.size() + align - 1) & !(align - 1) / std::mem::size_of::<usize>();
+        let size = ((layout.size() + align - 1) & !(align - 1)) / std::mem::size_of::<usize>();
         let u_align = align / std::mem::size_of::<usize>();
         let pad_size = u_align - (*offset + size) % u_align;
         let data_size = size + pad_size;
