@@ -71,6 +71,16 @@ impl<T> StackBox<T> {
         ptr::write(self.ptr.as_ptr(), data);
     }
 
+    // get the stack ptr
+    pub(crate) fn as_ptr(&self) -> *mut T {
+        self.ptr.as_ptr()
+    }
+
+    // get the stack ptr
+    pub(crate) fn size(&self) -> usize {
+        self.get_header().data_size
+    }
+
     /// Constructs a StackBox from a raw pointer.
     ///
     /// # Safety
@@ -79,40 +89,40 @@ impl<T> StackBox<T> {
     /// memory problems. For example, a double-free may occur if the
     /// function is called twice on the same raw pointer.
     #[inline]
-    pub unsafe fn from_raw(raw: *mut T) -> Self {
+    pub(crate) unsafe fn from_raw(raw: *mut T) -> Self {
         StackBox {
             ptr: ptr::NonNull::new_unchecked(raw),
         }
     }
 
-    /// Consumes the `StackBox`, returning a wrapped raw pointer.
-    #[inline]
-    pub fn into_raw(b: StackBox<T>) -> *mut T {
-        let ret = b.ptr.as_ptr();
-        std::mem::forget(b);
-        ret
-    }
+    // Consumes the `StackBox`, returning a wrapped raw pointer.
+    // #[inline]
+    // pub(crate) fn into_raw(b: StackBox<T>) -> *mut T {
+    //     let ret = b.ptr.as_ptr();
+    //     std::mem::forget(b);
+    //     ret
+    // }
 }
 
 pub struct Func {
     data: *mut (),
     size: usize,
     offset: *mut usize,
-    is_called: bool,
     func: fn(*mut ()),
     drop: fn(*mut ()),
 }
 
 impl Func {
     pub fn call_once(mut self) {
-        (self.func)(self.data);
-        self.is_called = true;
+        let data = self.data;
+        self.data = ptr::null_mut();
+        (self.func)(data);
     }
 }
 
 impl Drop for Func {
     fn drop(&mut self) {
-        if !self.is_called {
+        if !self.data.is_null() {
             (self.drop)(self.data);
         }
         unsafe { *self.offset -= self.size }
@@ -145,7 +155,6 @@ impl<F: FnOnce()> StackBox<F> {
                 data: d.ptr.as_ptr() as *mut (),
                 size: header.data_size + HEADER_SIZE,
                 offset: header.offset,
-                is_called: false,
                 func: Self::call_once,
                 drop: Self::drop_inner,
             };

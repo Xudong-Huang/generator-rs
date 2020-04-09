@@ -26,6 +26,35 @@ pub struct Generator<'a, A, T> {
     gen: ManuallyDrop<StackBox<GeneratorImpl<'a, A, T>>>,
 }
 
+unsafe impl<A, T> Send for Generator<'static, A, T> {}
+
+impl<'a, A, T> Generator<'a, A, T> {
+    /// Constructs a Generator from a raw pointer.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because improper use may lead to
+    /// memory problems. For example, a double-free may occur if the
+    /// function is called twice on the same raw pointer.
+    #[inline]
+    pub unsafe fn from_raw(raw: *mut usize) -> Self {
+        let g = StackBox::from_raw(raw as *mut GeneratorImpl<'a, A, T>);
+        let stack_ptr = raw.offset(g.size() as isize + 2);
+        Generator {
+            _stack: StackBox::from_raw(stack_ptr as *mut Stack),
+            gen: ManuallyDrop::new(g),
+        }
+    }
+
+    /// Consumes the `Generator`, returning a wrapped raw pointer.
+    #[inline]
+    pub fn into_raw(g: Generator<'a, A, T>) -> *mut usize {
+        let ret = g.gen.as_ptr() as *mut usize;
+        std::mem::forget(g);
+        ret
+    }
+}
+
 impl<'a, A, T> std::ops::Deref for Generator<'a, A, T> {
     type Target = GeneratorImpl<'a, A, T>;
 
@@ -66,7 +95,7 @@ impl<'a, A, T> fmt::Debug for Generator<'a, A, T> {
     }
 }
 
-impl<'a, A, T> std::ops::Drop for Generator<'a, A, T> {
+impl<'a, A, T> Drop for Generator<'a, A, T> {
     fn drop(&mut self) {
         unsafe { ManuallyDrop::drop(&mut self.gen) }
     }
@@ -99,8 +128,8 @@ impl<A> Gn<A> {
         let mut g = GeneratorImpl::<A, T>::new(&mut stack);
         g.scoped_init(f);
         Generator {
-            gen: ManuallyDrop::new(g),
             _stack: stack,
+            gen: ManuallyDrop::new(g),
         }
     }
 }
@@ -127,8 +156,8 @@ impl<A: Any> Gn<A> {
         g.init_context();
         g.init_code(f);
         Generator {
-            gen: ManuallyDrop::new(g),
             _stack: stack,
+            gen: ManuallyDrop::new(g),
         }
     }
 }
@@ -147,8 +176,6 @@ pub struct GeneratorImpl<'a, A, T> {
     // phantom lifetime
     phantom: PhantomData<&'a T>,
 }
-
-unsafe impl<A, T> Send for GeneratorImpl<'static, A, T> {}
 
 impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
     /// create a new generator with default stack size
