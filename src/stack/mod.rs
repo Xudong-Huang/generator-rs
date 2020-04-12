@@ -22,10 +22,12 @@ const ALIGN: usize = std::mem::size_of::<StackBoxHeader>();
 const HEADER_SIZE: usize = std::mem::size_of::<StackBoxHeader>() / std::mem::size_of::<usize>();
 
 struct StackBoxHeader {
-    // track the stack offset, saved on stack
-    offset: *mut usize,
+    // track the stack
+    stack: Stack,
     // track how big the data is (in usize)
     data_size: usize,
+    // non zero dealloc the stack
+    need_drop: usize,
 }
 
 /// A pointer type for stack allocation.
@@ -36,7 +38,7 @@ pub struct StackBox<T> {
 
 impl<T> StackBox<T> {
     /// create uninit stack box
-    fn new_unint(stack: &mut Stack) -> MaybeUninit<Self> {
+    fn new_unint(stack: &mut Stack, need_drop: usize) -> MaybeUninit<Self> {
         let offset = unsafe { &mut *stack.get_offset() };
         // alloc the data
         let layout = std::alloc::Layout::new::<T>();
@@ -54,7 +56,8 @@ impl<T> StackBox<T> {
             let mut header = ptr::NonNull::new_unchecked(stack.end() as *mut StackBoxHeader);
             let header = header.as_mut();
             header.data_size = data_size;
-            header.offset = offset;
+            header.need_drop = need_drop;
+            header.stack = stack.shadow_clone();
             std::mem::MaybeUninit::new(StackBox { ptr })
         }
     }
@@ -74,11 +77,6 @@ impl<T> StackBox<T> {
     // get the stack ptr
     pub(crate) fn as_ptr(&self) -> *mut T {
         self.ptr.as_ptr()
-    }
-
-    // get the stack ptr
-    pub(crate) fn size(&self) -> usize {
-        self.get_header().data_size
     }
 
     /// Constructs a StackBox from a raw pointer.
@@ -125,7 +123,7 @@ impl Drop for Func {
         if !self.data.is_null() {
             (self.drop)(self.data);
         }
-        unsafe { *self.offset -= self.size }
+        unsafe { *self.offset -= self.size };
     }
 }
 
@@ -148,13 +146,13 @@ impl<F: FnOnce()> StackBox<F> {
     /// create a functor on the stack
     pub(crate) fn new_fn_once(stack: &mut Stack, data: F) -> Func {
         unsafe {
-            let mut d = Self::new_unint(stack).assume_init();
+            let mut d = Self::new_unint(stack, 0).assume_init();
             d.init(data);
             let header = d.get_header();
             let f = Func {
                 data: d.ptr.as_ptr() as *mut (),
                 size: header.data_size + HEADER_SIZE,
-                offset: header.offset,
+                offset: stack.get_offset(),
                 func: Self::call_once,
                 drop: Self::drop_inner,
             };
@@ -182,8 +180,11 @@ impl<T> Drop for StackBox<T> {
     fn drop(&mut self) {
         let header = self.get_header();
         unsafe {
-            *header.offset -= header.data_size + HEADER_SIZE;
+            *header.stack.get_offset() -= header.data_size + HEADER_SIZE;
             ptr::drop_in_place(self.ptr.as_ptr());
+            if header.need_drop != 0 {
+                header.stack.drop_stack();
+            }
         }
     }
 }
@@ -301,13 +302,15 @@ impl SysStack {
 unsafe impl Send for SysStack {}
 
 /// generator stack
+/// this struct will not dealloc the memroy
+/// instead StackBox<> would track it's usage and dealloc it
 pub struct Stack {
     buf: SysStack,
 }
 
 impl Stack {
     /// Allocate a new stack of `size`. If size = 0, this is a `dummy_stack`
-    pub fn new(size: usize) -> StackBox<Stack> {
+    pub fn new(size: usize) -> Stack {
         let track = (size & 1) != 0;
         let mut bytes = size * std::mem::size_of::<usize>();
         // the minimal size
@@ -319,7 +322,7 @@ impl Stack {
 
         let buf = SysStack::allocate(bytes, true).expect("failed to alloc sys stack");
 
-        let mut stk = Stack { buf };
+        let stk = Stack { buf };
 
         // if size is not even we do the full foot print test
         let count = if track {
@@ -333,15 +336,12 @@ impl Stack {
             let buf = stk.buf.bottom as *mut usize;
             ptr::write_bytes(buf, 0xEE, count);
         }
+
         // init the stack box usage
         let offset = stk.get_offset();
         unsafe { *offset = 1 };
 
-        unsafe {
-            let mut stack = stk.alloc_uninit_box::<Stack>().assume_init();
-            stack.init(stk);
-            stack
-        }
+        stk
     }
 
     /// get used stack size
@@ -380,24 +380,17 @@ impl Stack {
 
     /// alloc buffer on this stack
     pub fn alloc_uninit_box<T>(&mut self) -> MaybeUninit<StackBox<T>> {
-        StackBox::<T>::new_unint(self)
+        // the first obj should set need drop to non zero
+        StackBox::<T>::new_unint(self, 1)
     }
 
     // get offset
     fn get_offset(&self) -> *mut usize {
         unsafe { (self.buf.top as *mut usize).offset(-1) }
     }
-}
 
-impl fmt::Debug for Stack {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let offset = self.get_offset();
-        write!(f, "Statck<{:?}, Offset={}>", self.buf, unsafe { *offset })
-    }
-}
-
-impl Drop for Stack {
-    fn drop(&mut self) {
+    // dealloc the statck
+    fn drop_stack(&self) {
         if self.buf.len() == 0 {
             return;
         }
@@ -407,5 +400,21 @@ impl Drop for Stack {
         unsafe {
             sys::deallocate_stack(guard, size_with_guard);
         }
+    }
+
+    fn shadow_clone(&self) -> Self {
+        Stack {
+            buf: SysStack {
+                top: self.buf.top,
+                bottom: self.buf.bottom,
+            },
+        }
+    }
+}
+
+impl fmt::Debug for Stack {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let offset = self.get_offset();
+        write!(f, "Statck<{:?}, Offset={}>", self.buf, unsafe { *offset })
     }
 }

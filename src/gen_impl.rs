@@ -6,7 +6,6 @@
 use std::any::Any;
 use std::fmt;
 use std::marker::PhantomData;
-use std::mem::ManuallyDrop;
 use std::panic;
 use std::thread;
 
@@ -22,8 +21,7 @@ pub const DEFAULT_STACK_SIZE: usize = 0x1000;
 
 /// the generator type
 pub struct Generator<'a, A, T> {
-    _stack: StackBox<Stack>,
-    gen: ManuallyDrop<StackBox<GeneratorImpl<'a, A, T>>>,
+    gen: StackBox<GeneratorImpl<'a, A, T>>,
 }
 
 unsafe impl<A, T> Send for Generator<'static, A, T> {}
@@ -38,11 +36,8 @@ impl<'a, A, T> Generator<'a, A, T> {
     /// function is called twice on the same raw pointer.
     #[inline]
     pub unsafe fn from_raw(raw: *mut usize) -> Self {
-        let g = StackBox::from_raw(raw as *mut GeneratorImpl<'a, A, T>);
-        let stack_ptr = raw.offset(g.size() as isize + 2);
         Generator {
-            _stack: StackBox::from_raw(stack_ptr as *mut Stack),
-            gen: ManuallyDrop::new(g),
+            gen: StackBox::from_raw(raw as *mut GeneratorImpl<'a, A, T>),
         }
     }
 
@@ -95,12 +90,6 @@ impl<'a, A, T> fmt::Debug for Generator<'a, A, T> {
     }
 }
 
-impl<'a, A, T> Drop for Generator<'a, A, T> {
-    fn drop(&mut self) {
-        unsafe { ManuallyDrop::drop(&mut self.gen) }
-    }
-}
-
 /// Generator helper
 pub struct Gn<A = ()> {
     dummy: PhantomData<A>,
@@ -124,13 +113,9 @@ impl<A> Gn<A> {
         T: 'a,
         A: 'a,
     {
-        let mut stack = Stack::new(size);
-        let mut g = GeneratorImpl::<A, T>::new(&mut stack);
-        g.scoped_init(f);
-        Generator {
-            _stack: stack,
-            gen: ManuallyDrop::new(g),
-        }
+        let mut gen = GeneratorImpl::<A, T>::new(Stack::new(size));
+        gen.scoped_init(f);
+        Generator { gen }
     }
 }
 
@@ -151,14 +136,10 @@ impl<A: Any> Gn<A> {
     where
         F: FnOnce() -> T + 'a,
     {
-        let mut stack = Stack::new(size);
-        let mut g = GeneratorImpl::<A, T>::new(&mut stack);
-        g.init_context();
-        g.init_code(f);
-        Generator {
-            _stack: stack,
-            gen: ManuallyDrop::new(g),
-        }
+        let mut gen = GeneratorImpl::<A, T>::new(Stack::new(size));
+        gen.init_context();
+        gen.init_code(f);
+        Generator { gen }
     }
 }
 
@@ -167,6 +148,8 @@ impl<A: Any> Gn<A> {
 pub struct GeneratorImpl<'a, A, T> {
     // run time context
     context: Context,
+    // stack
+    stack: Stack,
     // save the input
     para: Option<A>,
     // save the output
@@ -192,7 +175,8 @@ impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
 
 impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// create a new generator with specified stack size
-    fn new(stack: &mut Stack) -> StackBox<Self> {
+    fn new(mut stack: Stack) -> StackBox<Self> {
+        // the stack box would finally dealloc the stack!
         unsafe {
             let mut stack_box = stack
                 .alloc_uninit_box::<GeneratorImpl<'a, A, T>>()
@@ -200,9 +184,10 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
             stack_box.init(GeneratorImpl {
                 para: None,
+                stack,
                 ret: None,
                 f: None,
-                context: Context::new(stack),
+                context: Context::new(),
                 phantom: PhantomData,
             });
             stack_box
@@ -244,11 +229,10 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         // init the ref to 0 means that it's ready to start
         self.context._ref = 0;
-        let stack = unsafe { &mut *self.context.stack };
         let ret = &mut self.ret as *mut _;
         let context = &mut self.context as *mut Context;
         // alloc the function on stack
-        let func = StackBox::new_fn_once(stack, move || {
+        let func = StackBox::new_fn_once(&mut self.stack, move || {
             let r = f();
             let ret = unsafe { &mut *ret };
             let _ref = unsafe { (*context)._ref };
@@ -262,10 +246,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         self.f = Some(func);
 
-        let stk = unsafe { &*self.context.stack };
-        self.context
-            .regs
-            .init_with(gen_init, 0, &mut self.f as *mut _ as *mut usize, stk);
+        self.context.regs.init_with(
+            gen_init,
+            0,
+            &mut self.f as *mut _ as *mut usize,
+            &self.stack,
+        );
     }
 
     /// resume the generator
@@ -411,8 +397,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// get stack total size and used size in word
     pub fn stack_usage(&self) -> (usize, usize) {
-        let stack = unsafe { &*self.context.stack };
-        (stack.size(), stack.get_used_size())
+        (self.stack.size(), self.stack.get_used_size())
     }
 }
 

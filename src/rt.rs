@@ -7,12 +7,11 @@ use std::mem::MaybeUninit;
 use std::ptr;
 
 use crate::reg_context::RegContext;
-use crate::stack::Stack;
 
 thread_local!(
     /// each thread has it's own generator context stack
     static ROOT_CONTEXT: Box<Context> = {
-        let mut root = Box::new(Context::empty());
+        let mut root = Box::new(Context::new());
         let p = &mut *root as *mut _;
         root.parent = p; // init top to current
         root
@@ -50,8 +49,6 @@ pub struct Context {
     child: *mut Context,
     /// parent context
     pub parent: *mut Context,
-    /// generator execution stack
-    pub stack: *mut Stack,
     /// passed in para for send
     pub para: MaybeUninit<*mut dyn Any>,
     /// this is just a buffer for the return value
@@ -65,26 +62,10 @@ pub struct Context {
 }
 
 impl Context {
-    // create for root empty context
-    fn empty() -> Self {
-        Context {
-            regs: RegContext::empty(),
-            stack: ptr::null_mut(),
-            para: MaybeUninit::zeroed(),
-            ret: MaybeUninit::zeroed(),
-            _ref: 1, // none zero means it's not running
-            err: None,
-            child: ptr::null_mut(),
-            parent: ptr::null_mut(),
-            local_data: ptr::null_mut(),
-        }
-    }
-
     /// return a default generator context
-    pub fn new(stack: &mut Stack) -> Context {
+    pub fn new() -> Context {
         Context {
             regs: RegContext::empty(),
-            stack,
             para: MaybeUninit::zeroed(),
             ret: MaybeUninit::zeroed(),
             _ref: 1, // none zero means it's not running
