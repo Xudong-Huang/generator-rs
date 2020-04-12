@@ -48,19 +48,88 @@ impl<'a, A, T> Generator<'a, A, T> {
         std::mem::forget(g);
         ret
     }
-}
 
-impl<'a, A, T> std::ops::Deref for Generator<'a, A, T> {
-    type Target = GeneratorImpl<'a, A, T>;
-
-    fn deref(&self) -> &GeneratorImpl<'a, A, T> {
-        &*self.gen
+    /// prefetch the generator into cache
+    #[inline]
+    pub fn prefetch(&self) {
+        self.gen.prefetch();
     }
-}
 
-impl<'a, A, T> std::ops::DerefMut for Generator<'a, A, T> {
-    fn deref_mut(&mut self) -> &mut GeneratorImpl<'a, A, T> {
-        &mut *self.gen
+    /// init a heap based generator with scoped closure
+    pub fn scoped_init<F: FnOnce(Scope<'a, A, T>) -> T + 'a>(&mut self, f: F)
+    where
+        T: 'a,
+        A: 'a,
+    {
+        self.gen.scoped_init(f);
+    }
+
+    /// init a heap based generator
+    // it's can be used to re-init a 'done' generator before it's get dropped
+    pub fn init_code<F: FnOnce() -> T + 'a>(&mut self, f: F)
+    where
+        T: 'a,
+    {
+        self.gen.init_code(f);
+    }
+
+    /// prepare the para that passed into generator before send
+    #[inline]
+    pub fn set_para(&mut self, para: A) {
+        self.gen.set_para(para);
+    }
+
+    /// set the generator local data
+    #[inline]
+    pub fn set_local_data(&mut self, data: *mut u8) {
+        self.gen.set_local_data(data);
+    }
+
+    /// get the generator local data
+    #[inline]
+    pub fn get_local_data(&self) -> *mut u8 {
+        self.gen.get_local_data()
+    }
+
+    /// get the generator panic data
+    #[inline]
+    pub fn get_panic_data(&mut self) -> Option<Box<dyn Any + Send>> {
+        self.gen.get_panic_data()
+    }
+
+    /// resume the generator without touch the para
+    /// you should call `set_para` before this method
+    #[inline]
+    pub fn resume(&mut self) -> Option<T> {
+        self.gen.resume()
+    }
+
+    /// `raw_send`
+    #[inline]
+    pub fn raw_send(&mut self, para: Option<A>) -> Option<T> {
+        self.gen.raw_send(para)
+    }
+
+    /// send interface
+    pub fn send(&mut self, para: A) -> T {
+        self.gen.send(para)
+    }
+
+    /// cancel the generator
+    /// this will trigger a Cancel panic, it's unsafe in that you must care about the resource
+    pub unsafe fn cancel(&mut self) {
+        self.gen.cancel()
+    }
+
+    /// is finished
+    #[inline]
+    pub fn is_done(&self) -> bool {
+        self.gen.is_done()
+    }
+
+    /// get stack total size and used size in word
+    pub fn stack_usage(&self) -> (usize, usize) {
+        self.gen.stack_usage()
     }
 }
 
@@ -145,7 +214,7 @@ impl<A: Any> Gn<A> {
 
 /// `GeneratorImpl`
 #[repr(C)]
-pub struct GeneratorImpl<'a, A, T> {
+struct GeneratorImpl<'a, A, T> {
     // run time context
     context: Context,
     // stack
@@ -201,7 +270,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     }
 
     /// init a heap based generator with scoped closure
-    pub fn scoped_init<F: FnOnce(Scope<'a, A, T>) -> T + 'a>(&mut self, f: F)
+    fn scoped_init<F: FnOnce(Scope<'a, A, T>) -> T + 'a>(&mut self, f: F)
     where
         T: 'a,
         A: 'a,
@@ -213,7 +282,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// init a heap based generator
     // it's can be used to re-init a 'done' generator before it's get dropped
-    pub fn init_code<F: FnOnce() -> T + 'a>(&mut self, f: F)
+    fn init_code<F: FnOnce() -> T + 'a>(&mut self, f: F)
     where
         T: 'a,
     {
@@ -295,32 +364,32 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// prepare the para that passed into generator before send
     #[inline]
-    pub fn set_para(&mut self, para: A) {
+    fn set_para(&mut self, para: A) {
         self.para = Some(para);
     }
 
     /// set the generator local data
     #[inline]
-    pub fn set_local_data(&mut self, data: *mut u8) {
+    fn set_local_data(&mut self, data: *mut u8) {
         self.context.local_data = data;
     }
 
     /// get the generator local data
     #[inline]
-    pub fn get_local_data(&self) -> *mut u8 {
+    fn get_local_data(&self) -> *mut u8 {
         self.context.local_data
     }
 
     /// get the generator panic data
     #[inline]
-    pub fn get_panic_data(&mut self) -> Option<Box<dyn Any + Send>> {
+    fn get_panic_data(&mut self) -> Option<Box<dyn Any + Send>> {
         self.context.err.take()
     }
 
     /// resume the generator without touch the para
     /// you should call `set_para` before this method
     #[inline]
-    pub fn resume(&mut self) -> Option<T> {
+    fn resume(&mut self) -> Option<T> {
         if self.is_done() {
             #[cold]
             return None;
@@ -336,7 +405,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// `raw_send`
     #[inline]
-    pub fn raw_send(&mut self, para: Option<A>) -> Option<T> {
+    fn raw_send(&mut self, para: Option<A>) -> Option<T> {
         if self.is_done() {
             #[cold]
             return None;
@@ -355,7 +424,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     }
 
     /// send interface
-    pub fn send(&mut self, para: A) -> T {
+    fn send(&mut self, para: A) -> T {
         let ret = self.raw_send(Some(para));
         ret.expect("send got None return")
     }
@@ -375,7 +444,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// cancel the generator
     /// this will trigger a Cancel panic, it's unsafe in that you must care about the resource
-    pub unsafe fn cancel(&mut self) {
+    unsafe fn cancel(&mut self) {
         if self.is_done() {
             return;
         }
@@ -391,12 +460,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// is finished
     #[inline]
-    pub fn is_done(&self) -> bool {
+    fn is_done(&self) -> bool {
         self.is_started() && (self.context._ref & 0x3) != 0
     }
 
     /// get stack total size and used size in word
-    pub fn stack_usage(&self) -> (usize, usize) {
+    fn stack_usage(&self) -> (usize, usize) {
         (self.stack.size(), self.stack.get_used_size())
     }
 }
