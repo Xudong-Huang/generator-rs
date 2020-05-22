@@ -22,7 +22,7 @@ mod asm_impl {
     /// prefetch data
     #[inline]
     pub unsafe extern "C" fn prefetch_asm(data: *const usize) {
-        asm!(
+        llvm_asm!(
             "prefetcht1 $0"
             : // no output
             : "m"(*data)
@@ -34,7 +34,7 @@ mod asm_impl {
     #[naked]
     #[inline(never)]
     pub unsafe extern "C" fn bootstrap_green_task() {
-        asm!(
+        llvm_asm!(
             "
                 mov %r12, %rcx     // setup the function arg
                 mov %r13, %rdx     // setup the function arg
@@ -52,7 +52,7 @@ mod asm_impl {
     #[inline(never)]
     pub unsafe extern "C" fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers) {
         // The first argument is in %rcx, and the second one is in %rdx
-        asm!(
+        llvm_asm!(
             ""
             :
             : "{rcx}"(out_regs), "{rdx}"(in_regs)
@@ -64,7 +64,7 @@ mod asm_impl {
         #[naked]
         unsafe extern "C" fn _swap_reg() {
             // Save registers
-            asm!(
+            llvm_asm!(
                 "
                     mov %rbx, (0*8)(%rcx)
                     mov %rsp, (1*8)(%rcx)

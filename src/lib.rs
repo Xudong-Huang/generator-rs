@@ -4,6 +4,7 @@
 //!
 
 #![cfg_attr(nightly, feature(asm))]
+#![cfg_attr(nightly, feature(llvm_asm))]
 #![cfg_attr(nightly, feature(repr_simd))]
 #![cfg_attr(nightly, feature(core_intrinsics))]
 #![cfg_attr(nightly, feature(naked_functions))]
