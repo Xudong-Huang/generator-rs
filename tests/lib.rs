@@ -1,4 +1,5 @@
 #![allow(deprecated)]
+#![allow(unused_assignments)]
 
 extern crate generator;
 

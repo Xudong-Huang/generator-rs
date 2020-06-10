@@ -24,6 +24,7 @@ thread_local!(
 // to a different place, be careful about that.
 #[cfg(nightly)]
 #[thread_local]
+#[no_mangle]
 static mut ROOT_CONTEXT_P: *mut Context = ptr::null_mut();
 
 /// yield panic error types

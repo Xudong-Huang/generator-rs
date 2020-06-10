@@ -115,8 +115,11 @@ impl<'a, A, T> Generator<'a, A, T> {
         self.gen.send(para)
     }
 
-    /// cancel the generator
-    /// this will trigger a Cancel panic, it's unsafe in that you must care about the resource
+    /// cancel the generator [TODO: change to safe?]
+    /// this will trigger a Cancel panic
+    /// # Safety
+    /// it's unsafe that cancel may have side effect when unwind stack
+    /// all the resources would be dropped before the normal completion
     pub unsafe fn cancel(&mut self) {
         self.gen.cancel()
     }
