@@ -14,8 +14,8 @@ prefetch:
 bootstrap_green_task:
     mov x0, x19   // arg0
     mov x1, x20   // arg1
-    mov x30, x21  // return address (lr == x30 but GCC rejects `lr`)
-    ret
+    mov x30, #0   // clear LR
+    ret x21
 .size bootstrap_green_task,.-bootstrap_green_task
 
 .text

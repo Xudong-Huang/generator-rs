@@ -11,8 +11,8 @@ _prefetch:
 _bootstrap_green_task:
     mov x0, x19  // arg0
     mov x1, x20  // arg1
-    mov lr, x21  // return address
-    ret
+    mov x30, #0  // clear LR
+    ret x21
 
 .text
 .globl _swap_registers

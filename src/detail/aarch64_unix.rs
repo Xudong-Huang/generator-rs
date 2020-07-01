@@ -1,4 +1,4 @@
-use crate::detail::{align_down, mut_offset};
+use crate::detail::align_down;
 use crate::reg_context::InitFn;
 use crate::stack::Stack;
 
@@ -55,20 +55,11 @@ pub fn initialize_call_frame(
     regs.gpr[X21] = fptr as usize;
 
     // Aarch64 current stack frame pointer
-    regs.gpr[FP] = mut_offset(sp, -4) as usize;
+    regs.gpr[FP] = sp as usize;
     
     regs.gpr[LR] = bootstrap_green_task as usize;
 
     // setup the init stack
     // this is prepared for the swap context
-    // leave enough space for stack unwind access
-    regs.gpr[SP] = mut_offset(sp, -4) as usize;
-
-    unsafe {
-        // setup the correct stack frame for unwind
-        *mut_offset(sp, -0) = 0;
-        *mut_offset(sp, -1) = 0;
-        *mut_offset(sp, -2) = 0;
-        *mut_offset(sp, -3) = 0;
-    }
+    regs.gpr[SP] = sp as usize;
 }
