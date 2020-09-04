@@ -2,7 +2,7 @@ use crate::detail::{align_down, mut_offset};
 use crate::reg_context::InitFn;
 use crate::stack::Stack;
 
-#[cfg(not(nightly))]
+// #[cfg(not(nightly))]
 #[link(name = "asm", kind = "static")]
 extern "C" {
     pub fn bootstrap_green_task();
@@ -16,6 +16,7 @@ pub fn prefetch(data: *const usize) {
     unsafe { prefetch_asm(data) }
 }
 
+/*
 #[cfg(nightly)]
 mod asm_impl {
     use super::Registers;
@@ -162,9 +163,10 @@ mod asm_impl {
 }
 #[cfg(nightly)]
 pub use self::asm_impl::*;
+*/
 
-#[cfg_attr(nightly, repr(simd))]
-#[cfg_attr(not(nightly), repr(C))]
+// #[cfg_attr(nightly, repr(simd))]
+#[repr(C)]
 #[allow(non_camel_case_types)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct XMM(u32, u32, u32, u32);

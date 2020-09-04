@@ -9,7 +9,8 @@ use rustc_version::{version_meta, Channel};
 fn main() {
     // Set cfg flags depending on release channel
     if let Channel::Nightly = version_meta().unwrap().channel {
-        return println!("cargo:rustc-cfg=nightly");
+        // return println!("cargo:rustc-cfg=nightly");
+        println!("cargo:rustc-cfg=nightly");
     }
 
     // for the stable build asm lib

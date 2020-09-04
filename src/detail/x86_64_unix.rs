@@ -2,7 +2,7 @@ use crate::detail::{align_down, mut_offset};
 use crate::reg_context::InitFn;
 use crate::stack::Stack;
 
-#[cfg(not(nightly))]
+// #[cfg(not(nightly))]
 #[link(name = "asm", kind = "static")]
 extern "C" {
     pub fn bootstrap_green_task();
@@ -10,6 +10,7 @@ extern "C" {
     pub fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers);
 }
 
+/*
 #[cfg(nightly)]
 mod asm_impl {
     use super::Registers;
@@ -88,6 +89,7 @@ mod asm_impl {
 }
 #[cfg(nightly)]
 pub use self::asm_impl::*;
+*/
 
 #[repr(C)]
 #[derive(Debug)]
