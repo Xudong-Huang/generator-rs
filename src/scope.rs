@@ -33,7 +33,6 @@ impl<'a, A, T> Scope<'a, A, T> {
     fn raw_yield(&mut self, env: &ContextStack, context: &mut Context, v: T) {
         // check the context
         if !context.is_generator() {
-            #[cold]
             panic!("yield from none generator context");
         }
 
@@ -43,7 +42,6 @@ impl<'a, A, T> Scope<'a, A, T> {
 
         // here we just panic to exit the func
         if context._ref != 1 {
-            #[cold]
             panic!(Error::Cancel);
         }
     }
@@ -79,7 +77,6 @@ impl<'a, A, T> Scope<'a, A, T> {
         let mut p = self.get_yield();
         while !g.is_done() {
             match g.raw_send(p) {
-                #[cold]
                 None => return None,
                 Some(r) => self.raw_yield(&env, context, r),
             }

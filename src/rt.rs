@@ -96,7 +96,6 @@ impl Context {
         };
         match para.downcast_mut::<Option<A>>() {
             Some(v) => v.take(),
-            #[cold]
             None => type_error::<A>("get yield type mismatch error detected"),
         }
     }
@@ -121,7 +120,6 @@ impl Context {
     //     let para = unsafe { &mut *self.para };
     //     match para.downcast_mut::<Option<A>>() {
     //         Some(v) => *v = Some(data),
-    //         #[cold]
     //         None => type_error::<A>("set yield type mismatch error detected"),
     //     }
     // }
@@ -151,7 +149,6 @@ impl Context {
         };
         match ret.downcast_mut::<Option<T>>() {
             Some(r) => *r = Some(v),
-            #[cold]
             None => type_error::<T>("yield type mismatch error detected"),
         }
     }
@@ -175,7 +172,6 @@ pub struct ContextStack {
 }
 
 #[cfg(nightly)]
-#[cold]
 #[inline(never)]
 unsafe fn init_root_p() {
     ROOT_CONTEXT_P = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
@@ -187,7 +183,6 @@ impl ContextStack {
     pub fn current() -> ContextStack {
         unsafe {
             if ROOT_CONTEXT_P.is_null() {
-                #[cold]
                 init_root_p();
             }
             ContextStack {

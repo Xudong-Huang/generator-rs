@@ -47,7 +47,6 @@ pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
 fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
     // check the context
     if !context.is_generator() {
-        #[cold]
         panic!("yield from none generator context");
     }
 
@@ -57,7 +56,6 @@ fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
 
     // here we just panic to exit the func
     if context._ref != 1 {
-        #[cold]
         panic!(Error::Cancel);
     }
 }
@@ -84,7 +82,6 @@ pub fn get_yield<A: Any>() -> Option<A> {
 fn raw_get_yield<A: Any>(context: &mut Context) -> Option<A> {
     // check the context
     if !context.is_generator() {
-        #[cold]
         {
             error!("get yield from none generator context");
             panic!(Error::ContextErr);
@@ -115,7 +112,6 @@ pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
     let mut p = context.get_para();
     while !g.is_done() {
         match g.raw_send(p) {
-            #[cold]
             None => return None,
             Some(r) => raw_yield(&env, context, r),
         }
@@ -139,7 +135,6 @@ pub fn co_yield_with<T: Any>(v: T) {
 
     // here we just panic to exit the func
     if context._ref != 1 {
-        #[cold]
         panic!(Error::Cancel);
     }
 
