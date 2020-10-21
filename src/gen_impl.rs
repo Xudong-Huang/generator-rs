@@ -483,7 +483,7 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
         }
 
         if !self.is_done() {
-            warn!("generator is not done while drop");
+            trace!("generator is not done while drop");
             unsafe { self.raw_cancel() }
         }
 
