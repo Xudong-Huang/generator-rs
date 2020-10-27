@@ -1,15 +1,11 @@
 extern crate cc;
-extern crate rustc_version;
 
 use std::env;
 use std::path::PathBuf;
 
-use rustc_version::{version_meta, Channel};
-
 fn main() {
     // Set cfg flags depending on release channel
-    if let Channel::Nightly = version_meta().unwrap().channel {
-        // return println!("cargo:rustc-cfg=nightly");
+    if NIGHTLY {
         println!("cargo:rustc-cfg=nightly");
     }
 
@@ -82,3 +78,9 @@ fn main() {
     // create the static asm libary
     config.compile("libasm.a");
 }
+
+#[rustversion::nightly]
+const NIGHTLY: bool = true;
+
+#[rustversion::not(nightly)]
+const NIGHTLY: bool = false;
