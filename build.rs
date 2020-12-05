@@ -21,7 +21,7 @@ fn main() {
 
     let arch = match target.split('-').next().unwrap() {
         // "arm" | "armv7" | "armv7s" => "arm",
-        // "arm64" | "aarch64" => "arm64",
+        "arm64" | "aarch64" => "aarch64",
         // "x86" | "i386" | "i486" | "i586" | "i686" => "i386",
         // "mips" | "mipsel" => "mips32",
         // "powerpc" => "ppc32",
@@ -33,7 +33,7 @@ fn main() {
     };
 
     let abi = match arch {
-        "arm" | "arm64" => "aapcs",
+        "arm" | "aarch64" => "aapcs",
         "mips32" => "o32",
         _ => {
             if is_win {

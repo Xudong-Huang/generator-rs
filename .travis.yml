@@ -7,6 +7,10 @@ os:
  - linux
  - osx
 
+arch:
+- amd64
+- arm64
+
 rust:
   - stable
   - nightly
