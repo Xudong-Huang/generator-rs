@@ -29,6 +29,10 @@ pub mod asm;
 #[path = "x86_64_windows.rs"]
 pub mod asm;
 
+#[cfg(all(unix, target_arch = "aarch64"))]
+#[path = "aarch64_unix.rs"]
+pub mod asm;
+
 pub use self::asm::{initialize_call_frame, prefetch, swap_registers, Registers};
 
 #[inline]
@@ -39,6 +43,7 @@ fn align_down(sp: *mut usize) -> *mut usize {
 
 // ptr::mut_offset is positive isizes only
 #[inline]
+#[allow(unused)]
 fn mut_offset<T>(ptr: *mut T, count: isize) -> *mut T {
     // use std::mem::size_of;
     // (ptr as isize + count * (size_of::<T>() as isize)) as *mut T
