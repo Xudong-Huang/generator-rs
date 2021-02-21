@@ -24,7 +24,7 @@ pub struct Generator<'a, A, T> {
     gen: StackBox<GeneratorImpl<'a, A, T>>,
 }
 
-unsafe impl<A: Send, T: Send> Send for Generator<'static, A, T> {}
+unsafe impl<A, T> Send for Generator<'static, A, T> {}
 
 impl<'a, A, T> Generator<'a, A, T> {
     /// Constructs a Generator from a raw pointer.
