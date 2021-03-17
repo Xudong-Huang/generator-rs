@@ -43,7 +43,7 @@ swap_registers:
     ldr x2, [x1, #96]
     mov sp, x2
 
-	ret
+    ret
 .size swap_registers,.-swap_registers
 
 /* Mark that we don't need executable stack. */

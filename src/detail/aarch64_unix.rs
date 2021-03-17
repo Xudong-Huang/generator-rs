@@ -1,4 +1,4 @@
-use crate::detail::align_down;
+use crate::detail::{align_down, mut_offset};
 use crate::reg_context::InitFn;
 use crate::stack::Stack;
 
@@ -9,17 +9,17 @@ extern "C" {
     pub fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers);
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Debug)]
 pub struct Registers {
     // We only save the 13 callee-saved registers:
     //  x19--x28, fp (x29), lr (x30), sp
-    gpr: [usize; 13],
+    gpr: [usize; 16],
 }
 
 impl Registers {
     pub fn new() -> Registers {
-        Registers { gpr: [0; 13] }
+        Registers { gpr: [0; 16] }
     }
 
     #[inline]
@@ -54,12 +54,21 @@ pub fn initialize_call_frame(
     regs.gpr[X20] = arg2 as usize;
     regs.gpr[X21] = fptr as usize;
 
-    // Last frame pointer should be 0
-    regs.gpr[FP] = 0;
+    // Aarch64 current stack frame pointer
+    regs.gpr[FP] = mut_offset(sp, -4) as usize;
     
     regs.gpr[LR] = bootstrap_green_task as usize;
 
     // setup the init stack
     // this is prepared for the swap context
-    regs.gpr[SP] = sp as usize;
+    // leave enough space for stack unwind access
+    regs.gpr[SP] = mut_offset(sp, -4) as usize;
+
+    unsafe {
+        // setup the correct stack frame for unwind
+        *mut_offset(sp, -0) = 0;
+        *mut_offset(sp, -1) = 0;
+        *mut_offset(sp, -2) = 0;
+        *mut_offset(sp, -3) = 0;
+    }
 }
