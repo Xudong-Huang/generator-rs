@@ -76,6 +76,7 @@ fn main() {
     - x86_64 Linux
     - x86_64 MacOs
     - x86_64 Windows
+    - aarch64 Linux
 
 ## License
 
