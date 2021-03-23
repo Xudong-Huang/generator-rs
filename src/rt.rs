@@ -179,7 +179,7 @@ unsafe fn init_root_p() {
 
 impl ContextStack {
     #[cfg(nightly)]
-    #[inline]
+    #[inline(never)]
     pub fn current() -> ContextStack {
         unsafe {
             if ROOT_CONTEXT_P.is_null() {
@@ -192,7 +192,7 @@ impl ContextStack {
     }
 
     #[cfg(not(nightly))]
-    #[inline]
+    #[inline(never)]
     pub fn current() -> ContextStack {
         let root = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
         ContextStack { root }
