@@ -125,9 +125,9 @@ fn test_scoped() {
     let x = Rc::new(RefCell::new(10));
 
     let x1 = x.clone();
-    let mut g = Gn::<()>::new(move || {
+    let mut g = Gn::<()>::new_scoped_local(move |mut s| {
         *x1.borrow_mut() = 20;
-        yield_with(());
+        s.yield_with(());
         *x1.borrow_mut() = 5;
     });
 
@@ -221,8 +221,7 @@ fn test_ill_drop() {
 fn test_loop_drop() {
     let mut x = 10u32;
     {
-        // rust 1.17 can't deduce the output type!
-        let mut g: Generator<_, ()> = Gn::<()>::new(|| {
+        let mut g = Gn::<()>::new(|| {
             x = 5;
             loop {
                 yield_with(());

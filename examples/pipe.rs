@@ -2,7 +2,7 @@ use generator::*;
 
 fn main() {
     // fn square<'a, T: Iterator<Item = u32> + 'a>(input: T) -> impl Iterator<Item = u32> + 'a {
-    fn square<'a, T: Iterator<Item = u32> + 'a>(input: T) -> Generator<'a, (), u32> {
+    fn square<'a, T: Iterator<Item = u32> + Send + 'a>(input: T) -> Generator<'a, (), u32> {
         Gn::new_scoped(|mut s| {
             for i in input {
                 s.yield_with(i * i);
@@ -12,7 +12,7 @@ fn main() {
     }
 
     // fn sum<'a, T: Iterator<Item = u32> + 'a>(input: T) -> impl Iterator<Item = u32> + 'a {
-    fn sum<'a, T: Iterator<Item = u32> + 'a>(input: T) -> Generator<'a, (), u32> {
+    fn sum<'a, T: Iterator<Item = u32> + Send + 'a>(input: T) -> Generator<'a, (), u32> {
         Gn::new_scoped(|mut s| {
             let mut acc = 0;
             for i in input {

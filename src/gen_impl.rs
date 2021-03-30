@@ -19,14 +19,52 @@ use crate::yield_::yield_now;
 // windows has a minimal size as 0x4a8!!!!
 pub const DEFAULT_STACK_SIZE: usize = 0x1000;
 
-/// the generator type
-pub struct Generator<'a, A, T> {
+/// the generator obj type, the functor passed to it must be Send
+pub struct GeneratorObj<'a, A, T, const LOCAL: bool> {
     gen: StackBox<GeneratorImpl<'a, A, T>>,
 }
 
-unsafe impl<A, T> Send for Generator<'static, A, T> {}
+/// the generator type, the functor passed to it must be Send
+pub type Generator<'a, A, T> = GeneratorObj<'a, A, T, false>;
+
+// only when A, T and Functor are all sendable, the generator could be send
+unsafe impl<A: Send, T: Send> Send for Generator<'static, A, T> {}
 
 impl<'a, A, T> Generator<'a, A, T> {
+    /// init a heap based generator with scoped closure
+    pub fn scoped_init<F: FnOnce(Scope<'a, A, T>) -> T + Send + 'a>(&mut self, f: F)
+    where
+        T: Send + 'a,
+        A: Send + 'a,
+    {
+        self.gen.scoped_init(f);
+    }
+
+    /// init a heap based generator
+    // it's can be used to re-init a 'done' generator before it's get dropped
+    pub fn init_code<F: FnOnce() -> T + Send + 'a>(&mut self, f: F)
+    where
+        T: Send + 'a,
+    {
+        self.gen.init_code(f);
+    }
+}
+
+/// the local generator type, can't Send
+pub type LocalGenerator<'a, A, T> = GeneratorObj<'a, A, T, true>;
+
+impl<'a, A, T> LocalGenerator<'a, A, T> {
+    /// init a heap based generator with scoped closure
+    pub fn scoped_init<F: FnOnce(Scope<'a, A, T>) -> T + 'a>(&mut self, f: F)
+    where
+        T: 'a,
+        A: 'a,
+    {
+        self.gen.scoped_init(f);
+    }
+}
+
+impl<'a, A, T, const LOCAL: bool> GeneratorObj<'a, A, T, LOCAL> {
     /// Constructs a Generator from a raw pointer.
     ///
     /// # Safety
@@ -36,7 +74,7 @@ impl<'a, A, T> Generator<'a, A, T> {
     /// function is called twice on the same raw pointer.
     #[inline]
     pub unsafe fn from_raw(raw: *mut usize) -> Self {
-        Generator {
+        GeneratorObj {
             gen: StackBox::from_raw(raw as *mut GeneratorImpl<'a, A, T>),
         }
     }
@@ -53,24 +91,6 @@ impl<'a, A, T> Generator<'a, A, T> {
     #[inline]
     pub fn prefetch(&self) {
         self.gen.prefetch();
-    }
-
-    /// init a heap based generator with scoped closure
-    pub fn scoped_init<F: FnOnce(Scope<'a, A, T>) -> T + 'a>(&mut self, f: F)
-    where
-        T: 'a,
-        A: 'a,
-    {
-        self.gen.scoped_init(f);
-    }
-
-    /// init a heap based generator
-    // it's can be used to re-init a 'done' generator before it's get dropped
-    pub fn init_code<F: FnOnce() -> T + 'a>(&mut self, f: F)
-    where
-        T: 'a,
-    {
-        self.gen.init_code(f);
     }
 
     /// prepare the para that passed into generator before send
@@ -136,23 +156,24 @@ impl<'a, A, T> Generator<'a, A, T> {
     }
 }
 
-impl<'a, T> Iterator for Generator<'a, (), T> {
+impl<'a, T, const LOCAL: bool> Iterator for GeneratorObj<'a, (), T, LOCAL> {
     type Item = T;
     fn next(&mut self) -> Option<T> {
         self.resume()
     }
 }
 
-impl<'a, A, T> fmt::Debug for Generator<'a, A, T> {
+impl<'a, A, T, const LOCAL: bool> fmt::Debug for GeneratorObj<'a, A, T, LOCAL> {
     #[cfg(nightly)]
     #[allow(unused_unsafe)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use std::intrinsics::type_name;
         write!(
             f,
-            "Generator<{}, Output={}> {{ ... }}",
+            "Generator<{}, Output={}, Local={}> {{ ... }}",
             unsafe { type_name::<A>() },
-            unsafe { type_name::<T>() }
+            unsafe { type_name::<T>() },
+            LOCAL
         )
     }
 
@@ -171,15 +192,37 @@ impl<A> Gn<A> {
     /// create a scoped generator with default stack size
     pub fn new_scoped<'a, T, F>(f: F) -> Generator<'a, A, T>
     where
-        F: FnOnce(Scope<A, T>) -> T + 'a,
-        T: 'a,
-        A: 'a,
+        F: FnOnce(Scope<A, T>) -> T + Send + 'a,
+        T: Send+ 'a,
+        A: Send + 'a,
     {
         Self::new_scoped_opt(DEFAULT_STACK_SIZE, f)
     }
 
+    /// create a scoped local generator with default stack size
+    pub fn new_scoped_local<'a, T, F>(f: F) -> LocalGenerator<'a, A, T>
+    where
+        F: FnOnce(Scope<A, T>) -> T + 'a,
+        T: 'a,
+        A: 'a,
+    {
+        Self::new_scoped_opt_local(DEFAULT_STACK_SIZE, f)
+    }
+
     /// create a scoped generator with specified stack size
     pub fn new_scoped_opt<'a, T, F>(size: usize, f: F) -> Generator<'a, A, T>
+    where
+        F: FnOnce(Scope<A, T>) -> T + Send + 'a,
+        T: Send + 'a,
+        A: Send + 'a,
+    {
+        let mut gen = GeneratorImpl::<A, T>::new(Stack::new(size));
+        gen.scoped_init(f);
+        Generator { gen }
+    }
+
+    /// create a scoped local generator with specified stack size
+    pub fn new_scoped_opt_local<'a, T, F>(size: usize, f: F) -> LocalGenerator<'a, A, T>
     where
         F: FnOnce(Scope<A, T>) -> T + 'a,
         T: 'a,
@@ -187,7 +230,7 @@ impl<A> Gn<A> {
     {
         let mut gen = GeneratorImpl::<A, T>::new(Stack::new(size));
         gen.scoped_init(f);
-        Generator { gen }
+        LocalGenerator { gen }
     }
 }
 
@@ -197,7 +240,7 @@ impl<A: Any> Gn<A> {
     #[deprecated(since = "0.6.18", note = "please use `scope` version instead")]
     pub fn new<'a, T: Any, F>(f: F) -> Generator<'a, A, T>
     where
-        F: FnOnce() -> T + 'a,
+        F: FnOnce() -> T + Send + 'a,
     {
         Self::new_opt(DEFAULT_STACK_SIZE, f)
     }
@@ -206,7 +249,7 @@ impl<A: Any> Gn<A> {
     // the `may` library use this API so we can't deprecated it yet.
     pub fn new_opt<'a, T: Any, F>(size: usize, f: F) -> Generator<'a, A, T>
     where
-        F: FnOnce() -> T + 'a,
+        F: FnOnce() -> T + Send + 'a,
     {
         let mut gen = GeneratorImpl::<A, T>::new(Stack::new(size));
         gen.init_context();

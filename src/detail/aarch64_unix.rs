@@ -42,9 +42,10 @@ pub fn initialize_call_frame(
     const X19: usize = 19 - 19;
     const X20: usize = 20 - 19;
     const X21: usize = 21 - 19;
-    const FP: usize  = 29 - 19;
-    const LR: usize  = 30 - 19;
-    const SP: usize  = 31 - 19;
+
+    const FP: usize = 29 - 19;
+    const LR: usize = 30 - 19;
+    const SP: usize = 31 - 19;
     
     let sp = align_down(stack.end());
 
@@ -56,7 +57,7 @@ pub fn initialize_call_frame(
 
     // Aarch64 current stack frame pointer
     regs.gpr[FP] = sp as usize;
-    
+
     regs.gpr[LR] = bootstrap_green_task as usize;
 
     // setup the init stack
