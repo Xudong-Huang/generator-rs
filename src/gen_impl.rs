@@ -135,12 +135,9 @@ impl<'a, A, T, const LOCAL: bool> GeneratorObj<'a, A, T, LOCAL> {
         self.gen.send(para)
     }
 
-    /// cancel the generator [TODO: change to safe?]
-    /// this will trigger a Cancel panic
-    /// # Safety
-    /// it's unsafe that cancel may have side effect when unwind stack
-    /// all the resources would be dropped before the normal completion
-    pub unsafe fn cancel(&mut self) {
+    /// cancel the generator
+    /// this will trigger a Cancel panic to unwind the stack and finish the generator
+    pub fn cancel(&mut self) {
         self.gen.cancel()
     }
 
@@ -334,7 +331,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     {
         // make sure the last one is finished
         if self.f.is_none() && self.context._ref == 0 {
-            unsafe { self.cancel() };
+            self.cancel();
         } else {
             let _ = self.f.take();
         }
@@ -474,7 +471,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
     /// cancel the generator without any check
     #[inline]
-    unsafe fn raw_cancel(&mut self) {
+    fn raw_cancel(&mut self) {
         // tell the func to panic
         // so that we can stop the inner func
         self.context._ref = 2;
@@ -486,8 +483,8 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     }
 
     /// cancel the generator
-    /// this will trigger a Cancel panic, it's unsafe in that you must care about the resource
-    unsafe fn cancel(&mut self) {
+    /// this will trigger a Cancel panic to unwind the stack
+    fn cancel(&mut self) {
         if self.is_done() {
             return;
         }
@@ -527,7 +524,7 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
 
         if !self.is_done() {
             trace!("generator is not done while drop");
-            unsafe { self.raw_cancel() }
+            self.raw_cancel()
         }
 
         assert!(self.is_done());

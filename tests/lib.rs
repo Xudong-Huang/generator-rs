@@ -305,12 +305,9 @@ fn test_cancel() {
     });
 
     loop {
-        // rust 1.17 can't deduce the output type!
-        let i: i32 = g.next().unwrap();
+        let i= g.next().unwrap();
         if i > 10 {
-            unsafe {
-                g.cancel();
-            }
+            g.cancel();
             break;
         }
     }
