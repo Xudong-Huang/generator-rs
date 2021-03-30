@@ -177,10 +177,10 @@ fn test_scoped_yield() {
     // start g
     g.raw_send(None);
 
-    for i in 1..100{
+    for i in 1..100 {
         let data: usize = g.send(i);
         assert_eq!(data, i);
-    };
+    }
 
     // quit g
     g.raw_send(None);
@@ -305,7 +305,7 @@ fn test_cancel() {
     });
 
     loop {
-        let i= g.next().unwrap();
+        let i = g.next().unwrap();
         if i > 10 {
             g.cancel();
             break;

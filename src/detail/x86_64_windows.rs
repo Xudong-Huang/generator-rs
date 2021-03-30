@@ -167,13 +167,12 @@ pub use self::asm_impl::*;
 
 // #[cfg_attr(nightly, repr(simd))]
 #[repr(C)]
-#[allow(non_camel_case_types)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-struct XMM(u32, u32, u32, u32);
+struct Xmm(u32, u32, u32, u32);
 
-impl XMM {
+impl Xmm {
     pub fn new(a: u32, b: u32, c: u32, d: u32) -> Self {
-        XMM(a, b, c, d)
+        Xmm(a, b, c, d)
     }
 }
 
@@ -183,14 +182,14 @@ impl XMM {
 pub struct Registers {
     gpr: [usize; 16],
     // keep enough for place holder
-    _xmm: [XMM; 10],
+    _xmm: [Xmm; 10],
 }
 
 impl Registers {
     pub fn new() -> Registers {
         Registers {
             gpr: [0; 16],
-            _xmm: [XMM::new(0, 0, 0, 0); 10],
+            _xmm: [Xmm::new(0, 0, 0, 0); 10],
         }
     }
 

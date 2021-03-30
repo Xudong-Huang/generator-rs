@@ -46,7 +46,7 @@ pub fn initialize_call_frame(
     const FP: usize = 29 - 19;
     const LR: usize = 30 - 19;
     const SP: usize = 31 - 19;
-    
+
     let sp = align_down(stack.end());
 
     // These registers are frobbed by bootstrap_green_task into the right

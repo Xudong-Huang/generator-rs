@@ -81,9 +81,9 @@ impl<'a, A, T, const LOCAL: bool> GeneratorObj<'a, A, T, LOCAL> {
 
     /// Consumes the `Generator`, returning a wrapped raw pointer.
     #[inline]
-    pub fn into_raw(g: Generator<'a, A, T>) -> *mut usize {
-        let ret = g.gen.as_ptr() as *mut usize;
-        std::mem::forget(g);
+    pub fn into_raw(self) -> *mut usize {
+        let ret = self.gen.as_ptr() as *mut usize;
+        std::mem::forget(self);
         ret
     }
 
@@ -190,7 +190,7 @@ impl<A> Gn<A> {
     pub fn new_scoped<'a, T, F>(f: F) -> Generator<'a, A, T>
     where
         F: FnOnce(Scope<A, T>) -> T + Send + 'a,
-        T: Send+ 'a,
+        T: Send + 'a,
         A: Send + 'a,
     {
         Self::new_scoped_opt(DEFAULT_STACK_SIZE, f)
