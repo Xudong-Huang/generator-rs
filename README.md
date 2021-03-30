@@ -5,19 +5,17 @@
 
 # Generator-rs
 
-rust stackfull generator library
+rust stackful generator library
 
 ```toml
 [dependencies]
-generator = "0.6"
+generator = "0.7"
 ```
 
 
 ## Usage
 ```rust
-#[macro_use]
-extern crate generator;
-use generator::Gn;
+use generator::{done, Gn};
 
 fn main() {
     let g = Gn::new_scoped(|mut s| {
