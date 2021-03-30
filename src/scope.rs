@@ -3,7 +3,8 @@
 //! generator yield implementation
 //!
 
-// use generator::Generator;
+use std::sync::atomic;
+
 use crate::gen_impl::Generator;
 use crate::rt::{Context, ContextStack, Error};
 use crate::yield_::raw_yield_now;
@@ -66,6 +67,7 @@ impl<'a, A, T> Scope<'a, A, T> {
     #[inline]
     pub fn yield_(&mut self, v: T) -> Option<A> {
         self.yield_with(v);
+        atomic::compiler_fence(atomic::Ordering::Acquire);
         self.get_yield()
     }
 

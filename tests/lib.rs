@@ -154,6 +154,39 @@ fn test_scoped_1() {
 }
 
 #[test]
+fn test_scoped_yield() {
+    let mut g = Gn::new_scoped(|mut s| {
+        let mut i = 0;
+        loop {
+            let v = s.yield_(i);
+            i += 1;
+            match v {
+                Some(x) => {
+                    // dbg!(x, i);
+                    assert_eq!(x, i);
+                }
+                None => {
+                    // for elegant exit
+                    break;
+                }
+            }
+        }
+        20usize
+    });
+
+    // start g
+    g.raw_send(None);
+
+    for i in 1..100{
+        let data: usize = g.send(i);
+        assert_eq!(data, i);
+    };
+
+    // quit g
+    g.raw_send(None);
+}
+
+#[test]
 fn test_inner_ref() {
     let mut g = Gn::<()>::new_scoped(|mut s| {
         use std::mem;

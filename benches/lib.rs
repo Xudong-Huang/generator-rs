@@ -89,8 +89,7 @@ fn scoped_yield_bench(b: &mut Bencher) {
             i += 1;
             match v {
                 Some(x) => {
-                    dbg!(x, i);
-                    // assert_eq!(x, i);
+                    assert_eq!(x, i);
                 }
                 None => {
                     // for elegant exit
