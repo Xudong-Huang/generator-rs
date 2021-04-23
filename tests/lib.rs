@@ -523,3 +523,25 @@ fn invaild_yield_in_scope() {
 
     for () in g {}
 }
+
+#[test]
+fn test_yield_float() {
+    let mut g = Gn::<f64>::new(|| {
+        let r: f64 = yield_(10.0).unwrap();
+        let x = r * 2.0; // 6
+        let y = x * 9.0; // 54
+        let z = y / 3.0; // 18
+        let r: f64 = yield_(6.0).unwrap();
+        x * r * y * z
+    });
+
+    // first start the generator
+    let i = g.raw_send(None).unwrap();
+    let x = i * 10.0;
+    assert_eq!(i, 10.0);
+    let i = g.send(3.0);
+    assert_eq!(i, 6.0);
+    let i = g.send(x / 25.0);
+    assert_eq!(i, 23328.0);
+    assert!(g.is_done());
+}
