@@ -12,14 +12,16 @@ extern "C" {
 #[repr(C, align(16))]
 #[derive(Debug)]
 pub struct Registers {
-    // We only save the 13 callee-saved registers:
+    // We save the 13 callee-saved registers:
     //  x19--x28, fp (x29), lr (x30), sp
-    gpr: [usize; 16],
+    // and the 8 callee-saved floating point registers:
+    //  v8--v15
+    gpr: [usize; 32],
 }
 
 impl Registers {
     pub fn new() -> Registers {
-        Registers { gpr: [0; 16] }
+        Registers { gpr: [0; 32] }
     }
 
     #[inline]
