@@ -190,7 +190,6 @@ fn test_scoped_yield() {
 fn test_inner_ref() {
     let mut g = Gn::<()>::new_scoped(|mut s| {
         use std::mem;
-        use std::ptr;
         // setup something
         let mut x: u32 = 10;
 
@@ -207,10 +206,12 @@ fn test_inner_ref() {
         // s.yield_(&mut x);
         s.yield_(unsafe { mem::transmute(&mut x) });
 
-        // this was modified by the invoker
+        // this was modified by the xvoker
         assert!(x == 5);
         // teardown happened when the generator get dropped
-        unsafe { &mut *ptr::null_mut() }
+        // this is just a safe dummy ret
+        static mut RET: u32 = 0;
+        unsafe { &mut RET }
     });
 
     // use the resource setup from generator
