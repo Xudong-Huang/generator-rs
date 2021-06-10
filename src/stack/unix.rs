@@ -93,13 +93,9 @@ pub fn max_stack_size() -> usize {
     let mut ret = PAGE_SIZE.load(Ordering::Relaxed);
 
     if ret == 0 {
-        let mut limit;
-        let limitret;
-
-        unsafe {
-            limit = mem::MaybeUninit::uninit().assume_init();
-            limitret = libc::getrlimit(libc::RLIMIT_STACK, &mut limit);
-        }
+        let limit = mem::MaybeUninit::uninit();
+        let mut limit = unsafe { limit.assume_init() };
+        let limitret = unsafe { libc::getrlimit(libc::RLIMIT_STACK, &mut limit) };
 
         if limitret == 0 {
             ret = if limit.rlim_max == libc::RLIM_INFINITY

@@ -26,7 +26,10 @@ pub fn done<T>() -> T {
     assert!(is_generator(), "done is only possible in a generator");
     // set the done bit for this special return
     ContextStack::current().top()._ref = 0xf;
-    unsafe { std::mem::MaybeUninit::uninit().assume_init() }
+    // this return value would not be dropped when _ref is 0xf
+    // so it's safe here to reutrn a dummy T
+    let ret = std::mem::MaybeUninit::uninit();
+    unsafe { ret.assume_init() }
 }
 
 /// switch back to parent context
