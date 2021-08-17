@@ -271,7 +271,7 @@ fn type_error<A>(msg: &str) -> ! {
     {
         error!("{}", msg);
     }
-    panic!(Error::TypeErr)
+    std::panic::panic_any(Error::TypeErr)
 }
 
 /// check the current context if it's generator

@@ -536,7 +536,7 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
             // set_stack_size::<F>(used_stack);
         } else {
             error!("stack overflow detected!");
-            panic!(Error::StackErr);
+            std::panic::panic_any(Error::StackErr);
         }
     }
 }
