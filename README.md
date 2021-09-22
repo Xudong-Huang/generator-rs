@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/Xudong-Huang/generator-rs.svg?branch=master)](https://travis-ci.org/Xudong-Huang/generator-rs)
+[![Build Status](https://github.com/Xudong-Huang/generator-rs/workflows/CI/badge.svg)](https://github.com/Xudong-Huang/generator-rs/actions?query=workflow%3ACI)
 [![Current Crates.io Version](https://img.shields.io/crates/v/generator.svg)](https://crates.io/crates/generator)
 [![Document](https://img.shields.io/badge/doc-generator-green.svg)](https://docs.rs/generator)
 
