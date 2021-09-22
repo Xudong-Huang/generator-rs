@@ -10,9 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  RUST_TOOLCHAIN: stable
   CARGO_TERM_COLOR: always
-  TOOLCHAIN_PROFILE: minimal
 
 jobs:
   lints:
@@ -24,8 +22,8 @@ jobs:
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          profile: ${{ env.TOOLCHAIN_PROFILE }}
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          profile: minimal
+          toolchain: stable
           override: true
           components: rustfmt, clippy
       - name: Run cargo clippy
@@ -34,20 +32,32 @@ jobs:
           command: clippy
           args: -- -D warnings
   test:
-    name: Run cargo test
-    runs-on: ubuntu-latest
+    name: Test ${{ matrix.rust }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - nightly
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macOS-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-      - name: Install toolchain
+      - name: Install Rust (${{ matrix.rust }})
         uses: actions-rs/toolchain@v1
         with:
-          profile: ${{ env.TOOLCHAIN_PROFILE }}
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
           override: true
       - name: Run cargo test
         uses: actions-rs/cargo@v1
-        env:
-          RUST_TEST_THREADS: 1
         with:
           command: test
+      - name: Run cargo release test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release 
