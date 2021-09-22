@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+env:
+  RUST_TOOLCHAIN: stable
+  CARGO_TERM_COLOR: always
+  TOOLCHAIN_PROFILE: minimal
+
+jobs:
+  lints:
+    name: Run cargo fmt and cargo clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: ${{ env.TOOLCHAIN_PROFILE }}
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          override: true
+          components: rustfmt, clippy
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+  test:
+    name: Run cargo test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: ${{ env.TOOLCHAIN_PROFILE }}
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          override: true
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        env:
+          RUST_TEST_THREADS: 1
+        with:
+          command: test
