@@ -13,7 +13,7 @@ use super::SysStack;
 pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
     let ptr = VirtualAlloc(ptr::null(), size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
-    if ptr == ptr::null_mut() {
+    if ptr.is_null() {
         Err(io::Error::last_os_error())
     } else {
         Ok(SysStack::new(
