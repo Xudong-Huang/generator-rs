@@ -1,27 +1,19 @@
 use std::io;
 use std::mem;
 use std::os::raw::c_void;
+use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::usize;
 
-use winapi::shared::basetsd::SIZE_T;
-use winapi::shared::minwindef::{DWORD, LPVOID};
-use winapi::um::memoryapi::{VirtualAlloc, VirtualFree, VirtualProtect};
-use winapi::um::sysinfoapi::GetSystemInfo;
-use winapi::um::winnt::{
-    MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_GUARD, PAGE_READONLY, PAGE_READWRITE,
-};
+use windows::Win32::System::Memory::*;
+use windows::Win32::System::SystemInformation::*;
 
 use super::SysStack;
 
 pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
-    const NULL: LPVOID = 0 as LPVOID;
-    const PROT: DWORD = PAGE_READWRITE;
-    const TYPE: DWORD = MEM_COMMIT | MEM_RESERVE;
+    let ptr = VirtualAlloc(ptr::null(), size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
-    let ptr = VirtualAlloc(NULL, size as SIZE_T, TYPE, PROT);
-
-    if ptr == NULL {
+    if ptr == ptr::null_mut() {
         Err(io::Error::last_os_error())
     } else {
         Ok(SysStack::new(
@@ -32,19 +24,19 @@ pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
 }
 
 pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
-    const TYPE: DWORD = PAGE_READONLY | PAGE_GUARD;
-
     let page_size = page_size();
-    let mut old_prot: DWORD = 0;
+    let mut old_prot = PAGE_PROTECTION_FLAGS(0);
 
     debug_assert!(stack.len() % page_size == 0 && stack.len() != 0);
 
-    let ret = {
-        let page_size = page_size as SIZE_T;
-        VirtualProtect(stack.bottom() as LPVOID, page_size, TYPE, &mut old_prot)
-    };
+    let ret = VirtualProtect(
+        stack.bottom(),
+        page_size,
+        PAGE_READONLY | PAGE_GUARD,
+        &mut old_prot,
+    );
 
-    if ret == 0 {
+    if !ret.as_bool() {
         Err(io::Error::last_os_error())
     } else {
         let bottom = (stack.bottom() as usize + page_size) as *mut c_void;
@@ -53,7 +45,7 @@ pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
 }
 
 pub unsafe fn deallocate_stack(ptr: *mut c_void, _: usize) {
-    VirtualFree(ptr as LPVOID, 0, MEM_RELEASE);
+    VirtualFree(ptr, 0, MEM_RELEASE);
 }
 
 pub fn page_size() -> usize {
