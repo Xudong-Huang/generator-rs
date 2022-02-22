@@ -34,7 +34,7 @@ mod asm_impl {
                 mov %r12, %rdi     // setup the function arg
                 mov %r13, %rsi     // setup the function arg
                 and $$-16, %rsp    // align the stack pointer
-                mov %r14, (%rsp)   // this is the new return adrress
+                mov %r14, (%rsp)   // this is the new return address
             "
             : // no output
             : // no input

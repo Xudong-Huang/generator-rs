@@ -42,7 +42,7 @@ pub struct StackBox<T> {
 
 impl<T> StackBox<T> {
     /// create uninit stack box
-    fn new_unint(stack: &mut Stack, need_drop: usize) -> MaybeUninit<Self> {
+    fn new_uninit(stack: &mut Stack, need_drop: usize) -> MaybeUninit<Self> {
         let offset = unsafe { &mut *stack.get_offset() };
         // alloc the data
         let layout = std::alloc::Layout::new::<T>();
@@ -150,8 +150,9 @@ impl<F: FnOnce()> StackBox<F> {
     /// create a functor on the stack
     pub(crate) fn new_fn_once(stack: &mut Stack, data: F) -> Func {
         unsafe {
-            let mut d = Self::new_unint(stack, 0).assume_init();
-            d.init(data);
+            let mut d = Self::new_uninit(stack, 0);
+            (*d.as_mut_ptr()).init(data);
+            let d = d.assume_init();
             let header = d.get_header();
             let f = Func {
                 data: d.ptr.as_ptr() as *mut (),
@@ -306,7 +307,7 @@ impl SysStack {
 unsafe impl Send for SysStack {}
 
 /// generator stack
-/// this struct will not dealloc the memroy
+/// this struct will not dealloc the memory
 /// instead StackBox<> would track it's usage and dealloc it
 pub struct Stack {
     buf: SysStack,
@@ -385,7 +386,7 @@ impl Stack {
     /// alloc buffer on this stack
     pub fn alloc_uninit_box<T>(&mut self) -> MaybeUninit<StackBox<T>> {
         // the first obj should set need drop to non zero
-        StackBox::<T>::new_unint(self, 1)
+        StackBox::<T>::new_uninit(self, 1)
     }
 
     // get offset
@@ -393,7 +394,7 @@ impl Stack {
         unsafe { (self.buf.top as *mut usize).offset(-1) }
     }
 
-    // dealloc the statck
+    // dealloc the stack
     fn drop_stack(&self) {
         if self.buf.len() == 0 {
             return;
@@ -419,6 +420,6 @@ impl Stack {
 impl fmt::Debug for Stack {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let offset = self.get_offset();
-        write!(f, "Statck<{:?}, Offset={}>", self.buf, unsafe { *offset })
+        write!(f, "Stack<{:?}, Offset={}>", self.buf, unsafe { *offset })
     }
 }

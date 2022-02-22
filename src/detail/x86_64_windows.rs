@@ -40,7 +40,7 @@ mod asm_impl {
                 mov %r12, %rcx     // setup the function arg
                 mov %r13, %rdx     // setup the function arg
                 and $$-16, %rsp    // align the stack pointer
-                mov %r14, (%rsp)   // this is the new return adrress
+                mov %r14, (%rsp)   // this is the new return address
             "
             : // no output
             : // no input

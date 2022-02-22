@@ -41,7 +41,7 @@ fn align_down(sp: *mut usize) -> *mut usize {
     sp as *mut usize
 }
 
-// ptr::mut_offset is positive isizes only
+// ptr::mut_offset is positive isize only
 #[inline]
 #[allow(unused)]
 fn mut_offset<T>(ptr: *mut T, count: isize) -> *mut T {

@@ -27,7 +27,7 @@ pub fn done<T>() -> T {
     // set the done bit for this special return
     ContextStack::current().top()._ref = 0xf;
     // this return value would not be dropped when _ref is 0xf
-    // so it's safe here to reutrn a dummy T
+    // so it's safe here to return a dummy T
     let ret = std::mem::MaybeUninit::uninit();
     unsafe { ret.assume_init() }
 }

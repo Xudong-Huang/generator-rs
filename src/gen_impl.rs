@@ -290,11 +290,8 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     fn new(mut stack: Stack) -> StackBox<Self> {
         // the stack box would finally dealloc the stack!
         unsafe {
-            let mut stack_box = stack
-                .alloc_uninit_box::<GeneratorImpl<'a, A, T>>()
-                .assume_init();
-
-            stack_box.init(GeneratorImpl {
+            let mut stack_box = stack.alloc_uninit_box::<GeneratorImpl<'a, A, T>>();
+            (*stack_box.as_mut_ptr()).init(GeneratorImpl {
                 para: None,
                 stack,
                 ret: None,
@@ -302,7 +299,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
                 context: Context::new(),
                 phantom: PhantomData,
             });
-            stack_box
+            stack_box.assume_init()
         }
     }
 

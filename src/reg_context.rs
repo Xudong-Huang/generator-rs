@@ -34,7 +34,7 @@ impl RegContext {
     #[inline]
     pub fn init_with(&mut self, init: InitFn, arg: usize, start: *mut usize, stack: &Stack) {
         // Save and then immediately load the current context,
-        // which we will then modify to call the given function when restoredtack
+        // we will modify it to call the given function when restored back
         initialize_call_frame(&mut self.regs, init, arg, start, stack);
     }
 
