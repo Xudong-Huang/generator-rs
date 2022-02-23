@@ -31,6 +31,8 @@ static mut ROOT_CONTEXT_P: *mut Context = ptr::null_mut();
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Error {
+    /// Done panic
+    Done,
     /// Cancel panic
     Cancel,
     /// Type mismatch panic

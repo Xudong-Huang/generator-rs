@@ -24,12 +24,7 @@ macro_rules! done {
 #[inline]
 pub fn done<T>() -> T {
     assert!(is_generator(), "done is only possible in a generator");
-    // set the done bit for this special return
-    ContextStack::current().top()._ref = 0xf;
-    // this return value would not be dropped when _ref is 0xf
-    // so it's safe here to return a dummy T
-    let ret = std::mem::MaybeUninit::uninit();
-    unsafe { ret.assume_init() }
+    std::panic::panic_any(Error::Done)
 }
 
 /// switch back to parent context

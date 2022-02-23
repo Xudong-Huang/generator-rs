@@ -339,18 +339,10 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // init the ref to 0 means that it's ready to start
         self.context._ref = 0;
         let ret = &mut self.ret as *mut _;
-        let context = &mut self.context as *mut Context;
         // alloc the function on stack
         let func = StackBox::new_fn_once(&mut self.stack, move || {
             let r = f();
-            let ret = unsafe { &mut *ret };
-            let _ref = unsafe { (*context)._ref };
-            if _ref == 0xf {
-                ::std::mem::forget(r);
-                *ret = None; // this is a done return
-            } else {
-                *ret = Some(r); // normal return
-            }
+            unsafe { *ret = Some(r) };
         });
 
         self.f = Some(func);
@@ -548,11 +540,15 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
     };
 
     fn check_err(cause: Box<dyn Any + Send + 'static>) {
-        if let Some(&Error::Cancel) = cause.downcast_ref::<Error>() {
-            // this is not an error at all, ignore it
-            return;
+        if let Some(e) = cause.downcast_ref::<Error>() {
+            match e {
+                // this is not an error at all, ignore it
+                Error::Cancel | Error::Done => return,
+                _ => {}
+            }
         }
-        error!("set panicked inside generator");
+
+        error!("set panic inside generator");
         ContextStack::current().top().err = Some(cause);
     }
 
@@ -564,5 +560,5 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
 
     yield_now();
 
-    unreachable!("Should never comeback");
+    unreachable!("Should never come back");
 }

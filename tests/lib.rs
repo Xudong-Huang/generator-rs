@@ -193,20 +193,20 @@ fn test_inner_ref() {
         // setup something
         let mut x: u32 = 10;
 
-        // return interal ref not compiled becuase the
-        // lifetime of interal ref is smaller than the generator
+        // return internal ref not compiled because the
+        // lifetime of internal ref is smaller than the generator
         // but the generator interface require the return type's
         // lifetime bigger than the generator
 
         // the x memory remains on heap even returned!
-        // the life time of x is assosiated with the generator
-        // however modify this interal value is really unsafe
+        // the life time of x is associated with the generator
+        // however modify this internal value is really unsafe
         // but this is useful pattern for setup and teardown
         // which can be put in the same place
         // s.yield_(&mut x);
         s.yield_(unsafe { mem::transmute(&mut x) });
 
-        // this was modified by the xvoker
+        // this was modified by the invoker
         assert!(x == 5);
         // teardown happened when the generator get dropped
         // this is just a safe dummy ret
@@ -516,7 +516,7 @@ fn done_in_normal() {
 
 #[test]
 #[should_panic]
-fn invaild_yield_in_scope() {
+fn invalid_yield_in_scope() {
     let g = Gn::new_scoped(|_| {
         // invalid use raw yield API with scope
         yield_::<String, _>(());
