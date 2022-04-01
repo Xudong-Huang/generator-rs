@@ -6,7 +6,7 @@ enum Action {
     Stop,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum State {
     Playing,
     Stopped,
@@ -19,6 +19,10 @@ fn main() {
     let mut cd_player = Gn::new_scoped(|mut s| {
         let mut state = Stopped;
         loop {
+            // println!("{:?}", *state);
+            // in release mod without this there is bugs!!!!! (rustc 1.59.0 (9d1b2106e 2022-02-23))
+            std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::AcqRel);
+
             match state {
                 Stopped => match s.get_yield() {
                     Some(Play(t)) => {
@@ -44,11 +48,17 @@ fn main() {
     });
 
     for _ in 0..1000 {
-        cd_player.send(Play("hello world"));
-        cd_player.send(Play("hello another day"));
-        cd_player.send(Stop);
-        cd_player.send(Stop);
-        cd_player.send(Play("hello another day"));
-        cd_player.send(Stop);
+        let ret = cd_player.send(Play("hello world"));
+        assert_eq!(ret, Playing);
+        let ret = cd_player.send(Play("hello another day"));
+        assert_eq!(ret, Playing);
+        let ret = cd_player.send(Stop);
+        assert_eq!(ret, Stopped);
+        let ret = cd_player.send(Stop);
+        assert_eq!(ret, Stopped);
+        let ret = cd_player.send(Play("hello another day"));
+        assert_eq!(ret, Playing);
+        let ret = cd_player.send(Stop);
+        assert_eq!(ret, Stopped);
     }
 }
