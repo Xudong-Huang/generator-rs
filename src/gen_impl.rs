@@ -530,6 +530,27 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
     }
 }
 
+/// don't print panic info for Done/Cancel
+fn catch_unwind_filter<F: FnOnce() -> R + panic::UnwindSafe, R>(f: F) -> std::thread::Result<R> {
+    use std::sync::Once;
+    static INIT: std::sync::Once = Once::new();
+    INIT.call_once(|| {
+        let prev_hook = panic::take_hook();
+        panic::set_hook(Box::new(move |info| {
+            if let Some(e) = info.payload().downcast_ref::<Error>() {
+                match e {
+                    // this is not an error at all, ignore it
+                    Error::Cancel | Error::Done => return,
+                    _ => {}
+                }
+            }
+            prev_hook(info);
+        }));
+    });
+
+    panic::catch_unwind(f)
+}
+
 /// the init function passed to reg_context
 fn gen_init(_: usize, f: *mut usize) -> ! {
     let clo = move || {
@@ -554,7 +575,7 @@ fn gen_init(_: usize, f: *mut usize) -> ! {
 
     // we can't panic inside the generator context
     // need to propagate the panic to the main thread
-    if let Err(cause) = panic::catch_unwind(clo) {
+    if let Err(cause) = catch_unwind_filter(clo) {
         check_err(cause);
     }
 
