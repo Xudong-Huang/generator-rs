@@ -171,7 +171,7 @@ impl<T> std::ops::Deref for StackBox<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        unsafe { &*self.ptr.as_ref() }
+        unsafe { self.ptr.as_ref() }
     }
 }
 

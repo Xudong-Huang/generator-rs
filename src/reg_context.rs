@@ -94,7 +94,7 @@ mod test {
         let ctx = RegContext::new(
             init_fn,
             unsafe { transmute(&cur) },
-            unsafe { transmute(callback as usize) },
+            callback as *mut usize,
             &stk,
         );
 

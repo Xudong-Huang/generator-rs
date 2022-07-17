@@ -7,9 +7,7 @@ use generator::*;
 
 #[test]
 fn test_return() {
-    let mut g = Gn::new_scoped(|_s| {
-        return 42;
-    });
+    let mut g = Gn::new_scoped(|_s| 42u32);
     assert_eq!(g.next(), Some(42));
     assert!(g.is_done());
 }
@@ -497,7 +495,7 @@ fn test_re_init() {
     assert_eq!(g.next(), Some(0));
     assert_eq!(g.next(), Some(3));
     assert_eq!(g.next(), Some(5));
-    assert_eq!(g.is_done(), true);
+    assert!(g.is_done());
 
     // re-init generator
     g.scoped_init(clo());
@@ -505,7 +503,7 @@ fn test_re_init() {
     assert_eq!(g.next(), Some(0));
     assert_eq!(g.next(), Some(3));
     assert_eq!(g.next(), Some(5));
-    assert_eq!(g.is_done(), true);
+    assert!(g.is_done());
 }
 
 #[test]
