@@ -277,7 +277,7 @@ impl SysStack {
         let page_size = sys::page_size();
         let min_stack_size = sys::min_stack_size();
         let max_stack_size = sys::max_stack_size();
-        let add_shift = if protected { 1 } else { 0 };
+        let add_shift = i32::from(protected);
         let add = page_size << add_shift;
 
         if size < min_stack_size {
