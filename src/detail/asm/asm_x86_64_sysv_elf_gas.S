@@ -3,7 +3,7 @@
 .type prefetch,@function
 .align 16
 prefetch:
-    prefetcht1 (%rdi)
+    prefetcht2 (%rdi)
     ret
 .size prefetch,.-prefetch
 

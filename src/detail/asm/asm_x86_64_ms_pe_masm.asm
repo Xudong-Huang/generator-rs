@@ -2,7 +2,7 @@
 
 prefetch_asm PROC FRAME
     .endprolog
-    prefetcht1 [rcx]
+    prefetcht2 [rcx]
     ret
 prefetch_asm ENDP
 

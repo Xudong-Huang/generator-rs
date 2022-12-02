@@ -73,7 +73,8 @@ fn main() {
     let file_name = file_name.concat();
 
     path.push(file_name);
-    config.file(path.to_str().unwrap());
+    println!("cargo:rerun-if-changed={}", path.display());
+    config.file(path);
 
     // create the static asm libary
     config.compile("libasm.a");

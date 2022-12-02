@@ -2,7 +2,7 @@
 .globl _prefetch
 .align 8
 _prefetch:
-    prefetcht1 (%rdi)
+    prefetcht2 (%rdi)
     ret
 
 .text

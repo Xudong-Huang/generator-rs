@@ -6,7 +6,7 @@
 .seh_proc	prefetch_asm
 prefetch_asm:
 .seh_endprologue
-    prefetcht1 (%rdi)
+    prefetcht2 (%rdi)
     ret
 .seh_endproc
 
@@ -50,7 +50,7 @@ swap_registers:
     /* align mem */
     mov %rcx, %r10
     and $0xf0, %r10b
-    
+
     /* Save non-volatile XMM registers */
     movapd %xmm6, (16*8)(%r10)
     movapd %xmm7, (18*8)(%r10)
@@ -62,7 +62,7 @@ swap_registers:
     movapd %xmm13, (30*8)(%r10)
     movapd %xmm14, (32*8)(%r10)
     movapd %xmm15, (34*8)(%r10)
-    
+
     /* load NT_TIB */
     movq %gs:(0x30), %r10
     /* save current stack base */
@@ -77,9 +77,9 @@ swap_registers:
     /* save fiber local storage */
     /* movq  0x18(%r10), %rax */
     /* mov  %rax, (14*8)(%rcx) */
-    
+
     ; mov %rcx, (3*8)(%rcx)
-    
+
     mov (0*8)(%rdx), %rbx
     mov (1*8)(%rdx), %rsp
     mov (2*8)(%rdx), %rbp
@@ -89,7 +89,7 @@ swap_registers:
     mov (7*8)(%rdx), %r15
     mov (9*8)(%rdx), %rdi
     mov (10*8)(%rdx), %rsi
-    
+
     /* align mem */
     mov %rdx, %r10
     and $0xf0, %r10b
@@ -104,7 +104,7 @@ swap_registers:
     movapd (30*8)(%r10), %xmm13
     movapd (32*8)(%r10), %xmm14
     movapd (34*8)(%r10), %xmm15
-    
+
     /* load NT_TIB */
     movq  %gs:(0x30), %r10
     /* restore fiber local storage */
@@ -119,7 +119,7 @@ swap_registers:
     /* restore stack base */
     mov  (11*8)(%rdx), %rax
     movq  %rax, 0x8(%r10)
-    
+
     ; mov (3*8)(%rdx), %rcx
     ret
 .seh_endproc
