@@ -26,9 +26,10 @@ impl Registers {
 
     #[inline]
     pub fn prefetch(&self) {
+        let ptr = self.gpr[12] as *const usize;
         unsafe {
-            prefetch(self as *const _ as *const usize);
-            prefetch(self.gpr[1] as *const usize);
+            prefetch(ptr); // RSP
+            prefetch(ptr.add(8)); // RSP + 8
         }
     }
 }
