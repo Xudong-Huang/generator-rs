@@ -45,6 +45,7 @@ pub enum Error {
 
 /// generator context
 #[repr(C)]
+#[repr(align(128))]
 pub struct Context {
     /// generator regs context
     pub regs: RegContext,
