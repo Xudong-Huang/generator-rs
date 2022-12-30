@@ -209,8 +209,7 @@ impl Display for StackError {
         match *self {
             StackError::ExceedsMaximumSize(size) => write!(
                 fmt,
-                "Requested more than max size of {} bytes for a stack",
-                size
+                "Requested more than max size of {size} bytes for a stack"
             ),
             StackError::IoError(ref e) => e.fmt(fmt),
         }
