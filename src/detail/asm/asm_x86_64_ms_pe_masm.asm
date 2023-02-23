@@ -103,7 +103,7 @@ swap_registers PROC FRAME
 
     ; mov rcx, [rdx + 3*8]
     pop rax
-    jmp *rax
+    jmp rax
 swap_registers ENDP
 
 END

@@ -122,7 +122,7 @@ swap_registers:
 
     ; mov (3*8)(%rdx), %rcx
     pop %rax
-    jmp *%rax
+    jmp %rax
 .seh_endproc
 
 .section .drectve
