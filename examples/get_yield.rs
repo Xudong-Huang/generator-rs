@@ -19,6 +19,6 @@ fn main() {
     let mut i = 1u32;
     while !s.is_done() {
         i = s.send(i);
-        println!("{}", i);
+        println!("{i}");
     }
 }

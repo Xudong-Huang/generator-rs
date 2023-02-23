@@ -94,20 +94,20 @@ mod asm_impl {
 
                     /* load NT_TIB */
                     movq  %gs:(0x30), %r10
-                    /* save current stack base */
+/* save current stack base */
                     movq  0x08(%r10), %rax
                     mov  %rax, (11*8)(%rcx)
-                    /* save current stack limit */
+/* save current stack limit */
                     movq  0x10(%r10), %rax
                      mov  %rax, (12*8)(%rcx)
-                    /* save current deallocation stack */
+/* save current deallocation stack */
                     movq  0x1478(%r10), %rax
                     mov  %rax, (13*8)(%rcx)
-                    /* save fiber local storage */
-                    // movq  0x18(%r10), %rax
-                    // mov  %rax, (14*8)(%rcx)
+/* save fiber local storage */
+// movq  0x18(%r10), %rax
+// mov  %rax, (14*8)(%rcx)
 
-                    // mov %rcx, (3*8)(%rcx)
+// mov %rcx, (3*8)(%rcx)
 
                     mov (0*8)(%rdx), %rbx
                     mov (1*8)(%rdx), %rsp
@@ -119,7 +119,7 @@ mod asm_impl {
                     mov (9*8)(%rdx), %rdi
                     mov (10*8)(%rdx), %rsi
 
-                    // Restore non-volatile XMM registers:
+// Restore non-volatile XMM registers:
                     movapd (16*8)(%rdx), %xmm6
                     movapd (18*8)(%rdx), %xmm7
                     movapd (20*8)(%rdx), %xmm8
@@ -131,22 +131,22 @@ mod asm_impl {
                     movapd (32*8)(%rdx), %xmm14
                     movapd (34*8)(%rdx), %xmm15
 
-                    /* load NT_TIB */
+/* load NT_TIB */
                     movq  %gs:(0x30), %r10
-                    /* restore fiber local storage */
-                    // mov (14*8)(%rdx), %rax
-                    // movq  %rax, 0x18(%r10)
-                    /* restore deallocation stack */
+/* restore fiber local storage */
+// mov (14*8)(%rdx), %rax
+// movq  %rax, 0x18(%r10)
+/* restore deallocation stack */
                     mov (13*8)(%rdx), %rax
                     movq  %rax, 0x1478(%r10)
-                    /* restore stack limit */
+/* restore stack limit */
                     mov (12*8)(%rdx), %rax
                     movq  %rax, 0x10(%r10)
-                    /* restore stack base */
+/* restore stack base */
                     mov  (11*8)(%rdx), %rax
                     movq  %rax, 0x8(%r10)
 
-                    // mov (3*8)(%rdx), %rcx
+// mov (3*8)(%rdx), %rcx
                 "
                 // why save the rcx and rdx in stack? this will overwrite something!
                 // the naked function should only use the asm block, debug version breaks

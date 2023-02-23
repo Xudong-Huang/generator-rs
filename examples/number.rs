@@ -19,12 +19,12 @@ fn factors(n: u32) -> Generator<'static, (), u32> {
 
 fn main() {
     for i in factors(28) {
-        println!("{}", i);
+        println!("{i}");
     }
 
     (0..10000)
         .filter(|n| factors(*n).sum::<u32>() == *n)
         .fold((), |_, n| {
-            println!("n = {}", n);
+            println!("n = {n}");
         })
 }

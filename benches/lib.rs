@@ -23,7 +23,7 @@ fn yield_bench(b: &mut Bencher) {
             20
         });
 
-        for i in 0..1000_000 {
+        for i in 0..1_000_000 {
             let data = g.send(());
             assert_eq!(data, i);
         }
@@ -119,15 +119,8 @@ fn create_gen(b: &mut Bencher) {
     b.iter(|| {
         let g = Gn::<()>::new_scoped(|mut s| {
             let mut i = 0;
-            loop {
-                match s.yield_(i) {
-                    Some(..) => {
-                        i += 1;
-                    }
-                    None => {
-                        break;
-                    }
-                }
+            while let Some(..) = s.yield_(i) {
+                i += 1;
             }
             i
         });
@@ -158,7 +151,7 @@ fn init_gen(b: &mut Bencher) {
     let mut g = Gn::<()>::new_scoped(clo_gen());
     assert_eq!(g.raw_send(None), Some(0)); // start
     assert_eq!(g.raw_send(None), Some(1)); // cancel
-    assert_eq!(g.is_done(), true);
+    assert!(g.is_done());
 
     b.iter(|| {
         let clo = clo_gen();

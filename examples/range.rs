@@ -12,5 +12,5 @@ fn main() {
     });
 
     let sum: usize = range.sum();
-    println!("sum ={}", sum);
+    println!("sum ={sum}");
 }

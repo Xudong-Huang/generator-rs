@@ -40,7 +40,8 @@ swap_registers:
     mov (6*8)(%rsi), %r14
     mov (7*8)(%rsi), %r15
 
-    ret
+    pop %rax
+    jmp *%rax
 .size bootstrap_green_task,.-bootstrap_green_task
 
 /* Mark that we don't need executable stack. */

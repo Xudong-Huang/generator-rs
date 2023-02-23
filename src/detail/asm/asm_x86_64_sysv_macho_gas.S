@@ -35,4 +35,5 @@ _swap_registers:
     mov (6*8)(%rsi), %r14
     mov (7*8)(%rsi), %r15
 
-    ret
+    pop %rax
+    jmp *%rax

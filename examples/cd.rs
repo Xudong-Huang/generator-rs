@@ -26,7 +26,7 @@ fn main() {
             match state {
                 Stopped => match s.get_yield() {
                     Some(Play(t)) => {
-                        println!("I'm playing {}", t);
+                        println!("I'm playing {t}");
                         state = Playing;
                     }
                     Some(Stop) => println!("I'm already stopped"),

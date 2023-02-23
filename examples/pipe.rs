@@ -24,6 +24,6 @@ fn main() {
     }
 
     for (i, sum) in sum(square(0..20)).enumerate() {
-        println!("square_sum_{:<2} = {:^4}", i, sum);
+        println!("square_sum_{i:<2} = {sum:^4}");
     }
 }

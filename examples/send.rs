@@ -28,6 +28,6 @@ fn main() {
         mem::swap(&mut cur, &mut last);
         cur = s.send(cur); // s += cur
                            // println!("cur={} last={}", cur, last);
-        println!("{}", cur);
+        println!("{cur}");
     }
 }

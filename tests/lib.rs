@@ -281,7 +281,7 @@ fn test_panic_inside() {
         }) {
             match panic.downcast_ref::<&str>() {
                 // why can't get the message here?? is it lost?
-                Some(msg) => println!("get panic: {:?}", msg),
+                Some(msg) => println!("get panic: {msg:?}"),
                 None => println!("can't get panic message"),
             }
         }
