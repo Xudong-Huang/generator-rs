@@ -53,7 +53,7 @@ swap_registers:
     ldp d12, d13, [x1, #144]
     ldp d14, d15, [x1, #160]
 
-    ret
+    br x30
 .size swap_registers,.-swap_registers
 
 /* Mark that we don't need executable stack. */
