@@ -161,22 +161,14 @@ impl<'a, T, const LOCAL: bool> Iterator for GeneratorObj<'a, (), T, LOCAL> {
 }
 
 impl<'a, A, T, const LOCAL: bool> fmt::Debug for GeneratorObj<'a, A, T, LOCAL> {
-    #[cfg(nightly)]
-    #[allow(unused_unsafe)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use std::intrinsics::type_name;
         write!(
             f,
             "Generator<{}, Output={}, Local={}> {{ ... }}",
-            unsafe { type_name::<A>() },
-            unsafe { type_name::<T>() },
+            std::any::type_name::<A>(),
+            std::any::type_name::<T>(),
             LOCAL
         )
-    }
-
-    #[cfg(not(nightly))]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Generator {{ ... }}")
     }
 }
 
