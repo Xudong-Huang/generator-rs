@@ -261,18 +261,7 @@ impl ContextStack {
 
 #[inline]
 fn type_error<A>(msg: &str) -> ! {
-    #[cfg(nightly)]
-    #[allow(unused_unsafe)]
-    {
-        use std::intrinsics::type_name;
-        let t = unsafe { type_name::<A>() };
-        error!("{}, expected type: {}", msg, t);
-    }
-
-    #[cfg(not(nightly))]
-    {
-        error!("{}", msg);
-    }
+    error!("{msg}, expected type: {}", std::any::type_name::<A>());
     std::panic::panic_any(Error::TypeErr)
 }
 
