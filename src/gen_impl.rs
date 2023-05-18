@@ -15,7 +15,7 @@ use crate::scope::Scope;
 use crate::stack::{Func, Stack, StackBox};
 use crate::yield_::yield_now;
 
-// default stack size, in usize
+/// The default stack size for generators, in bytes.
 // windows has a minimal size as 0x4a8!!!!
 pub const DEFAULT_STACK_SIZE: usize = 0x1000;
 

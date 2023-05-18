@@ -19,7 +19,7 @@ mod scope;
 mod stack;
 mod yield_;
 
-pub use crate::gen_impl::{Generator, Gn, LocalGenerator};
+pub use crate::gen_impl::{Generator, Gn, LocalGenerator, DEFAULT_STACK_SIZE};
 pub use crate::rt::{get_local_data, is_generator, Error};
 pub use crate::scope::Scope;
 pub use crate::yield_::{
