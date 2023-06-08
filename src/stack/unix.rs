@@ -87,6 +87,7 @@ pub fn min_stack_size() -> usize {
     page_size()
 }
 
+#[cfg(not(target_os = "fuchsia"))]
 pub fn max_stack_size() -> usize {
     static PAGE_SIZE: AtomicUsize = AtomicUsize::new(0);
 
@@ -113,4 +114,10 @@ pub fn max_stack_size() -> usize {
     }
 
     ret
+}
+
+#[cfg(target_os = "fuchsia")]
+pub fn max_stack_size() -> usize {
+    // Fuchsia doesn't have a platform defined hard cap.
+    usize::MAX
 }
