@@ -42,6 +42,7 @@ pub struct StackBox<T> {
 
 impl<T> StackBox<T> {
     /// create uninit stack box
+    #[allow(clippy::needless_pass_by_ref_mut)]
     fn new_uninit(stack: &mut Stack, need_drop: usize) -> MaybeUninit<Self> {
         let offset = unsafe { &mut *stack.get_offset() };
         // alloc the data

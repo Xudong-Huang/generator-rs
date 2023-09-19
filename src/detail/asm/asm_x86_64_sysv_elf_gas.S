@@ -42,7 +42,7 @@ swap_registers:
 
     pop %rax
     jmp *%rax
-.size bootstrap_green_task,.-bootstrap_green_task
+.size swap_registers,.-swap_registers
 
 /* Mark that we don't need executable stack. */
 .section .note.GNU-stack,"",%progbits

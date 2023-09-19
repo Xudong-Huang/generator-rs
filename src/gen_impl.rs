@@ -544,7 +544,7 @@ fn catch_unwind_filter<F: FnOnce() -> R + panic::UnwindSafe, R>(f: F) -> std::th
 }
 
 /// the init function passed to reg_context
-fn gen_init(_: usize, f: *mut usize) -> ! {
+extern "C" fn gen_init(_: usize, f: *mut usize) -> ! {
     let clo = move || {
         // consume self.f
         let f: &mut Option<Func> = unsafe { &mut *(f as *mut _) };

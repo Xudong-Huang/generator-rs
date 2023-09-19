@@ -49,7 +49,7 @@ pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
     debug_assert!(stack.len() % page_size == 0 && stack.len() != 0);
 
     let ret = {
-        let bottom = stack.bottom() as *mut libc::c_void;
+        let bottom = stack.bottom();
         libc::mprotect(bottom, page_size, libc::PROT_NONE)
     };
 
@@ -62,7 +62,7 @@ pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
 }
 
 pub unsafe fn deallocate_stack(ptr: *mut c_void, size: usize) {
-    libc::munmap(ptr as *mut libc::c_void, size);
+    libc::munmap(ptr, size);
 }
 
 pub fn page_size() -> usize {

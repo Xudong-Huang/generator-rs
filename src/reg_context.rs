@@ -8,7 +8,7 @@ pub struct RegContext {
 }
 
 // first argument is task handle, second is thunk ptr
-pub type InitFn = fn(usize, *mut usize) -> !;
+pub type InitFn = extern "C" fn(usize, *mut usize) -> !;
 
 impl RegContext {
     pub fn empty() -> RegContext {
@@ -69,7 +69,7 @@ mod test {
 
     const MIN_STACK: usize = 1024;
 
-    fn init_fn(arg: usize, f: *mut usize) -> ! {
+    extern "C" fn init_fn(arg: usize, f: *mut usize) -> ! {
         let func: fn() = unsafe { transmute(f) };
         func();
 
