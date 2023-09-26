@@ -22,6 +22,7 @@ fn main() {
         // "mips" | "mipsel" => "mips32",
         // "powerpc" => "ppc32",
         // "powerpc64" => "ppc64",
+        "loongarch64" => "loongarch64",
         "x86_64" => "x86_64",
         _ => {
             panic!("Unsupported architecture: {target}");

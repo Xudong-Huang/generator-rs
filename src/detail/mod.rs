@@ -33,6 +33,10 @@ pub mod asm;
 #[path = "aarch64_unix.rs"]
 pub mod asm;
 
+#[cfg(all(unix, target_arch = "loongarch64"))]
+#[path = "loongarch64_unix.rs"]
+pub mod asm;
+
 pub use self::asm::{initialize_call_frame, prefetch, swap_registers, Registers};
 
 #[inline]
