@@ -17,6 +17,10 @@ pub mod sys;
 #[path = "unix.rs"]
 pub mod sys;
 
+#[cfg(all(unix, target_arch = "loongarch64"))]
+#[path = "unix.rs"]
+pub mod sys;
+
 #[cfg(all(windows, target_arch = "x86_64"))]
 #[path = "windows.rs"]
 pub mod sys;

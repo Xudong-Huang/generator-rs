@@ -78,6 +78,7 @@ fn main() {
     - aarch64 Linux
     - aarch64 macOS
     - aarch64 Fuchsia
+    - loongarch64 Linux
 
 ## License
 
