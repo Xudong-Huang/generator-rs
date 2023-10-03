@@ -1,6 +1,12 @@
 use crate::detail::{align_down, mut_offset};
-use crate::reg_context::InitFn;
 use crate::stack::Stack;
+
+// first argument is task handle, second is thunk ptr
+pub type InitFn = extern "sysv64" fn(usize, *mut usize) -> !;
+
+pub extern "sysv64" fn gen_init(a1: usize, a2: *mut usize) -> ! {
+    super::gen::gen_init_impl(a1, a2)
+}
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "macos")] {

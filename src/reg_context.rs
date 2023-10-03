@@ -1,4 +1,4 @@
-use crate::detail::{initialize_call_frame, swap_registers, Registers};
+use crate::detail::{initialize_call_frame, swap_registers, InitFn, Registers};
 use crate::stack::Stack;
 
 #[derive(Debug)]
@@ -6,9 +6,6 @@ pub struct RegContext {
     /// Hold the registers while the task or scheduler is suspended
     regs: Registers,
 }
-
-// first argument is task handle, second is thunk ptr
-pub type InitFn = extern "C" fn(usize, *mut usize) -> !;
 
 impl RegContext {
     pub fn empty() -> RegContext {
@@ -69,7 +66,7 @@ mod test {
 
     const MIN_STACK: usize = 1024;
 
-    extern "C" fn init_fn(arg: usize, f: *mut usize) -> ! {
+    fn init_fn_impl(arg: usize, f: *mut usize) -> ! {
         let func: fn() = unsafe { transmute(f) };
         func();
 
@@ -77,6 +74,26 @@ mod test {
         RegContext::load(ctx);
 
         unreachable!("Should never comeback");
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    extern "sysv64" fn init_fn(arg: usize, f: *mut usize) -> ! {
+        init_fn_impl(arg, f)
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    extern "C" fn init_fn(arg: usize, f: *mut usize) -> ! {
+        init_fn_impl(arg, f)
+    }
+
+    #[cfg(target_arch = "riscv64")]
+    extern "C" fn init_fn(arg: usize, f: *mut usize) -> ! {
+        init_fn_impl(arg, f)
+    }
+
+    #[cfg(target_arch = "arm")]
+    extern "aapcs" fn init_fn(arg: usize, f: *mut usize) -> ! {
+        init_fn_impl(arg, f)
     }
 
     #[test]
