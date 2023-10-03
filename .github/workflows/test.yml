@@ -54,20 +54,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup rust toolchain
+      - name: Setup rust cross-platform toolchain
         run: |
           rustup default nightly
           rustup target add ${{ matrix.target.tool }}
+          cargo install cross
 
       - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --target ${{ matrix.target.tool }}
-          use-cross: true
+        run: cross test --target ${{ matrix.target.tool }}
+
       - name: Test Release
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --target ${{ matrix.target.tool }} --release
-          use-cross: true
+        run: cross test --target ${{ matrix.target.tool }} --release
