@@ -29,7 +29,7 @@ jobs:
           - { name: Linux-x64, os: ubuntu-latest, tool: x86_64-unknown-linux-gnu }
           - { name: Linux-aarch64, os: ubuntu-latest, tool: aarch64-unknown-linux-gnu }
           - { name: Linux-armv7, os: ubuntu-latest, tool: armv7-unknown-linux-gnueabihf }
-          - { name: Linux-arm, os: ubuntu-latest, tool: arm-unknown-linux-gnueabihf }
+          #- { name: Linux-arm, os: ubuntu-latest, tool: arm-unknown-linux-gnueabihf }
           #- { name: Linux-mips64, os: ubuntu-latest, tool: mips64-unknown-linux-gnuabi64 }
           #- { name: Linux-powerpc64, os: ubuntu-latest, tool: powerpc64-unknown-linux-gnu }
           #- { name: Linux-thumbv7, os: ubuntu-latest, tool: thumbv7neon-unknown-linux-gnueabihf }
@@ -37,7 +37,7 @@ jobs:
           #- { name: Linux-s390x, os: ubuntu-latest, tool: s390x-unknown-linux-gnu }
           #- { name: Linux-sparc64, os: ubuntu-latest, tool: sparc64-unknown-linux-gnu }
           #- { name: iOS-aarch64, os: macos-latest, tool: aarch64-apple-ios }
-          - { name: Android-armv7, os: ubuntu-latest, tool: armv7-linux-androideabi }
+          #- { name: Android-armv7, os: ubuntu-latest, tool: armv7-linux-androideabi }
           - { name: Android-aarch64, os: ubuntu-latest, tool: aarch64-linux-android }
           - { name: Android-x64, os: ubuntu-latest, tool: x86_64-linux-android }
           #- { name: FreeBSD-x64, os: ubuntu-latest, tool: x86_64-unknown-freebsd }
