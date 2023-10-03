@@ -21,22 +21,16 @@
 // the `rust_swap_registers` function, but that's only because for now segmented
 // stacks are disabled.
 
-#[cfg(all(unix, target_arch = "x86_64"))]
-#[path = "x86_64_unix.rs"]
+#[cfg_attr(all(unix, target_arch = "aarch64"), path = "aarch64_unix.rs")]
+#[cfg_attr(all(unix, target_arch = "arm"), path = "arm_unix.rs")]
+#[cfg_attr(all(unix, target_arch = "x86_64"), path = "x86_64_unix.rs")]
+#[cfg_attr(all(windows, target_arch = "x86_64"), path = "x86_64_windows.rs")]
+#[cfg_attr(all(unix, target_arch = "loongarch64"), path = "loongarch64_unix.rs")]
+#[cfg_attr(all(unix, target_arch = "riscv64"), path = "riscv64_unix.rs")]
 pub mod asm;
 
-#[cfg(all(windows, target_arch = "x86_64"))]
-#[path = "x86_64_windows.rs"]
-pub mod asm;
-
-#[cfg(all(unix, target_arch = "aarch64"))]
-#[path = "aarch64_unix.rs"]
-pub mod asm;
-
-#[cfg(all(unix, target_arch = "loongarch64"))]
-#[path = "loongarch64_unix.rs"]
-pub mod asm;
 mod gen;
+
 
 pub use self::asm::{gen_init, initialize_call_frame, prefetch, swap_registers, InitFn, Registers};
 
