@@ -9,20 +9,8 @@ use std::mem::MaybeUninit;
 use std::os::raw::c_void;
 use std::ptr;
 
-#[cfg(all(unix, target_arch = "x86_64"))]
-#[path = "unix.rs"]
-pub mod sys;
-
-#[cfg(all(unix, target_arch = "aarch64"))]
-#[path = "unix.rs"]
-pub mod sys;
-
-#[cfg(all(unix, target_arch = "loongarch64"))]
-#[path = "unix.rs"]
-pub mod sys;
-
-#[cfg(all(windows, target_arch = "x86_64"))]
-#[path = "windows.rs"]
+#[cfg_attr(unix, path = "unix.rs")]
+#[cfg_attr(windows, path = "windows.rs")]
 pub mod sys;
 
 // must align with StackBoxHeader
