@@ -2,9 +2,17 @@ use crate::detail::{align_down, mut_offset};
 use crate::reg_context::InitFn;
 use crate::stack::Stack;
 
+cfg_if::cfg_if! {
+    if #[cfg(target_os = "macos")] {
+        std::arch::global_asm!(include_str!("asm/asm_x86_64_sysv_macho.S"));
+    } else {
+        std::arch::global_asm!(include_str!("asm/asm_x86_64_sysv_elf.S"));
+    }
+}
+
 // #[cfg(not(nightly))]
-#[link(name = "asm", kind = "static")]
-extern "C" {
+//#[link(name = "asm", kind = "static")]
+extern "sysv64" {
     pub fn bootstrap_green_task();
     pub fn prefetch(data: *const usize);
     pub fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers);

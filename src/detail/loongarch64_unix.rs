@@ -2,7 +2,9 @@ use crate::detail::align_down;
 use crate::reg_context::InitFn;
 use crate::stack::Stack;
 
-#[link(name = "asm", kind = "static")]
+std::arch::global_asm!(include_str!("asm/asm_loongarch64_sysv_elf_gas.S"));
+
+//#[link(name = "asm", kind = "static")]
 extern "C" {
     pub fn bootstrap_green_task();
     pub fn prefetch(data: *const usize);

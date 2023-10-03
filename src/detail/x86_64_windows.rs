@@ -2,9 +2,11 @@ use crate::detail::{align_down, mut_offset};
 use crate::reg_context::InitFn;
 use crate::stack::Stack;
 
+std::arch::global_asm!(include_str!("asm/asm_x86_64_ms_pe.S"));
+
 // #[cfg(not(nightly))]
-#[link(name = "asm", kind = "static")]
-extern "C" {
+//#[link(name = "asm", kind = "static")]
+extern "sysv64" {
     pub fn bootstrap_green_task();
     pub fn prefetch_asm(data: *const usize);
     pub fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers);
@@ -165,31 +167,17 @@ mod asm_impl {
 pub use self::asm_impl::*;
 */
 
-// #[cfg_attr(nightly, repr(simd))]
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-struct Xmm(u32, u32, u32, u32);
-
-impl Xmm {
-    pub fn new(a: u32, b: u32, c: u32, d: u32) -> Self {
-        Xmm(a, b, c, d)
-    }
-}
-
 // windows need to restore xmm6~xmm15, for most cases only use two xmm registers
 #[repr(C)]
 #[derive(Debug)]
 pub struct Registers {
     gpr: [usize; 16],
-    // keep enough for place holder
-    _xmm: [Xmm; 10],
 }
 
 impl Registers {
     pub fn new() -> Registers {
         Registers {
             gpr: [0; 16],
-            _xmm: [Xmm::new(0, 0, 0, 0); 10],
         }
     }
 
