@@ -1,6 +1,12 @@
 use crate::detail::{align_down, mut_offset};
-use crate::reg_context::InitFn;
 use crate::stack::Stack;
+
+// first argument is task handle, second is thunk ptr
+pub type InitFn = extern "sysv64" fn(usize, *mut usize) -> !;
+
+pub extern "sysv64" fn gen_init(a1: usize, a2: *mut usize) -> ! {
+    super::gen::gen_init_impl(a1, a2)
+}
 
 std::arch::global_asm!(include_str!("asm/asm_x86_64_ms_pe.S"));
 
@@ -176,9 +182,7 @@ pub struct Registers {
 
 impl Registers {
     pub fn new() -> Registers {
-        Registers {
-            gpr: [0; 16],
-        }
+        Registers { gpr: [0; 16] }
     }
 
     #[inline]

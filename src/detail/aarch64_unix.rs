@@ -1,5 +1,4 @@
 use crate::detail::align_down;
-use crate::reg_context::InitFn;
 use crate::stack::Stack;
 
 cfg_if::cfg_if! {
@@ -8,6 +7,13 @@ cfg_if::cfg_if! {
     } else {
         std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_elf.S"));
     }
+}
+
+// first argument is task handle, second is thunk ptr
+pub type InitFn = extern "C" fn(usize, *mut usize) -> !;
+
+pub extern "C" fn gen_init(a1: usize, a2: *mut usize) -> ! {
+    super::gen::gen_init_impl(a1, a2)
 }
 
 //#[link(name = "asm", kind = "static")]
