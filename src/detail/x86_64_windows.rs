@@ -8,7 +8,7 @@ pub extern "sysv64" fn gen_init(a1: usize, a2: *mut usize) -> ! {
     super::gen::gen_init_impl(a1, a2)
 }
 
-std::arch::global_asm!(include_str!("asm/asm_x86_64_ms_pe.S"));
+std::arch::global_asm!(include_str!("asm/asm_x86_64_sysv_pe.S"));
 
 // #[cfg(not(nightly))]
 //#[link(name = "asm", kind = "static")]

@@ -1,4 +1,4 @@
-.file	"asm_x86_64_ms_pe.S"
+.file	"asm_x86_64_sysv_pe.S"
 .text
 .p2align 4,,15
 .globl	prefetch_asm
