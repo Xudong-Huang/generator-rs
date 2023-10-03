@@ -31,7 +31,6 @@ pub mod asm;
 
 mod gen;
 
-
 pub use self::asm::{gen_init, initialize_call_frame, prefetch, swap_registers, InitFn, Registers};
 
 #[inline]
