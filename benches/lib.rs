@@ -131,7 +131,7 @@ fn create_gen(b: &mut Bencher) {
 #[bench]
 fn init_gen(b: &mut Bencher) {
     let clo_gen = || {
-        |mut s: Scope<(), _>| {
+        |mut s: Scope<'_, 'static, (), _>| {
             let mut i = 0;
             loop {
                 match s.yield_(i) {
