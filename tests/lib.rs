@@ -482,7 +482,7 @@ fn test_scope_yield_from_send() {
 #[test]
 fn test_re_init() {
     let clo = || {
-        |mut s: Scope<(), _>| {
+        |mut s: Scope<'_, 'static, (), _>| {
             s.yield_(0);
             s.yield_(3);
             5

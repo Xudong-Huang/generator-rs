@@ -32,8 +32,9 @@ unsafe impl<A: Send, T: Send> Send for Generator<'static, A, T> {}
 
 impl<'a, A, T> Generator<'a, A, T> {
     /// init a heap based generator with scoped closure
-    pub fn scoped_init<F: FnOnce(Scope<'a, A, T>) -> T + Send + 'a>(&mut self, f: F)
+    pub fn scoped_init<F>(&mut self, f: F)
     where
+        for<'scope> F: FnOnce(Scope<'scope, 'a, A, T>) -> T + Send + 'a,
         T: Send + 'a,
         A: Send + 'a,
     {
@@ -55,8 +56,9 @@ pub type LocalGenerator<'a, A, T> = GeneratorObj<'a, A, T, true>;
 
 impl<'a, A, T> LocalGenerator<'a, A, T> {
     /// init a heap based generator with scoped closure
-    pub fn scoped_init<F: FnOnce(Scope<'a, A, T>) -> T + 'a>(&mut self, f: F)
+    pub fn scoped_init<F>(&mut self, f: F)
     where
+        for<'scope> F: FnOnce(Scope<'scope, 'a, A, T>) -> T + 'a,
         T: 'a,
         A: 'a,
     {
@@ -181,7 +183,7 @@ impl<A> Gn<A> {
     /// create a scoped generator with default stack size
     pub fn new_scoped<'a, T, F>(f: F) -> Generator<'a, A, T>
     where
-        F: FnOnce(Scope<A, T>) -> T + Send + 'a,
+        for<'scope> F: FnOnce(Scope<'scope, 'a, A, T>) -> T + Send + 'a,
         T: Send + 'a,
         A: Send + 'a,
     {
@@ -201,7 +203,7 @@ impl<A> Gn<A> {
     /// create a scoped generator with specified stack size
     pub fn new_scoped_opt<'a, T, F>(size: usize, f: F) -> Generator<'a, A, T>
     where
-        F: FnOnce(Scope<A, T>) -> T + Send + 'a,
+        for<'scope> F: FnOnce(Scope<'scope, 'a, A, T>) -> T + Send + 'a,
         T: Send + 'a,
         A: Send + 'a,
     {
@@ -302,8 +304,9 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     }
 
     /// init a heap based generator with scoped closure
-    fn scoped_init<F: FnOnce(Scope<'a, A, T>) -> T + 'a>(&mut self, f: F)
+    fn scoped_init<F>(&mut self, f: F)
     where
+        for<'scope> F: FnOnce(Scope<'scope, 'a, A, T>) -> T + 'a,
         T: 'a,
         A: 'a,
     {
