@@ -10,8 +10,11 @@ use std::panic::catch_unwind;
 fn test_overflow() {
     let result = catch_unwind(|| {
         let mut g = Gn::new_scoped(move |mut s: Scope<(), ()>| {
-            let mut _of = [0u8; 0x5000];
-            _of[0x5000 - 1] = 123;
+            let mut of = [0u8; 0x4000];
+            of[0x4000 - 1] = 123;
+            // make sure the compiler does not apply optimization on it
+            std::hint::black_box(of);
+
             s.yield_(());
         });
 
