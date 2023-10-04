@@ -117,14 +117,14 @@ pub mod overflow {
             let rip = *(rsp as *const usize);
             let rsp = rsp + std::mem::size_of::<usize>();
 
-            context.Rbx = rbx;
-            context.Rsp = rsp;
-            context.Rbp = rbp;
-            context.R12 = r12;
-            context.R13 = r13;
-            context.R14 = r14;
-            context.R15 = r15;
-            context.Rip = rip;
+            context.Rbx = rbx as u64;
+            context.Rsp = rsp as u64;
+            context.Rbp = rbp as u64;
+            context.R12 = r12 as u64;
+            context.R13 = r13 as u64;
+            context.R14 = r14 as u64;
+            context.R15 = r15 as u64;
+            context.Rip = rip as u64;
 
             let gs = context.SegGs as usize;
             let teb = gs + 0x30;
