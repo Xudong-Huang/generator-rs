@@ -314,13 +314,8 @@ impl Stack {
     /// Allocate a new stack of `size`. If size = 0, this is a `dummy_stack`
     pub fn new(size: usize) -> Stack {
         let track = (size & 1) != 0;
-        let mut bytes = size * std::mem::size_of::<usize>();
-        // the minimal size
-        let min_size = SysStack::min_size();
 
-        if bytes < min_size {
-            bytes = min_size;
-        }
+        let bytes = usize::max(size * std::mem::size_of::<usize>(), SysStack::min_size());
 
         let buf = SysStack::allocate(bytes, true).expect("failed to alloc sys stack");
 

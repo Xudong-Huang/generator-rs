@@ -93,11 +93,12 @@ pub mod overflow {
 
     unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTERS) -> i32 {
         const EXCEPTION_CONTINUE_SEARCH: i32 = 0x0;
+        const EXCEPTION_CONTINUE_EXECUTION: i32 = 0xffffffff;
 
         let rec = &(*(*exception_info).ExceptionRecord);
-        let code = rec.ExceptionCode;
+        let context = &mut (*(*exception_info).ContextRecord);
 
-        if code == EXCEPTION_STACK_OVERFLOW
+        if rec.ExceptionCode == EXCEPTION_STACK_OVERFLOW
             && guard::current().contains(&(rec.ExceptionAddress as usize))
         {
             eprintln!(
@@ -105,12 +106,39 @@ pub mod overflow {
                 std::thread::current().name().unwrap_or("<unknown>")
             );
 
-            ContextStack::current().top().err = Some(Box::new(Error::StackErr));
+            let env = ContextStack::current();
+            let cur = env.top();
+            cur.err = Some(Box::new(Error::StackErr));
 
-            yield_now();
+            let parent = env.pop_context(cur as *mut _);
+            let &[rbx, rsp, rbp, _, r12, r13, r14, r15, _, _, _, stack_base, stack_limit, dealloc_stack] =
+                &parent.regs.regs.gpr;
+
+            let rip = *(rsp as *const usize);
+            let rsp = rsp + std::mem::size_of::<usize>();
+
+            context.Rbx = rbx;
+            context.Rsp = rsp;
+            context.Rbp = rbp;
+            context.R12 = r12;
+            context.R13 = r13;
+            context.R14 = r14;
+            context.R15 = r15;
+            context.Rip = rip;
+
+            let gs = context.SegGs as usize;
+            let teb = gs + 0x30;
+
+            *((teb + 0x08) as *mut usize) = stack_base;
+            *((teb + 0x10) as *mut usize) = stack_limit;
+            *((teb + 0x1478) as *mut usize) = dealloc_stack;
+
+            //yield_now();
+
+            EXCEPTION_CONTINUE_EXECUTION
+        } else {
+            EXCEPTION_CONTINUE_SEARCH
         }
-
-        EXCEPTION_CONTINUE_SEARCH
     }
 
     unsafe fn init() {

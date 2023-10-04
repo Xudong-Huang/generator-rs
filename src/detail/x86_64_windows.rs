@@ -174,10 +174,11 @@ pub use self::asm_impl::*;
 */
 
 // windows need to restore xmm6~xmm15, for most cases only use two xmm registers
+// so we use sysv64
 #[repr(C)]
 #[derive(Debug)]
 pub struct Registers {
-    gpr: [usize; 16],
+    pub(crate) gpr: [usize; 16],
 }
 
 impl Registers {

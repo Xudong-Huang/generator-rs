@@ -313,10 +313,34 @@ pub mod guard {
 #[cfg(test)]
 mod test {
     use super::is_generator;
+    use crate::*;
 
     #[test]
     fn test_is_context() {
         // this is the root context
         assert!(!is_generator());
+    }
+
+    #[test]
+    fn test_overflow() {
+        use std::panic::catch_unwind;
+
+        let result = catch_unwind(|| {
+            let mut g = Gn::new_scoped(move |mut s: Scope<(), ()>| {
+                let guard = super::guard::current();
+
+                // make sure the compiler does not apply any optimization on it
+                std::hint::black_box(unsafe { *(guard.start as *const usize) });
+
+                s.yield_(());
+            });
+
+            g.next();
+        });
+
+        assert_eq!(
+            result.unwrap_err().downcast_ref::<Error>(),
+            Some(&Error::StackErr)
+        );
     }
 }
