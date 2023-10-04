@@ -338,9 +338,9 @@ mod test {
             g.next();
         });
 
-        assert_eq!(
+        assert!(matches!(
             result.unwrap_err().downcast_ref::<Error>(),
-            Some(&Error::StackErr)
-        );
+            Some(Error::StackErr)
+        ));
     }
 }

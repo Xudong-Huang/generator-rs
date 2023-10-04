@@ -111,7 +111,7 @@ pub mod overflow {
             cur.err = Some(Box::new(Error::StackErr));
 
             let parent = env.pop_context(cur as *mut _);
-            let &[rbx, rsp, rbp, _, r12, r13, r14, r15, _, _, _, stack_base, stack_limit, dealloc_stack] =
+            let &[rbx, rsp, rbp, _, r12, r13, r14, r15, _, _, _, stack_base, stack_limit, dealloc_stack, ..] =
                 &parent.regs.regs.gpr;
 
             let rip = *(rsp as *const usize);
