@@ -3,7 +3,7 @@
 .text
 .globl prefetch
 .type prefetch,@function
-.align 16
+.align 1
 prefetch:
     ret
 .size prefetch,.-prefetch
@@ -11,7 +11,7 @@ prefetch:
 .text
 .globl bootstrap_green_task
 .type bootstrap_green_task,@function
-.align 16
+.align 1
 bootstrap_green_task:
      mv a0, s2   // arg0
      mv a1, s3   // arg1
@@ -22,7 +22,7 @@ bootstrap_green_task:
 .text
 .globl swap_registers
 .type swap_registers,@function
-.align 16
+.align 1
 swap_registers:
      sd s2, 0*8(a0)
      sd s3, 1*8(a0)

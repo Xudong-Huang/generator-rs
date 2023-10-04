@@ -1,13 +1,13 @@
 .text
 .globl _prefetch
-.align 8
+.align 2
 _prefetch:
     prfm pldl1keep, [x0]
     ret
 
 .text
 .globl _bootstrap_green_task
-.align 8
+.align 2
 _bootstrap_green_task:
     mov x0, x19  // arg0
     mov x1, x20  // arg1
@@ -16,7 +16,7 @@ _bootstrap_green_task:
 
 .text
 .globl _swap_registers
-.align 8
+.align 2
 _swap_registers:
     stp x19, x20, [x0, #0]
     stp x21, x22, [x0, #16]

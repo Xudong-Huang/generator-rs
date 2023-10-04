@@ -1,7 +1,7 @@
 .text
 .globl prefetch
 .type prefetch, %function
-.align 16
+.align 2
 prefetch:
     pld [r0]
     bx lr
@@ -10,7 +10,7 @@ prefetch:
 .text
 .globl bootstrap_green_task
 .type bootstrap_green_task, %function
-.align 16
+.align 2
 bootstrap_green_task:
      mov r0, r4 // arg0
      mov r1, r5 // arg1
@@ -21,7 +21,7 @@ bootstrap_green_task:
 .text
 .globl swap_registers
 .type swap_registers, %function
-.align 16
+.align 2
 swap_registers:
      // Android doesn't like to use sp directly
      stmia r0!, {{v1-v7, fp}}
