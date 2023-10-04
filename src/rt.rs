@@ -313,7 +313,6 @@ pub mod guard {
 #[cfg(test)]
 mod test {
     use super::is_generator;
-    use crate::*;
 
     #[test]
     fn test_is_context() {
@@ -321,8 +320,10 @@ mod test {
         assert!(!is_generator());
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn test_overflow() {
+        use crate::*;
         use std::panic::catch_unwind;
 
         let result = catch_unwind(|| {

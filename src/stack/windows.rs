@@ -82,8 +82,11 @@ pub fn max_stack_size() -> usize {
 }
 
 pub mod overflow {
-    use crate::rt::{guard, ContextStack};
-    use crate::Error;
+    use crate::rt::{
+        guard,
+        //ContextStack
+    };
+    //use crate::Error;
     use std::sync::Once;
     use windows::Win32::Foundation::EXCEPTION_STACK_OVERFLOW;
     use windows::Win32::System::Diagnostics::Debug::{
@@ -92,10 +95,10 @@ pub mod overflow {
 
     unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTERS) -> i32 {
         const EXCEPTION_CONTINUE_SEARCH: i32 = 0x0;
-        const EXCEPTION_CONTINUE_EXECUTION: i32 = 0xffffffffu32 as i32;
+        //const EXCEPTION_CONTINUE_EXECUTION: i32 = 0xffffffffu32 as i32;
 
         let rec = &(*(*exception_info).ExceptionRecord);
-        let context = &mut (*(*exception_info).ContextRecord);
+        //let context = &mut (*(*exception_info).ContextRecord);
 
         if rec.ExceptionCode == EXCEPTION_STACK_OVERFLOW
             && guard::current().contains(&(rec.ExceptionAddress as usize))
@@ -104,7 +107,7 @@ pub mod overflow {
                 "\ncoroutine in thread '{}' has overflowed its stack\n",
                 std::thread::current().name().unwrap_or("<unknown>")
             );
-
+/*
             let env = ContextStack::current();
             let cur = env.top();
             cur.err = Some(Box::new(Error::StackErr));
@@ -134,7 +137,11 @@ pub mod overflow {
 
             //yield_now();
 
-            EXCEPTION_CONTINUE_EXECUTION
+ */
+
+            //EXCEPTION_CONTINUE_EXECUTION
+
+            std::process::abort();
         } else {
             EXCEPTION_CONTINUE_SEARCH
         }
