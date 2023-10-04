@@ -83,7 +83,6 @@ pub fn max_stack_size() -> usize {
 
 pub mod overflow {
     use crate::rt::{guard, ContextStack};
-    use crate::yield_::yield_now;
     use crate::Error;
     use std::sync::Once;
     use windows::Win32::Foundation::EXCEPTION_STACK_OVERFLOW;
@@ -93,7 +92,7 @@ pub mod overflow {
 
     unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTERS) -> i32 {
         const EXCEPTION_CONTINUE_SEARCH: i32 = 0x0;
-        const EXCEPTION_CONTINUE_EXECUTION: i32 = 0xffffffff;
+        const EXCEPTION_CONTINUE_EXECUTION: i32 = 0xffffffffu32 as i32;
 
         let rec = &(*(*exception_info).ExceptionRecord);
         let context = &mut (*(*exception_info).ContextRecord);
