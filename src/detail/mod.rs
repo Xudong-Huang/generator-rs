@@ -1,3 +1,5 @@
+#![allow(clippy::eq_op)]
+
 // Register contexts used in various architectures
 //
 // These structures all represent a context of one task throughout its

@@ -121,3 +121,70 @@ pub fn max_stack_size() -> usize {
     // Fuchsia doesn't have a platform defined hard cap.
     usize::MAX
 }
+
+pub mod overflow {
+    use crate::rt::{guard, ContextStack};
+    use crate::yield_::yield_now;
+    use crate::Error;
+    use libc::{sigaction, sighandler_t, SA_ONSTACK, SA_SIGINFO, SIGBUS, SIGSEGV, SIG_DFL};
+    use std::mem;
+    use std::sync::Once;
+
+    static mut SIG_HANDLER: sighandler_t = 0;
+
+    unsafe extern "C" fn signal_handler(
+        signum: libc::c_int,
+        info: *mut libc::siginfo_t,
+        ctx: *mut libc::c_void,
+    ) {
+        let handler = SIG_HANDLER;
+        if handler == SIG_DFL {
+            return;
+        }
+
+        let addr = (*info).si_addr() as usize;
+        let guard = guard::current();
+
+        if !guard.contains(&addr) {
+            let handler: unsafe extern "C" fn(
+                signum: libc::c_int,
+                info: *mut libc::siginfo_t,
+                _data: *mut libc::c_void,
+            ) = mem::transmute(handler);
+
+            handler(signum, info, ctx);
+            return;
+        }
+
+        eprintln!(
+            "\ncoroutine in thread '{}' has overflowed its stack\n",
+            std::thread::current().name().unwrap_or("<unknown>")
+        );
+
+        ContextStack::current().top().err = Some(Box::new(Error::StackErr));
+        yield_now();
+
+        std::process::abort();
+    }
+
+    unsafe fn init() {
+        let mut action: sigaction = mem::zeroed();
+        let mut old_action: sigaction = mem::zeroed();
+
+        action.sa_flags = SA_SIGINFO | SA_ONSTACK;
+        action.sa_sigaction = signal_handler as sighandler_t;
+
+        for signal in [SIGSEGV, SIGBUS] {
+            sigaction(signal, &action, &mut old_action);
+            SIG_HANDLER = old_action.sa_sigaction;
+        }
+    }
+
+    pub fn init_once() {
+        static INIT_ONCE: Once = Once::new();
+
+        INIT_ONCE.call_once(|| unsafe {
+            init();
+        })
+    }
+}

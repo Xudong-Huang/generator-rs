@@ -4,6 +4,25 @@
 extern crate generator;
 
 use generator::*;
+use std::panic::catch_unwind;
+
+#[test]
+fn test_overflow() {
+    let result = catch_unwind(|| {
+        let mut g = Gn::new_scoped(move |mut s: Scope<(), ()>| {
+            let mut _of = [0u8; 0x5000];
+            _of[0x5000 - 1] = 123;
+            s.yield_(());
+        });
+
+        g.next();
+    });
+
+    assert_eq!(
+        result.unwrap_err().downcast_ref::<Error>(),
+        Some(&Error::StackErr)
+    );
+}
 
 #[test]
 fn test_return() {

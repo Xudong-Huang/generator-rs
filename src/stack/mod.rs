@@ -13,6 +13,8 @@ use std::ptr;
 #[cfg_attr(windows, path = "windows.rs")]
 pub mod sys;
 
+pub use sys::overflow;
+
 // must align with StackBoxHeader
 const ALIGN: usize = std::mem::size_of::<StackBoxHeader>();
 const HEADER_SIZE: usize = std::mem::size_of::<StackBoxHeader>() / std::mem::size_of::<usize>();
@@ -58,7 +60,7 @@ impl<T> StackBox<T> {
             header.data_size = data_size;
             header.need_drop = need_drop;
             header.stack = stack.shadow_clone();
-            std::mem::MaybeUninit::new(StackBox { ptr })
+            MaybeUninit::new(StackBox { ptr })
         }
     }
 

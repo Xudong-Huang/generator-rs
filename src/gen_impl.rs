@@ -339,6 +339,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         self.f = Some(func);
 
+        self.context.stack_start = self.stack.begin() as usize;
         self.context.regs.init_with(
             gen_init,
             0,
@@ -457,10 +458,10 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // so that we can stop the inner func
         self.context._ref = 2;
         // save the old panic hook, we don't want to print anything for the Cancel
-        let old = ::std::panic::take_hook();
-        ::std::panic::set_hook(Box::new(|_| {}));
+        let old = panic::take_hook();
+        panic::set_hook(Box::new(|_| {}));
         self.resume_gen();
-        ::std::panic::set_hook(old);
+        panic::set_hook(old);
     }
 
     /// cancel the generator
@@ -517,7 +518,7 @@ impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
             // set_stack_size::<F>(used_stack);
         } else {
             error!("stack overflow detected!");
-            std::panic::panic_any(Error::StackErr);
+            panic::panic_any(Error::StackErr);
         }
     }
 }

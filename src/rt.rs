@@ -62,6 +62,7 @@ pub struct Context {
     pub local_data: *mut u8,
     /// propagate panic
     pub err: Option<Box<dyn Any + Send>>,
+    pub stack_start: usize,
 }
 
 impl Context {
@@ -76,6 +77,7 @@ impl Context {
             child: ptr::null_mut(),
             parent: ptr::null_mut(),
             local_data: ptr::null_mut(),
+            stack_start: 0,
         }
     }
 
@@ -170,7 +172,7 @@ impl Context {
 
 /// Coroutine managing environment
 pub struct ContextStack {
-    root: *mut Context,
+    pub(crate) root: *mut Context,
 }
 
 #[cfg(nightly)]
@@ -290,6 +292,22 @@ pub fn get_local_data() -> *mut u8 {
     }
 
     ptr::null_mut()
+}
+
+pub mod guard {
+    use crate::is_generator;
+    use crate::rt::ContextStack;
+    use crate::stack::sys::page_size;
+    use std::ops::Range;
+
+    pub type Guard = Range<usize>;
+
+    pub fn current() -> Guard {
+        assert!(is_generator());
+        let stackaddr = unsafe { (*(*ContextStack::current().root).child).stack_start };
+
+        (stackaddr - page_size())..stackaddr
+    }
 }
 
 #[cfg(test)]
