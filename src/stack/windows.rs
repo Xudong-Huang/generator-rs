@@ -82,10 +82,7 @@ pub fn max_stack_size() -> usize {
 }
 
 pub mod overflow {
-    use crate::rt::{
-        guard,
-        //ContextStack
-    };
+    use crate::rt::guard;
     //use crate::Error;
     use std::sync::Once;
     use windows::Win32::Foundation::EXCEPTION_STACK_OVERFLOW;
@@ -107,37 +104,37 @@ pub mod overflow {
                 "\ncoroutine in thread '{}' has overflowed its stack\n",
                 std::thread::current().name().unwrap_or("<unknown>")
             );
-/*
-            let env = ContextStack::current();
-            let cur = env.top();
-            cur.err = Some(Box::new(Error::StackErr));
+            /*
+                       let env = ContextStack::current();
+                       let cur = env.top();
+                       cur.err = Some(Box::new(Error::StackErr));
 
-            let parent = env.pop_context(cur as *mut _);
-            let &[rbx, rsp, rbp, _, r12, r13, r14, r15, _, _, _, stack_base, stack_limit, dealloc_stack, ..] =
-                &parent.regs.regs.gpr;
+                       let parent = env.pop_context(cur as *mut _);
+                       let &[rbx, rsp, rbp, _, r12, r13, r14, r15, _, _, _, stack_base, stack_limit, dealloc_stack, ..] =
+                           &parent.regs.regs.gpr;
 
-            let rip = *(rsp as *const usize);
-            let rsp = rsp + std::mem::size_of::<usize>();
+                       let rip = *(rsp as *const usize);
+                       let rsp = rsp + std::mem::size_of::<usize>();
 
-            context.Rbx = rbx as u64;
-            context.Rsp = rsp as u64;
-            context.Rbp = rbp as u64;
-            context.R12 = r12 as u64;
-            context.R13 = r13 as u64;
-            context.R14 = r14 as u64;
-            context.R15 = r15 as u64;
-            context.Rip = rip as u64;
+                       context.Rbx = rbx as u64;
+                       context.Rsp = rsp as u64;
+                       context.Rbp = rbp as u64;
+                       context.R12 = r12 as u64;
+                       context.R13 = r13 as u64;
+                       context.R14 = r14 as u64;
+                       context.R15 = r15 as u64;
+                       context.Rip = rip as u64;
 
-            let gs = context.SegGs as usize;
-            let teb = gs + 0x30;
+                       let gs = context.SegGs as usize;
+                       let teb = gs + 0x30;
 
-            *((teb + 0x08) as *mut usize) = stack_base;
-            *((teb + 0x10) as *mut usize) = stack_limit;
-            *((teb + 0x1478) as *mut usize) = dealloc_stack;
+                       *((teb + 0x08) as *mut usize) = stack_base;
+                       *((teb + 0x10) as *mut usize) = stack_limit;
+                       *((teb + 0x1478) as *mut usize) = dealloc_stack;
 
-            //yield_now();
+                       //yield_now();
 
- */
+            */
 
             //EXCEPTION_CONTINUE_EXECUTION
 
