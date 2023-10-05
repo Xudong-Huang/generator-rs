@@ -23,13 +23,13 @@ extern "C" {
     pub fn swap_registers(out_regs: *mut Registers, in_regs: *const Registers);
 }
 
-#[repr(C, align(16))]
+#[repr(C)]
 #[derive(Debug)]
 pub struct Registers {
     // We save the 13 callee-saved registers:
     //  x19--x28, fp (x29), lr (x30), sp
     // and the 8 callee-saved floating point registers:
-    //  v8--v15
+    //  d8--d15
     gpr: [usize; 32],
 }
 
