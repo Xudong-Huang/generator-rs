@@ -326,22 +326,25 @@ mod test {
         use crate::*;
         use std::panic::catch_unwind;
 
-        let result = catch_unwind(|| {
-            let mut g = Gn::new_scoped(move |mut s: Scope<(), ()>| {
-                let guard = super::guard::current();
+        // test signal mask
+        for _ in 0..2 {
+            let result = catch_unwind(|| {
+                let mut g = Gn::new_scoped(move |mut s: Scope<(), ()>| {
+                    let guard = super::guard::current();
 
-                // make sure the compiler does not apply any optimization on it
-                std::hint::black_box(unsafe { *(guard.start as *const usize) });
+                    // make sure the compiler does not apply any optimization on it
+                    std::hint::black_box(unsafe { *(guard.start as *const usize) });
 
-                s.yield_(());
+                    s.yield_(());
+                });
+
+                g.next();
             });
 
-            g.next();
-        });
-
-        assert!(matches!(
-            result.unwrap_err().downcast_ref::<Error>(),
-            Some(Error::StackErr)
-        ));
+            assert!(matches!(
+                result.unwrap_err().downcast_ref::<Error>(),
+                Some(Error::StackErr)
+            ));
+        }
     }
 }

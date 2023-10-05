@@ -126,33 +126,44 @@ pub mod overflow {
     use crate::rt::{guard, ContextStack};
     use crate::yield_::yield_now;
     use crate::Error;
-    use libc::{sigaction, sighandler_t, SA_ONSTACK, SA_SIGINFO, SIGBUS, SIGSEGV, SIG_DFL};
+    use libc::{
+        sigaction, sigaddset, sigemptyset, sighandler_t, sigprocmask, sigset_t, SA_ONSTACK,
+        SA_SIGINFO, SIGBUS, SIGSEGV,
+    };
     use std::mem;
+    use std::mem::MaybeUninit;
+    use std::ptr::null_mut;
     use std::sync::Once;
 
-    static mut SIG_HANDLER: sighandler_t = 0;
+    static mut SIG_ACTION: MaybeUninit<sigaction> = MaybeUninit::uninit();
 
+    // Signal handler for the SIGSEGV and SIGBUS handlers. We've got guard pages
+    // (unmapped pages) at the end of every thread's stack, so if a thread ends
+    // up running into the guard page it'll trigger this handler. We want to
+    // detect these cases and print out a helpful error saying that the stack
+    // has overflowed. All other signals, however, should go back to what they
+    // were originally supposed to do.
+    //
+    // If this is not a stack overflow, the handler un-registers itself and
+    // then returns (to allow the original signal to be delivered again).
+    // Returning from this kind of signal handler is technically not defined
+    // to work when reading the POSIX spec strictly, but in practice it turns
+    // out many large systems and all implementations allow returning from a
+    // signal handler to work. For a more detailed explanation see the
+    // comments on https://github.com/rust-lang/rust/issues/26458.
     unsafe extern "C" fn signal_handler(
         signum: libc::c_int,
         info: *mut libc::siginfo_t,
-        ctx: *mut libc::c_void,
+        _ctx: *mut libc::ucontext_t,
     ) {
-        let handler = SIG_HANDLER;
-        if handler == SIG_DFL {
-            return;
-        }
-
         let addr = (*info).si_addr() as usize;
         let guard = guard::current();
 
+        // we are unable to handle this
         if !guard.contains(&addr) {
-            let handler: unsafe extern "C" fn(
-                signum: libc::c_int,
-                info: *mut libc::siginfo_t,
-                _data: *mut libc::c_void,
-            ) = mem::transmute(handler);
+            // SIG_ACTION is available after we registered our handler
+            sigaction(signum, SIG_ACTION.assume_init_ref(), null_mut());
 
-            handler(signum, info, ctx);
             return;
         }
 
@@ -162,21 +173,27 @@ pub mod overflow {
         );
 
         ContextStack::current().top().err = Some(Box::new(Error::StackErr));
+
+        let mut sigset: sigset_t = mem::zeroed();
+        sigemptyset(&mut sigset);
+        sigaddset(&mut sigset, signum);
+        sigprocmask(libc::SIG_UNBLOCK, &sigset, null_mut());
+
         yield_now();
 
+        // should never come back.
         std::process::abort();
     }
 
+    #[cold]
     unsafe fn init() {
         let mut action: sigaction = mem::zeroed();
-        let mut old_action: sigaction = mem::zeroed();
 
         action.sa_flags = SA_SIGINFO | SA_ONSTACK;
         action.sa_sigaction = signal_handler as sighandler_t;
 
         for signal in [SIGSEGV, SIGBUS] {
-            sigaction(signal, &action, &mut old_action);
-            SIG_HANDLER = old_action.sa_sigaction;
+            sigaction(signal, &action, SIG_ACTION.as_mut_ptr());
         }
     }
 
