@@ -329,14 +329,14 @@ mod test {
         // test signal mask
         for _ in 0..2 {
             let result = catch_unwind(|| {
-                let mut g = Gn::new_scoped(move |mut s: Scope<(), ()>| {
+                let mut g = Gn::new_scoped(move |_s: Scope<(), ()>| {
                     let guard = super::guard::current();
 
                     // make sure the compiler does not apply any optimization on it
                     std::hint::black_box(unsafe { *(guard.start as *const usize) });
 
-                    println!("OK");
-                    s.yield_(());
+                    eprintln!("entered unreachable code");
+                    std::process::abort();
                 });
 
                 g.next();
