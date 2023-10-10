@@ -62,7 +62,8 @@ pub struct Context {
     pub local_data: *mut u8,
     /// propagate panic
     pub err: Option<Box<dyn Any + Send>>,
-    pub stack_start: usize,
+    /// cached stack guard for fast path
+    pub stack_guard: (usize, usize),
 }
 
 impl Context {
@@ -77,7 +78,7 @@ impl Context {
             child: ptr::null_mut(),
             parent: ptr::null_mut(),
             local_data: ptr::null_mut(),
-            stack_start: 0,
+            stack_guard: (0, 0),
         }
     }
 
@@ -304,7 +305,7 @@ pub mod guard {
 
     pub fn current() -> Guard {
         assert!(is_generator());
-        let stackaddr = unsafe { (*(*ContextStack::current().root).child).stack_start };
+        let stackaddr = unsafe { (*(*ContextStack::current().root).child).stack_guard.0 };
 
         (stackaddr - page_size())..stackaddr
     }
@@ -320,7 +321,6 @@ mod test {
         assert!(!is_generator());
     }
 
-    #[cfg(not(windows))]
     #[test]
     fn test_overflow() {
         use crate::*;
@@ -342,8 +342,8 @@ mod test {
             });
 
             assert!(matches!(
-                result.unwrap_err().downcast_ref::<Error>(),
-                Some(Error::StackErr)
+                result.map_err(|err| *err.downcast::<Error>().unwrap()),
+                Err(Error::StackErr)
             ));
         }
     }

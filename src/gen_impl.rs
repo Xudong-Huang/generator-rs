@@ -342,7 +342,8 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         self.f = Some(func);
 
-        self.context.stack_start = self.stack.begin() as usize;
+        let guard = (self.stack.begin() as usize, self.stack.end() as usize);
+        self.context.stack_guard = guard;
         self.context.regs.init_with(
             gen_init,
             0,
