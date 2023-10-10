@@ -305,9 +305,9 @@ pub mod guard {
 
     pub fn current() -> Guard {
         assert!(is_generator());
-        let stackaddr = unsafe { (*(*ContextStack::current().root).child).stack_guard.0 };
+        let guard = unsafe { (*(*ContextStack::current().root).child).stack_guard };
 
-        (stackaddr - page_size())..stackaddr
+        guard.0 - page_size()..guard.1
     }
 }
 
@@ -335,6 +335,7 @@ mod test {
                     // make sure the compiler does not apply any optimization on it
                     std::hint::black_box(unsafe { *(guard.start as *const usize) });
 
+                    println!("OK");
                     s.yield_(());
                 });
 

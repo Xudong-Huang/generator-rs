@@ -33,7 +33,7 @@ pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
 
 pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
     let page_size = page_size();
-    let mut old_prot = PAGE_PROTECTION_FLAGS(0);
+    let mut old_prot = mem::zeroed();
 
     debug_assert!(stack.len() % page_size == 0 && stack.len() != 0);
 
