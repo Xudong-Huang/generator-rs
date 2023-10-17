@@ -119,7 +119,7 @@ fn create_gen(b: &mut Bencher) {
     b.iter(|| {
         let g = Gn::<()>::new_scoped(|mut s| {
             let mut i = 0;
-            while let Some(..) = s.yield_(i) {
+            while s.yield_(i).is_some() {
                 i += 1;
             }
             i
