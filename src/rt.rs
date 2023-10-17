@@ -62,6 +62,8 @@ pub struct Context {
     pub local_data: *mut u8,
     /// propagate panic
     pub err: Option<Box<dyn Any + Send>>,
+    /// cached stack guard for fast path
+    pub stack_guard: (usize, usize),
 }
 
 impl Context {
@@ -76,6 +78,7 @@ impl Context {
             child: ptr::null_mut(),
             parent: ptr::null_mut(),
             local_data: ptr::null_mut(),
+            stack_guard: (0, 0),
         }
     }
 
@@ -170,7 +173,7 @@ impl Context {
 
 /// Coroutine managing environment
 pub struct ContextStack {
-    root: *mut Context,
+    pub(crate) root: *mut Context,
 }
 
 #[cfg(nightly)]
@@ -292,6 +295,22 @@ pub fn get_local_data() -> *mut u8 {
     ptr::null_mut()
 }
 
+pub mod guard {
+    use crate::is_generator;
+    use crate::rt::ContextStack;
+    use crate::stack::sys::page_size;
+    use std::ops::Range;
+
+    pub type Guard = Range<usize>;
+
+    pub fn current() -> Guard {
+        assert!(is_generator());
+        let guard = unsafe { (*(*ContextStack::current().root).child).stack_guard };
+
+        guard.0 - page_size()..guard.1
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::is_generator;
@@ -300,5 +319,33 @@ mod test {
     fn test_is_context() {
         // this is the root context
         assert!(!is_generator());
+    }
+
+    #[test]
+    fn test_overflow() {
+        use crate::*;
+        use std::panic::catch_unwind;
+
+        // test signal mask
+        for _ in 0..2 {
+            let result = catch_unwind(|| {
+                let mut g = Gn::new_scoped(move |_s: Scope<(), ()>| {
+                    let guard = super::guard::current();
+
+                    // make sure the compiler does not apply any optimization on it
+                    std::hint::black_box(unsafe { *(guard.start as *const usize) });
+
+                    eprintln!("entered unreachable code");
+                    std::process::abort();
+                });
+
+                g.next();
+            });
+
+            assert!(matches!(
+                result.map_err(|err| *err.downcast::<Error>().unwrap()),
+                Err(Error::StackErr)
+            ));
+        }
     }
 }

@@ -1,7 +1,7 @@
 .text
 .globl prefetch
 .type prefetch,@function
-.align 16
+.align 2
 prefetch:
     prfm pldl1keep, [x0]
     ret
@@ -10,7 +10,7 @@ prefetch:
 .text
 .globl bootstrap_green_task
 .type bootstrap_green_task,@function
-.align 16
+.align 2
 bootstrap_green_task:
     mov x0, x19   // arg0
     mov x1, x20   // arg1
@@ -21,7 +21,7 @@ bootstrap_green_task:
 .text
 .globl swap_registers
 .type swap_registers,@function
-.align 16
+.align 2
 swap_registers:
     stp x19, x20, [x0, #0]
     stp x21, x22, [x0, #16]

@@ -1,5 +1,5 @@
 use crate::rt::ContextStack;
-use crate::stack::Func;
+use crate::stack::{overflow, Func};
 use crate::yield_::yield_now;
 use crate::Error;
 use std::any::Any;
@@ -29,6 +29,8 @@ fn catch_unwind_filter<F: FnOnce() -> R + panic::UnwindSafe, R>(f: F) -> std::th
 /// the init function passed to reg_context
 #[inline]
 pub fn gen_init_impl(_: usize, f: *mut usize) -> ! {
+    overflow::init_once();
+
     let clo = move || {
         // consume self.f
         let f: &mut Option<Func> = unsafe { &mut *(f as *mut _) };

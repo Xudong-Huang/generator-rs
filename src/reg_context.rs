@@ -4,7 +4,7 @@ use crate::stack::Stack;
 #[derive(Debug)]
 pub struct RegContext {
     /// Hold the registers while the task or scheduler is suspended
-    regs: Registers,
+    pub(crate) regs: Registers,
 }
 
 impl RegContext {

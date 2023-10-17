@@ -6,6 +6,9 @@ use std::usize;
 
 use super::SysStack;
 
+#[path = "overflow_unix.rs"]
+pub mod overflow;
+
 #[cfg(any(
     target_os = "openbsd",
     target_os = "macos",

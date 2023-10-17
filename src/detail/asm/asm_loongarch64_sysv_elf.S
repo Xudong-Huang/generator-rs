@@ -1,7 +1,7 @@
 .text
 .globl prefetch
 .type prefetch,@function
-.align 16
+.align 2
 prefetch:
     preld 0, $a0, 0
     ret
@@ -10,7 +10,7 @@ prefetch:
 .text
 .globl bootstrap_green_task
 .type bootstrap_green_task,@function
-.align 16
+.align 2
 bootstrap_green_task:
     move $a0, $s0   // arg0
     move $a1, $s1   // arg1
@@ -21,7 +21,7 @@ bootstrap_green_task:
 .text
 .globl swap_registers
 .type swap_registers,@function
-.align 16
+.align 2
 swap_registers:
     st.d $ra, $a0, 0
     st.d $sp, $a0, 8

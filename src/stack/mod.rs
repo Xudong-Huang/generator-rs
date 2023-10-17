@@ -13,6 +13,8 @@ use std::ptr;
 #[cfg_attr(windows, path = "windows.rs")]
 pub mod sys;
 
+pub use sys::overflow;
+
 // must align with StackBoxHeader
 const ALIGN: usize = std::mem::size_of::<StackBoxHeader>();
 const HEADER_SIZE: usize = std::mem::size_of::<StackBoxHeader>() / std::mem::size_of::<usize>();
@@ -58,7 +60,7 @@ impl<T> StackBox<T> {
             header.data_size = data_size;
             header.need_drop = need_drop;
             header.stack = stack.shadow_clone();
-            std::mem::MaybeUninit::new(StackBox { ptr })
+            MaybeUninit::new(StackBox { ptr })
         }
     }
 
@@ -312,13 +314,8 @@ impl Stack {
     /// Allocate a new stack of `size`. If size = 0, this is a `dummy_stack`
     pub fn new(size: usize) -> Stack {
         let track = (size & 1) != 0;
-        let mut bytes = size * std::mem::size_of::<usize>();
-        // the minimal size
-        let min_size = SysStack::min_size();
 
-        if bytes < min_size {
-            bytes = min_size;
-        }
+        let bytes = usize::max(size * std::mem::size_of::<usize>(), SysStack::min_size());
 
         let buf = SysStack::allocate(bytes, true).expect("failed to alloc sys stack");
 

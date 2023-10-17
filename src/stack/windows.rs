@@ -10,6 +10,9 @@ use windows::Win32::System::SystemInformation::*;
 
 use super::SysStack;
 
+#[path = "overflow_windows.rs"]
+pub mod overflow;
+
 pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
     let ptr = VirtualAlloc(
         Some(ptr::null()),
@@ -30,7 +33,7 @@ pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
 
 pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
     let page_size = page_size();
-    let mut old_prot = PAGE_PROTECTION_FLAGS(0);
+    let mut old_prot = mem::zeroed();
 
     debug_assert!(stack.len() % page_size == 0 && stack.len() != 0);
 
@@ -41,7 +44,7 @@ pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
         &mut old_prot,
     );
 
-    if !ret.as_bool() {
+    if ret.is_err() {
         Err(io::Error::last_os_error())
     } else {
         let bottom = (stack.bottom() as usize + page_size) as *mut c_void;
@@ -50,7 +53,7 @@ pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
 }
 
 pub unsafe fn deallocate_stack(ptr: *mut c_void, _: usize) {
-    VirtualFree(ptr, 0, MEM_RELEASE);
+    let _ = VirtualFree(ptr, 0, MEM_RELEASE);
 }
 
 pub fn page_size() -> usize {
