@@ -78,7 +78,7 @@ impl<'scope, 'a, A, T> Scope<'scope, 'a, A, T> {
         self.get_yield()
     }
 
-    /// `yield_from`
+    /// `yield_from_unsafe`
     /// the from generator must has the same type as itself
     /// # Safety
     /// When yield out, the reference of the captured data must be still valid
