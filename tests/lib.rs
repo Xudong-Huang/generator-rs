@@ -209,7 +209,10 @@ fn test_inner_ref() {
         // teardown happened when the generator get dropped
         // this is just a safe dummy ret
         static mut RET: u32 = 0;
-        unsafe { &mut RET }
+        #[allow(static_mut_refs)]
+        unsafe {
+            &mut RET
+        }
     });
 
     // use the resource setup from generator
