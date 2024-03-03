@@ -20,7 +20,7 @@ exclude = [
 
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.53"
+version = "0.54"
 features = [
     "Win32_System_Memory",
     "Win32_System_Kernel",
