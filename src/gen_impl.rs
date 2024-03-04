@@ -227,7 +227,7 @@ impl<A> Gn<A> {
 
 impl<A: Any> Gn<A> {
     /// create a new generator with default stack size
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::new_ret_no_self))]
+    #[allow(clippy::new_ret_no_self)]
     #[deprecated(since = "0.6.18", note = "please use `scope` version instead")]
     pub fn new<'a, T: Any, F>(f: F) -> Generator<'a, A, T>
     where
