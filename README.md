@@ -9,7 +9,7 @@ rust stackful generator library
 
 ```toml
 [dependencies]
-generator = "0.7"
+generator = "0.8"
 ```
 
 
