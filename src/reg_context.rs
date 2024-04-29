@@ -102,15 +102,13 @@ mod test {
         let mut cur = RegContext::empty();
 
         fn callback() {
-            unsafe {
-                VAL = true;
-            }
+            unsafe { VAL = true };
         }
 
         let stk = Stack::new(MIN_STACK);
         let ctx = RegContext::new(
             init_fn,
-            unsafe { transmute(&cur) },
+            &cur as *const _ as usize,
             callback as *mut usize,
             &stk,
         );

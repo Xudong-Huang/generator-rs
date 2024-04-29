@@ -2,7 +2,6 @@ use std::io;
 use std::mem;
 use std::os::raw::c_void;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::usize;
 
 use super::SysStack;
 

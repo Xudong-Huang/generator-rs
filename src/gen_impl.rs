@@ -4,16 +4,16 @@
 //!
 
 use crate::detail::gen_init;
+use crate::reg_context::RegContext;
+use crate::rt::{Context, ContextStack, Error};
+use crate::scope::Scope;
+use crate::stack::{Func, Stack, StackBox};
+
 use std::any::Any;
 use std::fmt;
 use std::marker::PhantomData;
 use std::panic;
 use std::thread;
-
-use crate::reg_context::RegContext;
-use crate::rt::{Context, ContextStack, Error};
-use crate::scope::Scope;
-use crate::stack::{Func, Stack, StackBox};
 
 /// The default stack size for generators, in bytes.
 // windows has a minimal size as 0x4a8!!!!
@@ -311,7 +311,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         A: 'a,
     {
         use std::mem::transmute;
-        let scope = unsafe { transmute(Scope::new(&mut self.para, &mut self.ret)) };
+        let scope: Scope<A, T> = unsafe { transmute(Scope::new(&mut self.para, &mut self.ret)) };
         self.init_code(move || f(scope));
     }
 
