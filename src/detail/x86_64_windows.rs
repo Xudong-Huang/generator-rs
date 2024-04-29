@@ -19,7 +19,6 @@ extern "sysv64" {
 }
 
 #[inline]
-#[allow(dead_code)]
 pub fn prefetch(data: *const usize) {
     unsafe { prefetch_asm(data) }
 }

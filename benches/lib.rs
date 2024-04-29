@@ -9,26 +9,25 @@ use generator::*;
 use test::Bencher;
 
 // #[bench]
-#[allow(dead_code)]
-fn yield_bench(b: &mut Bencher) {
-    // don't print any panic info
-    // when cancel the generator
-    panic::set_hook(Box::new(|_| {}));
+// fn yield_bench(b: &mut Bencher) {
+//     // don't print any panic info
+//     // when cancel the generator
+//     panic::set_hook(Box::new(|_| {}));
 
-    b.iter(|| {
-        let mut g = Gn::new(|| {
-            for i in 0.. {
-                yield_with(i);
-            }
-            20
-        });
+//     b.iter(|| {
+//         let mut g = Gn::new(|| {
+//             for i in 0.. {
+//                 yield_with(i);
+//             }
+//             20
+//         });
 
-        for i in 0..1_000_000 {
-            let data = g.send(());
-            assert_eq!(data, i);
-        }
-    });
-}
+//         for i in 0..1_000_000 {
+//             let data = g.send(());
+//             assert_eq!(data, i);
+//         }
+//     });
+// }
 
 #[bench]
 fn single_yield_with_bench(b: &mut Bencher) {

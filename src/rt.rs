@@ -27,7 +27,6 @@ thread_local!(
 static mut ROOT_CONTEXT_P: *mut Context = ptr::null_mut();
 
 /// yield panic error types
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Error {
     /// Done panic

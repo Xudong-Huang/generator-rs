@@ -19,9 +19,9 @@ impl RegContext {
         self.regs.prefetch();
     }
 
-    /// Create a new context
-    #[allow(dead_code)]
-    pub fn new(init: InitFn, arg: usize, start: *mut usize, stack: &Stack) -> RegContext {
+    /// Create a new context, only used in tests
+    #[cfg(test)]
+    fn new(init: InitFn, arg: usize, start: *mut usize, stack: &Stack) -> RegContext {
         let mut ctx = RegContext::empty();
         ctx.init_with(init, arg, start, stack);
         ctx
@@ -48,7 +48,7 @@ impl RegContext {
 
     /// Load the context and switch. This function will never return.
     #[inline]
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn load(to_context: &RegContext) {
         let mut cur = Registers::new();
         let regs: &Registers = &to_context.regs;

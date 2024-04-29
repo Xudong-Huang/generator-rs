@@ -1,5 +1,3 @@
-#![allow(clippy::eq_op)]
-
 // Register contexts used in various architectures
 //
 // These structures all represent a context of one task throughout its
@@ -44,7 +42,6 @@ fn align_down(sp: *mut usize) -> *mut usize {
 
 // ptr::mut_offset is positive isize only
 #[inline]
-#[allow(unused)]
 fn mut_offset<T>(ptr: *mut T, count: isize) -> *mut T {
     // use std::mem::size_of;
     // (ptr as isize + count * (size_of::<T>() as isize)) as *mut T
