@@ -3,7 +3,6 @@ use std::mem;
 use std::os::raw::c_void;
 use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::usize;
 
 use windows::Win32::System::Memory::*;
 use windows::Win32::System::SystemInformation::*;

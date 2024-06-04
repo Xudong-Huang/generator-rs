@@ -1,3 +1,4 @@
+#![cfg(nightly)]
 #![feature(test)]
 #![allow(deprecated)]
 extern crate generator;

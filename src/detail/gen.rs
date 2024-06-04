@@ -12,12 +12,9 @@ fn catch_unwind_filter<F: FnOnce() -> R + panic::UnwindSafe, R>(f: F) -> std::th
     INIT.call_once(|| {
         let prev_hook = panic::take_hook();
         panic::set_hook(Box::new(move |info| {
-            if let Some(e) = info.payload().downcast_ref::<Error>() {
-                match e {
-                    // this is not an error at all, ignore it
-                    Error::Cancel | Error::Done => return,
-                    _ => {}
-                }
+            // this is not an error at all, ignore it
+            if let Some(Error::Cancel | Error::Done) = info.payload().downcast_ref::<Error>() {
+                return;
             }
             prev_hook(info);
         }));
@@ -39,12 +36,9 @@ pub fn gen_init_impl(_: usize, f: *mut usize) -> ! {
     };
 
     fn check_err(cause: Box<dyn Any + Send + 'static>) {
-        if let Some(e) = cause.downcast_ref::<Error>() {
-            match e {
-                // this is not an error at all, ignore it
-                Error::Cancel | Error::Done => return,
-                _ => {}
-            }
+        // this is not an error at all, ignore it
+        if let Some(Error::Cancel | Error::Done) = cause.downcast_ref::<Error>() {
+            return;
         }
 
         error!("set panic inside generator");

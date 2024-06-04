@@ -4,8 +4,7 @@
 //!
 
 #![cfg_attr(nightly, feature(thread_local))]
-#![cfg_attr(test, deny(warnings))]
-#![deny(missing_docs)]
+#![deny(warnings, missing_docs)]
 #![allow(deprecated)]
 
 #[macro_use]
