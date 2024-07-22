@@ -19,6 +19,24 @@ use std::thread;
 // windows has a minimal size as 0x4a8!!!!
 pub const DEFAULT_STACK_SIZE: usize = 0x1000;
 
+#[inline]
+#[cold]
+fn cold() {}
+
+// #[inline]
+// fn likely(b: bool) -> bool {
+//     if !b { cold() }
+//     b
+// }
+
+#[inline]
+fn unlikely(b: bool) -> bool {
+    if b {
+        cold()
+    }
+    b
+}
+
 /// the generator obj type, the functor passed to it must be Send
 pub struct GeneratorObj<'a, A, T, const LOCAL: bool> {
     gen: StackBox<GeneratorImpl<'a, A, T>>,
@@ -418,7 +436,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// you should call `set_para` before this method
     #[inline]
     fn resume(&mut self) -> Option<T> {
-        if self.is_done() {
+        if unlikely(self.is_done()) {
             return None;
         }
 
@@ -433,7 +451,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// `raw_send`
     #[inline]
     fn raw_send(&mut self, para: Option<A>) -> Option<T> {
-        if self.is_done() {
+        if unlikely(self.is_done()) {
             return None;
         }
 
