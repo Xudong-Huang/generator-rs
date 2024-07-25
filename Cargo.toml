@@ -1,6 +1,6 @@
 [package]
 name = "generator"
-version = "0.8.1"
+version = "0.8.2"
 edition = "2021"
 authors = ["Xudong Huang <huangxu008@hotmail.com>"]
 license = "MIT/Apache-2.0"
@@ -20,7 +20,7 @@ exclude = [
 
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.56"
+version = "0.58"
 features = [
     "Win32_System_Memory",
     "Win32_System_Kernel",
