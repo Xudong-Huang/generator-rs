@@ -86,6 +86,11 @@ mod test {
         init_fn_impl(arg, f)
     }
 
+    #[cfg(target_arch = "loongarch64")]
+    extern "C" fn init_fn(arg: usize, f: *mut usize) -> ! {
+        init_fn_impl(arg, f)
+    }
+
     #[cfg(target_arch = "riscv64")]
     extern "C" fn init_fn(arg: usize, f: *mut usize) -> ! {
         init_fn_impl(arg, f)
