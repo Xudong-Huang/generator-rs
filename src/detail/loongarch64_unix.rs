@@ -1,5 +1,4 @@
 use crate::detail::align_down;
-use crate::reg_context::InitFn;
 use crate::stack::Stack;
 
 std::arch::global_asm!(include_str!("asm/asm_loongarch64_sysv_elf.S"));
