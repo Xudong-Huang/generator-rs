@@ -20,6 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         channel:
+          - stable
           - nightly
         target:
           #- { name: macOS-aarch64, os: macos-latest, tool: aarch64-apple-darwin }
@@ -56,7 +57,7 @@ jobs:
 
       - name: Setup rust cross-platform toolchain
         run: |
-          rustup default nightly
+          rustup default ${{ matrix.channel }}
           rustup target add ${{ matrix.target.tool }}
           cargo install cross
 
