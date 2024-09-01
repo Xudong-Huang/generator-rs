@@ -75,7 +75,7 @@ fn main() {
     - x86_64 macOS
     - x86_64 Windows
     - x86_64 Fuchsia
-    - x86_64 Android
+    - ~~x86_64 Android~~
     - aarch64 Linux
     - aarch64 macOS
     - aarch64 Fuchsia

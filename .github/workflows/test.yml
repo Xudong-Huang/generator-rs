@@ -14,7 +14,7 @@ env:
 
 jobs:
   test:
-    name: ${{ matrix.channel }}Test on ${{ matrix.target.name }}
+    name: ${{ matrix.channel }} Test on ${{ matrix.target.name }}
     runs-on: ${{ matrix.target.os }}
     strategy:
       fail-fast: false
@@ -40,7 +40,7 @@ jobs:
           #- { name: iOS-aarch64, os: macos-latest, tool: aarch64-apple-ios }
           #- { name: Android-armv7, os: ubuntu-latest, tool: armv7-linux-androideabi }
           - { name: Android-aarch64, os: ubuntu-latest, tool: aarch64-linux-android }
-          - { name: Android-x64, os: ubuntu-latest, tool: x86_64-linux-android }
+          # - { name: Android-x64, os: ubuntu-latest, tool: x86_64-linux-android }
           #- { name: FreeBSD-x64, os: ubuntu-latest, tool: x86_64-unknown-freebsd }
           #- { name: NetBSD-x64, os: ubuntu-latest, tool: x86_64-unknown-netbsd }
           #- { name: Illumos-x64, os: ubuntu-latest, tool: x86_64-unknown-illumos }
