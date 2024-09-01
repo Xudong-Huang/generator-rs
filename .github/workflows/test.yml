@@ -14,7 +14,7 @@ env:
 
 jobs:
   test:
-    name: Test on ${{ matrix.target.name }}
+    name: ${{ matrix.channel }}Test on ${{ matrix.target.name }}
     runs-on: ${{ matrix.target.os }}
     strategy:
       fail-fast: false
