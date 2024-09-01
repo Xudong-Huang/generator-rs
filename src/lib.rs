@@ -3,7 +3,6 @@
 //! Rust generator library
 //!
 
-#![cfg_attr(nightly, feature(thread_local))]
 #![deny(warnings, missing_docs)]
 #![allow(deprecated)]
 

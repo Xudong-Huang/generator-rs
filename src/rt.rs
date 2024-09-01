@@ -3,28 +3,20 @@
 //! generator run time context management
 //!
 use std::any::Any;
+use std::cell::Cell;
 use std::mem::MaybeUninit;
 use std::ptr;
 
 use crate::reg_context::RegContext;
 
-thread_local!(
-    /// each thread has it's own generator context stack
-    static ROOT_CONTEXT: Box<Context> = {
-        let mut root = Box::new(Context::new());
-        let p = &mut *root as *mut _;
-        root.parent = p; // init top to current
-        root
-    }
-);
-
-// fast access pointer, this is will be init only once
-// when ROOT_CONTEXT get initialized. but in debug mode it
-// will be zero in generator context since the stack changed
-// to a different place, be careful about that.
-#[cfg(nightly)]
-#[thread_local]
-static mut ROOT_CONTEXT_P: *mut Context = ptr::null_mut();
+thread_local! {
+    // each thread has it's own generator context stack
+    // fast access pointer, this is will be init only once
+    // when ROOT_CONTEXT get initialized. but in debug mode it
+    // will be zero in generator context since the stack changed
+    // to a different place, be careful about that.
+    static ROOT_CONTEXT_P: Cell<*mut Context> = const { Cell::new(ptr::null_mut()) };
+}
 
 /// yield panic error types
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -175,30 +167,18 @@ pub struct ContextStack {
     pub(crate) root: *mut Context,
 }
 
-#[cfg(nightly)]
-#[inline(never)]
-unsafe fn init_root_p() {
-    ROOT_CONTEXT_P = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
-}
-
 impl ContextStack {
-    #[cfg(nightly)]
-    #[inline(never)]
     pub fn current() -> ContextStack {
-        unsafe {
-            if ROOT_CONTEXT_P.is_null() {
-                init_root_p();
-            }
-            ContextStack {
-                root: ROOT_CONTEXT_P,
-            }
+        let mut root = ROOT_CONTEXT_P.get();
+        if root.is_null() {
+            root = {
+                let mut root = Box::new(Context::new());
+                let p = &mut *root as *mut _;
+                root.parent = p; // init top to current
+                Box::leak(root)
+            };
+            ROOT_CONTEXT_P.set(root);
         }
-    }
-
-    #[cfg(not(nightly))]
-    #[inline(never)]
-    pub fn current() -> ContextStack {
-        let root = ROOT_CONTEXT.with(|r| &**r as *const _ as *mut Context);
         ContextStack { root }
     }
 
