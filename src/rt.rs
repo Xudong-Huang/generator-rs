@@ -11,10 +11,6 @@ use crate::reg_context::RegContext;
 
 thread_local! {
     // each thread has it's own generator context stack
-    // fast access pointer, this is will be init only once
-    // when ROOT_CONTEXT get initialized. but in debug mode it
-    // will be zero in generator context since the stack changed
-    // to a different place, be careful about that.
     static ROOT_CONTEXT_P: Cell<*mut Context> = const { Cell::new(ptr::null_mut()) };
 }
 

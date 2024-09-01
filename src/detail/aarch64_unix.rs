@@ -4,6 +4,8 @@ use crate::stack::Stack;
 cfg_if::cfg_if! {
     if #[cfg(target_os = "macos")] {
         std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_macho.S"));
+    } else if #[cfg(target_os = "ios")] {
+        std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_macho.S"));
     } else {
         std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_elf.S"));
     }
