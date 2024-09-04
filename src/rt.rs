@@ -238,6 +238,7 @@ impl ContextStack {
 }
 
 #[inline]
+#[cold]
 fn type_error<A>(msg: &str) -> ! {
     error!("{msg}, expected type: {}", std::any::type_name::<A>());
     std::panic::panic_any(Error::TypeErr)

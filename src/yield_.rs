@@ -5,7 +5,7 @@
 use std::any::Any;
 use std::sync::atomic;
 
-use crate::gen_impl::Generator;
+use crate::gen_impl::{unlikely, Generator};
 use crate::reg_context::RegContext;
 use crate::rt::{is_generator, Context, ContextStack, Error};
 
@@ -45,7 +45,7 @@ pub fn raw_yield_now(env: &ContextStack, cur: &mut Context) {
 #[inline]
 fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
     // check the context
-    if !context.is_generator() {
+    if unlikely(!context.is_generator()) {
         panic!("yield from none generator context");
     }
 
@@ -54,7 +54,7 @@ fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
     raw_yield_now(env, context);
 
     // here we just panic to exit the func
-    if context._ref != 1 {
+    if unlikely(context._ref != 1) {
         std::panic::panic_any(Error::Cancel);
     }
 }
@@ -80,7 +80,7 @@ pub fn get_yield<A: Any>() -> Option<A> {
 #[inline]
 fn raw_get_yield<A: Any>(context: &mut Context) -> Option<A> {
     // check the context
-    if !context.is_generator() {
+    if unlikely(!context.is_generator()) {
         {
             error!("get yield from none generator context");
             std::panic::panic_any(Error::ContextErr);
@@ -110,7 +110,7 @@ pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
     let env = ContextStack::current();
     let context = env.top();
     let mut p = context.get_para();
-    while !g.is_done() {
+    while unlikely(!g.is_done()) {
         match g.raw_send(p) {
             None => return None,
             Some(r) => raw_yield(&env, context, r),
@@ -134,7 +134,7 @@ pub fn co_yield_with<T: Any>(v: T) {
     // }
 
     // here we just panic to exit the func
-    if context._ref != 1 {
+    if unlikely(context._ref != 1) {
         std::panic::panic_any(Error::Cancel);
     }
 

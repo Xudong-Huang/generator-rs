@@ -30,7 +30,7 @@ fn cold() {}
 // }
 
 #[inline]
-fn unlikely(b: bool) -> bool {
+pub(crate) fn unlikely(b: bool) -> bool {
     if b {
         cold()
     }
