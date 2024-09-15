@@ -5,8 +5,8 @@ const NIGHTLY: bool = true;
 const NIGHTLY: bool = false;
 
 fn main() {
-    println!("cargo::rustc-check-cfg=cfg(nightly)");
+    println!("cargo:rustc-check-cfg=cfg(nightly)");
     if NIGHTLY {
-        println!("cargo::rustc-cfg=nightly");
+        println!("cargo:rustc-cfg=nightly");
     }
 }
