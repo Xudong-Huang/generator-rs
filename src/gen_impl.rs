@@ -173,14 +173,14 @@ impl<'a, A, T, const LOCAL: bool> GeneratorObj<'a, A, T, LOCAL> {
     }
 }
 
-impl<'a, T, const LOCAL: bool> Iterator for GeneratorObj<'a, (), T, LOCAL> {
+impl<T, const LOCAL: bool> Iterator for GeneratorObj<'_, (), T, LOCAL> {
     type Item = T;
     fn next(&mut self) -> Option<T> {
         self.resume()
     }
 }
 
-impl<'a, A, T, const LOCAL: bool> fmt::Debug for GeneratorObj<'a, A, T, LOCAL> {
+impl<A, T, const LOCAL: bool> fmt::Debug for GeneratorObj<'_, A, T, LOCAL> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -284,7 +284,7 @@ struct GeneratorImpl<'a, A, T> {
     phantom: PhantomData<&'a T>,
 }
 
-impl<'a, A: Any, T: Any> GeneratorImpl<'a, A, T> {
+impl<A: Any, T: Any> GeneratorImpl<'_, A, T> {
     /// create a new generator with default stack size
     fn init_context(&mut self) {
         unsafe {
@@ -514,7 +514,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     }
 }
 
-impl<'a, A, T> Drop for GeneratorImpl<'a, A, T> {
+impl<A, T> Drop for GeneratorImpl<'_, A, T> {
     fn drop(&mut self) {
         // when the thread is already panic, do nothing
         if thread::panicking() {

@@ -19,7 +19,7 @@ pub struct Scope<'scope, 'a, A, T> {
     scope: PhantomData<&'scope mut &'scope ()>,
 }
 
-impl<'scope, 'a, A, T> Scope<'scope, 'a, A, T> {
+impl<'a, A, T> Scope<'_, 'a, A, T> {
     /// create a new scope object
     pub(crate) fn new(para: &'a mut Option<A>, ret: &'a mut Option<T>) -> Self {
         Scope {
@@ -99,7 +99,7 @@ impl<'scope, 'a, A, T> Scope<'scope, 'a, A, T> {
     }
 }
 
-impl<'scope, A, T> Scope<'scope, 'static, A, T> {
+impl<A, T> Scope<'_, 'static, A, T> {
     /// yield and get the send para
     // it's totally safe that we can refer to the function block
     // since we will come back later

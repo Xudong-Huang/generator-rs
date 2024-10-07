@@ -103,7 +103,7 @@ impl Context {
         para.take()
     }
 
-    /// set current generator send para
+    // /// set current generator send para
     // #[inline]
     // pub fn set_para<A>(&self, data: A)
     // where
