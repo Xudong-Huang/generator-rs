@@ -5,9 +5,9 @@ use libc::{sigaction, sighandler_t, SA_ONSTACK, SA_SIGINFO, SIGBUS, SIGSEGV};
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr::null_mut;
-use std::sync::Once;
+use std::sync::{Mutex, Once};
 
-static mut SIG_ACTION: MaybeUninit<sigaction> = MaybeUninit::uninit();
+static SIG_ACTION: Mutex<MaybeUninit<sigaction>> = Mutex::new(MaybeUninit::uninit());
 
 // Signal handler for the SIGSEGV and SIGBUS handlers. We've got guard pages
 // (unmapped pages) at the end of every thread's stack, so if a thread ends
@@ -35,7 +35,8 @@ unsafe extern "C" fn signal_handler(
     if !stack_guard.contains(&addr) {
         println!("{}", std::backtrace::Backtrace::force_capture());
         // SIG_ACTION is available after we registered our handler
-        sigaction(signum, SIG_ACTION.assume_init_ref(), null_mut());
+        let old_action = SIG_ACTION.lock().unwrap();
+        sigaction(signum, old_action.assume_init_ref(), null_mut());
 
         // we are unable to handle this
         return;
@@ -65,8 +66,10 @@ unsafe fn init() {
     action.sa_flags = SA_SIGINFO | SA_ONSTACK;
     action.sa_sigaction = signal_handler as sighandler_t;
 
+    let mut old_action = SIG_ACTION.lock().unwrap();
+
     for signal in [SIGSEGV, SIGBUS] {
-        sigaction(signal, &action, SIG_ACTION.as_mut_ptr());
+        sigaction(signal, &action, old_action.assume_init_mut());
     }
 }
 
