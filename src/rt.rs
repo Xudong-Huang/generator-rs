@@ -164,16 +164,24 @@ pub struct ContextStack {
 }
 
 impl ContextStack {
+    #[cold]
+    fn init_root() -> *mut Context {
+        let root = {
+            let mut root = Box::new(Context::new());
+            let p = &mut *root as *mut _;
+            root.parent = p; // init top to current
+            Box::leak(root)
+        };
+        ROOT_CONTEXT_P.set(root);
+        root
+    }
+
+    /// get the current context stack
     pub fn current() -> ContextStack {
         let mut root = ROOT_CONTEXT_P.get();
+
         if root.is_null() {
-            root = {
-                let mut root = Box::new(Context::new());
-                let p = &mut *root as *mut _;
-                root.parent = p; // init top to current
-                Box::leak(root)
-            };
-            ROOT_CONTEXT_P.set(root);
+            root = Self::init_root();
         }
         ContextStack { root }
     }
