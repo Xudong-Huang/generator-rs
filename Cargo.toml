@@ -22,7 +22,7 @@ build = "build.rs"
 
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.58"
+version = ">=0.58, <=0.61"
 features = [
     "Win32_System_Memory",
     "Win32_System_Kernel",
