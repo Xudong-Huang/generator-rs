@@ -35,7 +35,7 @@ pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
 
     let ptr = libc::mmap(NULL, size, PROT, TYPE, -1, 0);
 
-    if ptr == libc::MAP_FAILED {
+    if std::ptr::eq(ptr, libc::MAP_FAILED) {
         Err(io::Error::last_os_error())
     } else {
         Ok(SysStack::new(
