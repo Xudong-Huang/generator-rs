@@ -28,6 +28,7 @@
 #[cfg_attr(all(windows, target_arch = "aarch64"), path = "aarch64_windows.rs")]
 #[cfg_attr(all(unix, target_arch = "loongarch64"), path = "loongarch64_unix.rs")]
 #[cfg_attr(all(unix, target_arch = "riscv64"), path = "riscv64_unix.rs")]
+#[cfg_attr(all(unix, target_arch = "powerpc64"), path = "ppc64le_unix.rs")]
 pub mod asm;
 
 mod gen;
