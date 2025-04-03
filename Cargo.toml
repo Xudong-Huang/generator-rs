@@ -18,6 +18,7 @@ exclude = [
     "appveyor.yml",
     "benches/**/*",
 ]
+build = "build.rs"
 
 
 [target.'cfg(windows)'.dependencies.windows]
@@ -39,7 +40,11 @@ cfg-if = "1.0.0"
 
 [build-dependencies]
 rustversion = "1.0"
+cc = "1.0"
 
 # release build
 [profile.release]
 lto = true
+
+[profile.dev.build-override]
+debug = true

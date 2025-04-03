@@ -96,6 +96,11 @@ mod test {
         init_fn_impl(arg, f)
     }
 
+    #[cfg(target_arch = "powerpc64")]
+    extern "C" fn init_fn(arg: usize, f: *mut usize) -> ! {
+        init_fn_impl(arg, f)
+    }
+
     #[cfg(target_arch = "arm")]
     extern "aapcs" fn init_fn(arg: usize, f: *mut usize) -> ! {
         init_fn_impl(arg, f)
