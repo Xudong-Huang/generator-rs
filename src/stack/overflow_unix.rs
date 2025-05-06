@@ -31,7 +31,7 @@ static SIG_ACTION: Mutex<MaybeUninit<sigaction>> = Mutex::new(MaybeUninit::unini
 unsafe extern "C" fn signal_handler(
     signum: libc::c_int,
     info: *mut libc::siginfo_t,
-    ctx: *mut libc::c_void,
+    ctx: *mut libc::c_void, // workaroung for ppc64le missing ucontext_t in rust libc. See: https://github.com/rust-lang/libc/issues/3964
 ) {
     let _ctx = &mut *ctx;
     let addr = (*info).si_addr() as usize;
