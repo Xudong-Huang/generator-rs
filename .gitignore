@@ -16,3 +16,9 @@ fuzz/
 
 .vscode/
 rls/
+
+# Crash dumps from cross tool:
+*.core
+
+# Mac Junk
+.DS_Store
