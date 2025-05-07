@@ -28,6 +28,7 @@ static SIG_ACTION: Mutex<MaybeUninit<sigaction>> = Mutex::new(MaybeUninit::unini
 // context is usually compatible with libc::ucontext_t. However some architectures
 // (like powerpc64) do not provide the ucontext_t type in glibc. Since we do not
 // use the context information, it is represented as a generic pointer.
+// see: https://github.com/rust-lang/libc/pull/3986 / https://github.com/rust-lang/libc/pull/3986
 unsafe extern "C" fn signal_handler(
     signum: libc::c_int,
     info: *mut libc::siginfo_t,
