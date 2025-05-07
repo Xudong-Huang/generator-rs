@@ -21,8 +21,7 @@ impl RegContext {
 
     /// Create a new context, only used in tests
     #[cfg(test)]
-    // todo: change back to non-pub
-    pub fn new(init: InitFn, arg: usize, start: *mut usize, stack: &Stack) -> RegContext {
+    fn new(init: InitFn, arg: usize, start: *mut usize, stack: &Stack) -> RegContext {
         let mut ctx = RegContext::empty();
         ctx.init_with(init, arg, start, stack);
         ctx
@@ -49,8 +48,7 @@ impl RegContext {
 
     /// Load the context and switch. This function will never return.
     #[inline]
-    // #[cfg(test)]
-    #[allow(unused)]
+    #[cfg(test)]
     pub fn load(to_context: &RegContext) {
         let mut cur = Registers::new();
         let regs: &Registers = &to_context.regs;
