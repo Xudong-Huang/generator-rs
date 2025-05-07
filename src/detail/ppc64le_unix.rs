@@ -1,8 +1,5 @@
 use crate::detail::{align_down, mut_offset};
-use crate::reg_context::RegContext;
 use crate::stack::Stack;
-#[cfg(test)]
-use std::cell::UnsafeCell;
 
 // first argument is task handle, second is thunk ptr
 pub type InitFn = extern "C" fn(usize, *mut usize) -> !;
@@ -82,50 +79,12 @@ pub fn initialize_call_frame(
     let sp = mut_offset(sp, -2); // allow for back chain and CR save word
 
     regs.gpr[REG_FP] = sp as usize;
+
+    // parameters passed in non-volatile regs and moved to ABI regs in bootstrap_green_task
     regs.gpr[REG_R14] = arg;
     regs.gpr[REG_R15] = arg2 as usize;
     regs.gpr[REG_R16] = fptr as usize;
 
     regs.gpr[REG_LR] = bootstrap_green_task as usize;
     regs.gpr[REG_GLOB_ENTRY] = bootstrap_green_task as usize;
-}
-
-#[no_mangle]
-// todo: cleanup
-extern "C" fn test_inner(_a1: usize, a2: *mut usize) -> ! {
-    // println!("inner: {:?} {:?}", test_inner as *mut usize, a2);
-    // unsafe {
-    let a2 = a2 as *const RegContext;
-    // println!("what is this?");
-    unsafe {
-        RegContext::load(a2.as_ref().unwrap());
-    }
-    // println!("done!");
-    // unsafe {
-    //     RegContext::load(a2.as_ref().unwrap());
-    // }
-
-    unreachable!();
-}
-
-#[test]
-fn test_debug() {
-    let old_ctx = RegContext::empty();
-    // println!("before swap call!");
-    let stack: Stack = Stack::new(5243000);
-    let old_ctx = UnsafeCell::new(old_ctx);
-    let x = 0.5;
-    let y = 0.05;
-    let _res = x * y + 1.0;
-    let new_context = RegContext::new(test_inner, 10, old_ctx.get() as *mut usize, &stack);
-    unsafe {
-        RegContext::swap(&mut *old_ctx.get(), &new_context);
-    }
-
-    // unsafe {
-    //     test_bootstrap(10, 11 as *mut usize, test_inner);
-    // }
-
-    println!("swap worked!");
-    // unsafe { swap_registers(&mut test, &mut test) }
 }
