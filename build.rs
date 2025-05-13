@@ -21,5 +21,4 @@ fn main() {
             .file("src/detail/asm/asm_ppc64le_elf.S")
             .compile("ppc64le-asm-lib");
     }
-    return;
 }
