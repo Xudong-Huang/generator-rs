@@ -8,6 +8,8 @@ cfg_if::cfg_if! {
         std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_macho.S"));
     } else if #[cfg(target_os = "tvos")] {
         std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_macho.S"));
+    } else if #[cfg(target_os = "watchos")] {
+        std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_macho.S"));
     } else {
         std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_elf.S"));
     }
