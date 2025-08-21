@@ -180,10 +180,11 @@ impl ContextStack {
             root = Self::init_root();
         }
 
-        // for windows release seems add these two lines fix the bug!
+        // for windows and macos release version
+        // seems add these two lines could fix the bug!!!
         // the MAY project test could fail due to this bug
-        // this bug is appeared since rust 1.89
-        #[cfg(any(windows, target_os = "macos"))]
+        // this bug is appeared since rust 1.89 (I have no clue yet)
+        #[cfg(all(debug_assertions, any(windows, target_os = "macos")))]
         {
             let _thread = std::thread::current();
             let _thread = std::thread::current();
