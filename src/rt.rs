@@ -166,12 +166,8 @@ pub struct ContextStack {
 impl ContextStack {
     #[cold]
     fn init_root() -> *mut Context {
-        let root = {
-            let mut root = Box::new(Context::new());
-            let p = &mut *root as *mut _;
-            root.parent = p; // init top to current
-            Box::leak(root)
-        };
+        let root = Box::leak(Box::new(Context::new()));
+        root.parent = root; // init top to current
         ROOT_CONTEXT_P.set(root);
         root
     }
@@ -189,18 +185,19 @@ impl ContextStack {
     /// get the top context
     #[inline]
     pub fn top(&self) -> &'static mut Context {
-        let root = unsafe { &mut *self.root };
-        unsafe { &mut *root.parent }
+        unsafe {
+            let root = &*self.root;
+            &mut *root.parent
+        }
     }
 
     /// get the coroutine context
     #[inline]
     pub fn co_ctx(&self) -> Option<&'static mut Context> {
-        let root = unsafe { &mut *self.root };
-
         // search from top
-        let mut ctx = unsafe { &mut *root.parent };
-        while !std::ptr::eq(ctx, root) {
+        let mut ctx = self.top();
+
+        while !std::ptr::eq(ctx, self.root) {
             if !ctx.local_data.is_null() {
                 return Some(ctx);
             }
@@ -265,18 +262,7 @@ pub fn is_generator() -> bool {
 #[inline]
 pub fn get_local_data() -> *mut u8 {
     let env = ContextStack::current();
-    let root = unsafe { &mut *env.root };
-
-    // search from top
-    let mut ctx = unsafe { &mut *root.parent };
-    while !std::ptr::eq(ctx, root) {
-        if !ctx.local_data.is_null() {
-            return ctx.local_data;
-        }
-        ctx = unsafe { &mut *ctx.parent };
-    }
-
-    ptr::null_mut()
+    env.co_ctx().map_or(ptr::null_mut(), |ctx| ctx.local_data)
 }
 
 pub mod guard {
