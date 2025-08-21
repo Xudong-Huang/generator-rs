@@ -183,7 +183,7 @@ impl ContextStack {
         // for windows release seems add these two lines fix the bug!
         // the MAY project test could fail due to this bug
         // this bug is appeared since rust 1.89
-        #[cfg(not(unix))]
+        #[cfg(any(windows, target_os = "macos"))]
         {
             let _thread = std::thread::current();
             let _thread = std::thread::current();
