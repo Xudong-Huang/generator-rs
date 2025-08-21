@@ -179,6 +179,16 @@ impl ContextStack {
         if root.is_null() {
             root = Self::init_root();
         }
+
+        // for windows release seems add these two lines fix the bug!
+        // the MAY project test could fail due to this bug
+        // this bug is appeared since rust 1.89
+        #[cfg(not(unix))]
+        {
+            let _thread = std::thread::current();
+            let _thread = std::thread::current();
+        }
+
         ContextStack { root }
     }
 
