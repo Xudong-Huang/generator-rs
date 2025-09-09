@@ -43,8 +43,8 @@ pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
         &mut old_prot,
     );
 
-    if ret.is_err() {
-        Err(io::Error::last_os_error())
+    if let Err(e) = ret {
+        Err(e.into())
     } else {
         let bottom = (stack.bottom() as usize + page_size) as *mut c_void;
         Ok(SysStack::new(stack.top(), bottom))
