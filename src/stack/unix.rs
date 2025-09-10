@@ -29,7 +29,7 @@ const MAP_STACK: libc::c_int = 0;
 const MAP_STACK: libc::c_int = libc::MAP_STACK;
 
 pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
-    const NULL: *mut libc::c_void = 0 as *mut libc::c_void;
+    const NULL: *mut libc::c_void = std::ptr::null_mut();
     const PROT: libc::c_int = libc::PROT_READ | libc::PROT_WRITE;
     const TYPE: libc::c_int = libc::MAP_PRIVATE | libc::MAP_ANON | MAP_STACK;
 
