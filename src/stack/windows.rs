@@ -14,12 +14,7 @@ use super::SysStack;
 pub mod overflow;
 
 pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
-    let ptr = VirtualAlloc(
-        ptr::null(),
-        size,
-        MEM_COMMIT | MEM_RESERVE,
-        PAGE_READWRITE,
-    );
+    let ptr = VirtualAlloc(ptr::null(), size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
     if ptr.is_null() {
         Err(io::Error::last_os_error())
