@@ -1,6 +1,5 @@
 --out src/stack/windows_bindings.rs
---sys
---no-deps
+--specific-deps
 
 --filter
     Windows.Win32.Foundation.EXCEPTION_STACK_OVERFLOW

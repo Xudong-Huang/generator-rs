@@ -1,7 +1,6 @@
 use std::io;
 use std::mem;
 use std::os::raw::c_void;
-use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 mod windows_bindings;
@@ -14,7 +13,7 @@ use super::SysStack;
 pub mod overflow;
 
 pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
-    let ptr = VirtualAlloc(ptr::null(), size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    let ptr = VirtualAlloc(None, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
     if ptr.is_null() {
         Err(io::Error::last_os_error())
@@ -32,19 +31,15 @@ pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
 
     debug_assert!(stack.len() % page_size == 0 && stack.len() != 0);
 
-    let success = VirtualProtect(
+    VirtualProtect(
         stack.bottom(),
         page_size,
         PAGE_READONLY | PAGE_GUARD,
         &mut old_prot,
-    );
+    )?;
 
-    if success == 0 {
-        Err(io::Error::last_os_error())
-    } else {
-        let bottom = (stack.bottom() as usize + page_size) as *mut c_void;
-        Ok(SysStack::new(stack.top(), bottom))
-    }
+    let bottom = (stack.bottom() as usize + page_size) as *mut c_void;
+    Ok(SysStack::new(stack.top(), bottom))
 }
 
 pub unsafe fn deallocate_stack(ptr: *mut c_void, _: usize) {
