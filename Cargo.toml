@@ -18,6 +18,7 @@ build = "build.rs"
 
 [target.'cfg(windows)'.dependencies]
 windows-link = ">=0.1, <=0.2"
+windows-result = ">=0.3.1, <=0.4"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.100"
