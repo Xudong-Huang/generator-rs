@@ -5,4 +5,4 @@ edition = "2021"
 publish = false
 
 [dependencies]
-windows-bindgen = "0.64"
+windows-bindgen = "0.65"
