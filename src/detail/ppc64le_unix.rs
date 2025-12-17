@@ -85,6 +85,6 @@ pub fn initialize_call_frame(
     regs.gpr[REG_R15] = arg2 as usize;
     regs.gpr[REG_R16] = fptr as usize;
 
-    regs.gpr[REG_LR] = bootstrap_green_task as usize;
-    regs.gpr[REG_GLOB_ENTRY] = bootstrap_green_task as usize;
+    regs.gpr[REG_LR] = bootstrap_green_task as *const () as usize;
+    regs.gpr[REG_GLOB_ENTRY] = bootstrap_green_task as *const () as usize;
 }

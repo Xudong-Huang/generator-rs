@@ -68,7 +68,7 @@ pub fn initialize_call_frame(
     // arm current stack frame pointer
     regs.gpr[FP] = sp as usize;
 
-    regs.gpr[LR] = bootstrap_green_task as usize;
+    regs.gpr[LR] = bootstrap_green_task as *const () as usize;
 
     // setup the init stack
     // this is prepared for the swap context
