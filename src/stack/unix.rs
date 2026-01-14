@@ -12,6 +12,8 @@ pub mod overflow;
     target_os = "openbsd",
     target_os = "macos",
     target_os = "ios",
+    target_os = "tvos",
+    target_os = "watchos",
     target_os = "android",
     target_os = "illumos",
     target_os = "solaris"
@@ -22,6 +24,8 @@ const MAP_STACK: libc::c_int = 0;
     target_os = "openbsd",
     target_os = "macos",
     target_os = "ios",
+    target_os = "tvos",
+    target_os = "watchos",
     target_os = "android",
     target_os = "illumos",
     target_os = "solaris"
