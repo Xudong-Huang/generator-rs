@@ -70,7 +70,7 @@ mod test {
         let func: fn() = unsafe { transmute(f) };
         func();
 
-        let ctx: &RegContext = unsafe { transmute(arg) };
+        let ctx: &RegContext = unsafe { &*std::ptr::with_exposed_provenance(arg) };
         RegContext::load(ctx);
 
         unreachable!("Should never comeback");

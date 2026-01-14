@@ -6,6 +6,8 @@ use std::any::Any;
 use std::cell::Cell;
 use std::mem::MaybeUninit;
 use std::ptr;
+#[cfg(all(not(debug_assertions), any(windows, target_os = "macos")))]
+use std::sync::atomic::{compiler_fence, Ordering};
 
 use crate::reg_context::RegContext;
 
@@ -166,41 +168,89 @@ pub struct ContextStack {
 impl ContextStack {
     #[cold]
     fn init_root() -> *mut Context {
-        let root = {
-            let mut root = Box::new(Context::new());
-            let p = &mut *root as *mut _;
-            root.parent = p; // init top to current
-            Box::leak(root)
-        };
+        let root = Box::leak(Box::new(Context::new()));
+        root.parent = root; // init top to current
         ROOT_CONTEXT_P.set(root);
         root
     }
 
     /// get the current context stack
+    ///
+    /// WORKAROUND for Rust 1.89+ compiler optimization bug on macOS/Windows
+    /// The thread-local access can be incorrectly optimized in release builds,
+    /// causing ROOT_CONTEXT_P.get() to return stale or incorrect values.
+    #[inline(never)] // Prevent inlining to ensure TLS access is correct
     pub fn current() -> ContextStack {
-        let mut root = ROOT_CONTEXT_P.get();
+        // Use volatile-style read for the TLS value
+        #[cfg(all(not(debug_assertions), any(windows, target_os = "macos")))]
+        let root = {
+            // Force a compiler fence before TLS access
+            compiler_fence(Ordering::SeqCst);
 
-        if root.is_null() {
-            root = Self::init_root();
-        }
+            // Read from TLS
+            let r = ROOT_CONTEXT_P.get();
+
+            // Prevent optimization
+            let r = std::hint::black_box(r);
+
+            // Force fence after read
+            compiler_fence(Ordering::SeqCst);
+
+            // If null, initialize
+            if r.is_null() {
+                let new_root = Self::init_root();
+                std::hint::black_box(new_root)
+            } else {
+                r
+            }
+        };
+
+        #[cfg(not(all(not(debug_assertions), any(windows, target_os = "macos"))))]
+        let root = {
+            let r = ROOT_CONTEXT_P.get();
+            if r.is_null() {
+                Self::init_root()
+            } else {
+                r
+            }
+        };
+
         ContextStack { root }
     }
 
     /// get the top context
     #[inline]
     pub fn top(&self) -> &'static mut Context {
-        let root = unsafe { &mut *self.root };
-        unsafe { &mut *root.parent }
+        unsafe {
+            let root = &*self.root;
+            &mut *root.parent
+        }
     }
 
     /// get the coroutine context
-    #[inline]
+    #[cfg_attr(
+        all(not(debug_assertions), any(windows, target_os = "macos")),
+        inline(never)
+    )]
+    #[cfg_attr(
+        not(all(not(debug_assertions), any(windows, target_os = "macos"))),
+        inline
+    )]
     pub fn co_ctx(&self) -> Option<&'static mut Context> {
-        let root = unsafe { &mut *self.root };
+        // Ensure the root pointer is valid before searching
+        #[cfg(all(not(debug_assertions), any(windows, target_os = "macos")))]
+        {
+            compiler_fence(Ordering::SeqCst);
+        }
 
-        // search from top
-        let mut ctx = unsafe { &mut *root.parent };
-        while !std::ptr::eq(ctx, root) {
+        // search from top - use black_box to prevent optimization issues
+        #[cfg(all(not(debug_assertions), any(windows, target_os = "macos")))]
+        let mut ctx = std::hint::black_box(self.top());
+
+        #[cfg(not(all(not(debug_assertions), any(windows, target_os = "macos"))))]
+        let mut ctx = self.top();
+
+        while !std::ptr::eq(ctx, self.root) {
             if !ctx.local_data.is_null() {
                 return Some(ctx);
             }
@@ -253,30 +303,45 @@ fn type_error<A>(msg: &str) -> ! {
 }
 
 /// check the current context if it's generator
-#[inline]
+#[cfg_attr(
+    all(not(debug_assertions), any(windows, target_os = "macos")),
+    inline(never)
+)]
+#[cfg_attr(
+    not(all(not(debug_assertions), any(windows, target_os = "macos"))),
+    inline
+)]
 pub fn is_generator() -> bool {
     let env = ContextStack::current();
+
+    #[cfg(all(not(debug_assertions), any(windows, target_os = "macos")))]
+    {
+        compiler_fence(Ordering::SeqCst);
+    }
+
     let root = unsafe { &mut *env.root };
     !root.child.is_null()
 }
 
 /// get the current context local data
 /// only coroutine support local data
-#[inline]
+#[cfg_attr(
+    all(not(debug_assertions), any(windows, target_os = "macos")),
+    inline(never)
+)]
+#[cfg_attr(
+    not(all(not(debug_assertions), any(windows, target_os = "macos"))),
+    inline
+)]
 pub fn get_local_data() -> *mut u8 {
     let env = ContextStack::current();
-    let root = unsafe { &mut *env.root };
 
-    // search from top
-    let mut ctx = unsafe { &mut *root.parent };
-    while !std::ptr::eq(ctx, root) {
-        if !ctx.local_data.is_null() {
-            return ctx.local_data;
-        }
-        ctx = unsafe { &mut *ctx.parent };
+    #[cfg(all(not(debug_assertions), any(windows, target_os = "macos")))]
+    {
+        compiler_fence(Ordering::SeqCst);
     }
 
-    ptr::null_mut()
+    env.co_ctx().map_or(ptr::null_mut(), |ctx| ctx.local_data)
 }
 
 pub mod guard {

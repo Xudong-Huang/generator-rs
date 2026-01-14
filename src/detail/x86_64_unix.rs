@@ -157,7 +157,7 @@ pub fn initialize_call_frame(
 
     unsafe {
         // leave enough space for RET
-        *mut_offset(sp, -2) = bootstrap_green_task as usize;
+        *mut_offset(sp, -2) = bootstrap_green_task as *const () as usize;
         *mut_offset(sp, -1) = 0;
     }
 }

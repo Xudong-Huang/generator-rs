@@ -85,7 +85,7 @@ pub fn initialize_call_frame(
     // LoongArch64 current stack frame pointer
     regs.gpr[FP] = sp as usize;
 
-    regs.gpr[RA] = bootstrap_green_task as usize;
+    regs.gpr[RA] = bootstrap_green_task as *const () as usize;
 
     // setup the init stack
     // this is prepared for the swap context

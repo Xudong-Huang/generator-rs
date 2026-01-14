@@ -1,9 +1,9 @@
+use super::windows_bindings::Windows::Win32::{
+    Foundation::EXCEPTION_STACK_OVERFLOW,
+    System::Diagnostics::Debug::{AddVectoredExceptionHandler, CONTEXT, EXCEPTION_POINTERS},
+};
 use crate::rt::{guard, Context, ContextStack};
 use std::sync::Once;
-use windows::Win32::Foundation::EXCEPTION_STACK_OVERFLOW;
-use windows::Win32::System::Diagnostics::Debug::{
-    AddVectoredExceptionHandler, CONTEXT, EXCEPTION_POINTERS,
-};
 
 unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTERS) -> i32 {
     const EXCEPTION_CONTINUE_SEARCH: i32 = 0;

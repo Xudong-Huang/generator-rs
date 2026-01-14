@@ -70,7 +70,7 @@ unsafe fn init() {
     let mut action: sigaction = mem::zeroed();
 
     action.sa_flags = SA_SIGINFO | SA_ONSTACK;
-    action.sa_sigaction = signal_handler as sighandler_t;
+    action.sa_sigaction = signal_handler as *const () as sighandler_t;
 
     let mut old_action = SIG_ACTION.lock().unwrap();
 
