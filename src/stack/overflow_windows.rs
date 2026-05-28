@@ -91,10 +91,10 @@ unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
     // X20..X28, Fp at 1..=10
     const LR: usize = 11;
     const SP: usize = 12;
-    const D_BASE: usize = 14;          // d8 starts here (byte offset 112)
-    const STACK_BASE: usize = 37;
-    const STACK_LIMIT: usize = 38;
-    const STACK_DEALLOC: usize = 39;
+    const D_BASE: usize = 14;          // d8 starts here (byte offset 112) and ends dd15 (byte offset 168)
+    const STACK_BASE: usize = 22;
+    const STACK_LIMIT: usize = 23;
+    const STACK_DEALLOC: usize = 24;
 
     let gpr = &parent.regs.regs.gpr;
 

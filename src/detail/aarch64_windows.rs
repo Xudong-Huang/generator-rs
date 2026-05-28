@@ -23,14 +23,14 @@ pub struct Registers {
     //  x19--x28, fp (x29), lr (x30), sp
     // and the 8 callee-saved floating point registers:
     //  d8--d15
-    // and reserve space for TEB-derived fields
+    // and 3 reserve space for TEB-derived fields
     //  StackBase, StackLimit, StackDealloc
-    pub(crate) gpr: [usize; 40],
+    pub(crate) gpr: [usize; 32],
 }
 
 impl Registers {
     pub fn new() -> Registers {
-        Registers { gpr: [0; 40] }
+        Registers { gpr: [0; 32] }
     }
 
     #[inline]
@@ -59,9 +59,9 @@ pub fn initialize_call_frame(
     const LR: usize = 30 - 19;
     const SP: usize = 31 - 19;
 
-    const STACK_BASE: usize = 37;
-    const STACK_LIMIT: usize = 38;
-    const STACK_DEALLOC: usize = 39;
+    const STACK_BASE: usize = 22;
+    const STACK_LIMIT: usize = 23;
+    const STACK_DEALLOC: usize = 24;
 
     let sp = align_down(stack.end());
 
