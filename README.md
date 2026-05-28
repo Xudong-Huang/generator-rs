@@ -80,6 +80,7 @@ fn main() {
     - aarch64 macOS
     - aarch64 Fuchsia
     - aarch64 Android
+    - aarch64 Windows
     - loongarch64 Linux
     - armv7 Linux
     - riscv64 Linux
