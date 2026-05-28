@@ -42,11 +42,11 @@ swap_registers:
     stp d14, d15, [x0, #160]
 
     ldr x9, [x18, #0x08] // StackBase
-    str x9, [x0, #296]
+    str x9, [x0, #176]
     ldr x9, [x18, #0x10] // StackLimit
-    str x9, [x0, #304]
+    str x9, [x0, #184]
     ldr x9, [x18, #0x1478] // DeallocationStack
-    str x9, [x0, #312]
+    str x9, [x0, #192]
 
     ldp x19, x20, [x1, #0]
     ldp x21, x22, [x1, #16]
@@ -63,11 +63,11 @@ swap_registers:
     ldp d12, d13, [x1, #144]
     ldp d14, d15, [x1, #160]
 
-    ldr x9, [x1, #296] // StackBase
+    ldr x9, [x1, #176] // StackBase
     str x9, [x18, #0x08]
-    ldr x9, [x1, #304] // StackLimit
+    ldr x9, [x1, #184] // StackLimit
     str x9, [x18, #0x10]
-    ldr x9, [x1, #312] // DeallocationStack
+    ldr x9, [x1, #192] // DeallocationStack
     str x9, [x18, #0x1478]
 
     br x30
