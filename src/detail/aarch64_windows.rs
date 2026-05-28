@@ -23,7 +23,7 @@ pub struct Registers {
     //  x19--x28, fp (x29), lr (x30), sp
     // and the 8 callee-saved floating point registers:
     //  d8--d15
-    // and 3 reserve space for TEB-derived fields
+    // and reserve space for 3 TEB-derived fields
     //  StackBase, StackLimit, StackDealloc
     pub(crate) gpr: [usize; 32],
 }
@@ -37,8 +37,8 @@ impl Registers {
     pub fn prefetch(&self) {
         let ptr = self.gpr[12] as *const usize;
         unsafe {
-            prefetch(ptr); // RSP
-            prefetch(ptr.add(8)); // RSP + 8
+            prefetch(ptr);
+            prefetch(ptr.add(1usize));
         }
     }
 }

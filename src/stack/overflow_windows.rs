@@ -52,7 +52,6 @@ pub fn init_once() {
     })
 }
 
-
 #[cfg(target_arch = "x86_64")]
 unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
     let [rbx, rsp, rbp, _, r12, r13, r14, r15, _, _, _, stack_base, stack_limit, dealloc_stack, ..] =
@@ -88,10 +87,11 @@ unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
 unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
     // Must match initialize_call_frame / swap_registers in aarch64_windows.rs
     const X19: usize = 0;
-    // X20..X28, Fp at 1..=10
+    // X20..X28
+    const FP: usize = 10;
     const LR: usize = 11;
     const SP: usize = 12;
-    const D_BASE: usize = 14;          // d8 starts here (byte offset 112) and ends dd15 (byte offset 168)
+    const D_BASE: usize = 14;          // d8 starts here (byte offset 112) and ends d15 (byte offset 168)
     const STACK_BASE: usize = 22;
     const STACK_LIMIT: usize = 23;
     const STACK_DEALLOC: usize = 24;
@@ -110,10 +110,10 @@ unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
     regs.X26 = gpr[X19 + 7] as u64;
     regs.X27 = gpr[X19 + 8] as u64;
     regs.X28 = gpr[X19 + 9] as u64;
-    regs.Fp  = gpr[X19 + 10] as u64;
+    regs.Fp  = gpr[FP] as u64;
     regs.Lr  = gpr[LR] as u64;
     context.Sp = gpr[SP] as u64;
-    context.Pc = gpr[LR] as u64;   // resume at the return address LR points to
+    context.Pc = gpr[LR] as u64;
 
     // Callee-saved FP regs: d8..d15 live in low 64 bits of V[8..16]
     let d_src = (gpr.as_ptr() as *const u64).add(D_BASE);
