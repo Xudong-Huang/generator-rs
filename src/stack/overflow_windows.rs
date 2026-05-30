@@ -18,9 +18,7 @@ unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTE
     #[cfg(target_arch = "aarch64")]
     let fault_sp = context.Sp as usize;
 
-    if rec.ExceptionCode == EXCEPTION_STACK_OVERFLOW
-        && guard::current().contains(&fault_sp)
-    {
+    if rec.ExceptionCode == EXCEPTION_STACK_OVERFLOW && guard::current().contains(&fault_sp) {
         eprintln!(
             "\ncoroutine in thread '{}' has overflowed its stack\n",
             std::thread::current().name().unwrap_or("<unknown>")
@@ -91,7 +89,7 @@ unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
     const FP: usize = 10;
     const LR: usize = 11;
     const SP: usize = 12;
-    const D_BASE: usize = 14;          // d8 starts here (byte offset 112) and ends d15 (byte offset 168)
+    const D_BASE: usize = 14; // d8 starts here (byte offset 112) and ends d15 (byte offset 168)
     const STACK_BASE: usize = 22;
     const STACK_LIMIT: usize = 23;
     const STACK_DEALLOC: usize = 24;
@@ -100,7 +98,7 @@ unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
 
     // Integer + control: x19..x28, fp, lr, sp, pc
     let regs = &mut context.Anonymous.Anonymous;
-    regs.X19 = gpr[X19    ] as u64;
+    regs.X19 = gpr[X19] as u64;
     regs.X20 = gpr[X19 + 1] as u64;
     regs.X21 = gpr[X19 + 2] as u64;
     regs.X22 = gpr[X19 + 3] as u64;
@@ -110,8 +108,8 @@ unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
     regs.X26 = gpr[X19 + 7] as u64;
     regs.X27 = gpr[X19 + 8] as u64;
     regs.X28 = gpr[X19 + 9] as u64;
-    regs.Fp  = gpr[FP] as u64;
-    regs.Lr  = gpr[LR] as u64;
+    regs.Fp = gpr[FP] as u64;
+    regs.Lr = gpr[LR] as u64;
     context.Sp = gpr[SP] as u64;
     context.Pc = gpr[LR] as u64;
 
@@ -126,7 +124,7 @@ unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
     let teb: usize;
     core::arch::asm!("mov {0}, x18", out(reg) teb);
 
-    *((teb + 0x08)   as *mut usize) = gpr[STACK_BASE];
-    *((teb + 0x10)   as *mut usize) = gpr[STACK_LIMIT];
+    *((teb + 0x08) as *mut usize) = gpr[STACK_BASE];
+    *((teb + 0x10) as *mut usize) = gpr[STACK_LIMIT];
     *((teb + 0x1478) as *mut usize) = gpr[STACK_DEALLOC];
 }
