@@ -85,6 +85,7 @@ fn main() {
     - armv7 Linux
     - riscv64 Linux
     - powerpc64le Linux
+    - s390x Linux
 
 ## License
 

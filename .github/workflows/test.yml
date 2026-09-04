@@ -37,7 +37,7 @@ jobs:
           - { name: Linux-powerpc64le, os: ubuntu-latest, tool: powerpc64le-unknown-linux-gnu }
           #- { name: Linux-thumbv7, os: ubuntu-latest, tool: thumbv7neon-unknown-linux-gnueabihf }
           - { name: Linux-riscv64, os: ubuntu-latest, tool: riscv64gc-unknown-linux-gnu }
-          #- { name: Linux-s390x, os: ubuntu-latest, tool: s390x-unknown-linux-gnu }
+          - { name: Linux-s390x, os: ubuntu-latest, tool: s390x-unknown-linux-gnu }
           #- { name: Linux-sparc64, os: ubuntu-latest, tool: sparc64-unknown-linux-gnu }
           #- { name: iOS-aarch64, os: macos-latest, tool: aarch64-apple-ios }
           #- { name: Android-armv7, os: ubuntu-latest, tool: armv7-linux-androideabi }

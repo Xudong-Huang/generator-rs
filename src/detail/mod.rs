@@ -29,6 +29,7 @@
 #[cfg_attr(all(unix, target_arch = "loongarch64"), path = "loongarch64_unix.rs")]
 #[cfg_attr(all(unix, target_arch = "riscv64"), path = "riscv64_unix.rs")]
 #[cfg_attr(all(unix, target_arch = "powerpc64"), path = "ppc64le_unix.rs")]
+#[cfg_attr(all(unix, target_arch = "s390x"), path = "s390x_unix.rs")]
 pub mod asm;
 
 mod gen;
