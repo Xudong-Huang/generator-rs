@@ -4,5 +4,9 @@ version = "0.0.0"
 edition = "2021"
 publish = false
 
+[[bin]]
+name = "api-gen"
+path = "src/main.rs"
+
 [dependencies]
 windows-bindgen = "0.65"

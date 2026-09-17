@@ -88,10 +88,8 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
         let context = env.top();
         let mut p = self.get_yield();
         while !g.is_done() {
-            match g.raw_send(p) {
-                None => return None,
-                Some(r) => self.raw_yield(&env, context, r),
-            }
+            let r = g.raw_send(p)?;
+            self.raw_yield(&env, context, r);
             p = self.get_yield();
         }
         drop(g); // explicitly consume g

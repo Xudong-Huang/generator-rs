@@ -252,7 +252,7 @@ fn test_ill_drop() {
 fn test_loop_drop() {
     let mut x = 10u32;
     {
-        let mut g = Gn::<()>::new(|| {
+        let mut g = Gn::<()>::new(|| -> () {
             x = 5;
             loop {
                 yield_with(());

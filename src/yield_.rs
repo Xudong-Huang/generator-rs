@@ -111,10 +111,8 @@ pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
     let context = env.top();
     let mut p = context.get_para();
     while unlikely(!g.is_done()) {
-        match g.raw_send(p) {
-            None => return None,
-            Some(r) => raw_yield(&env, context, r),
-        }
+        let r = g.raw_send(p)?;
+        raw_yield(&env, context, r);
         p = context.get_para();
     }
     drop(g); // explicitly consume g
