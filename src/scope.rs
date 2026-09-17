@@ -4,7 +4,6 @@
 //!
 
 use std::marker::PhantomData;
-use std::sync::atomic;
 
 use crate::gen_impl::Generator;
 use crate::rt::{Context, ContextStack, Error};
@@ -85,7 +84,7 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
     #[inline]
     pub unsafe fn yield_unsafe(&mut self, v: T) -> Option<A> {
         self.yield_with(v);
-        atomic::compiler_fence(atomic::Ordering::Acquire);
+        // atomic::compiler_fence(atomic::Ordering::Acquire);
         self.get_yield()
     }
 
