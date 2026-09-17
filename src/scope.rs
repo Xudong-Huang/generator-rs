@@ -32,7 +32,11 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
     /// set current generator return value
     #[inline]
     fn set_ret(&mut self, v: T) {
-        *self.ret = Some(v);
+        // use volatile write to prevent compiler optimization reordering
+        // *self.ret = Some(v);
+        unsafe {
+            core::ptr::write_volatile(self.ret, Some(v));
+        }
     }
 
     /// raw yield without catch passed in para
@@ -64,7 +68,14 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
     /// get current generator send para
     #[inline]
     pub fn get_yield(&mut self) -> Option<A> {
-        self.para.take()
+        // in latest nightly (since 2026-08-15) Rust, `Option::take` seems calculated in advance,
+        // here we use volatile read to prevent compiler reordering
+        // self.para.take()
+        unsafe {
+            let r = core::ptr::read_volatile(self.para);
+            core::ptr::write(self.para, None);
+            r
+        }
     }
 
     /// yield and get the send para
