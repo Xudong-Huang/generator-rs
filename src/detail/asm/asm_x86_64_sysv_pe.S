@@ -90,3 +90,4 @@ swap_registers:
 
 .section .drectve
 .ascii " -export:\"swap_registers\""
+.text
