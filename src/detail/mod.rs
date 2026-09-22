@@ -23,6 +23,7 @@
 
 #[cfg_attr(all(unix, target_arch = "aarch64"), path = "aarch64_unix.rs")]
 #[cfg_attr(all(unix, target_arch = "arm"), path = "arm_unix.rs")]
+#[cfg_attr(all(unix, target_arch = "x86"), path = "x86_unix.rs")]
 #[cfg_attr(all(unix, target_arch = "x86_64"), path = "x86_64_unix.rs")]
 #[cfg_attr(all(windows, target_arch = "x86_64"), path = "x86_64_windows.rs")]
 #[cfg_attr(all(windows, target_arch = "aarch64"), path = "aarch64_windows.rs")]
