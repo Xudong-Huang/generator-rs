@@ -28,6 +28,7 @@ jobs:
           - { name: Windows-x64, os: windows-latest, tool: x86_64-pc-windows-msvc }
           - { name: Windows-aarch64, os: windows-11-arm, tool: aarch64-pc-windows-msvc }
           - { name: Linux-x64, os: ubuntu-latest, tool: x86_64-unknown-linux-gnu }
+          - { name: Linux-i686, os: ubuntu-latest, tool: i686-unknown-linux-gnu }
           - { name: Linux-aarch64, os: ubuntu-latest, tool: aarch64-unknown-linux-gnu }
           - { name: Linux-armv7, os: ubuntu-latest, tool: armv7-unknown-linux-gnueabihf }
           #- { name: Linux-arm, os: ubuntu-latest, tool: arm-unknown-linux-gnueabihf }

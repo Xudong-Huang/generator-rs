@@ -71,6 +71,7 @@ fn main() {
 
 * This crate supports below platforms, welcome to contribute with other arch and platforms
 
+    - i686 Linux
     - x86_64 Linux
     - x86_64 macOS
     - x86_64 Windows
