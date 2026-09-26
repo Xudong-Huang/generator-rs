@@ -15,9 +15,9 @@ use std::marker::PhantomData;
 use std::panic;
 use std::thread;
 
-/// The default stack size for generators, in bytes.
+/// The default stack size for generators, in `usize` words.
 // windows has a minimal size as 0x4a8!!!!
-pub const DEFAULT_STACK_SIZE: usize = 0x1000;
+pub const DEFAULT_STACK_SIZE: usize = 0x8000 / std::mem::size_of::<usize>();
 
 #[inline]
 #[cold]
