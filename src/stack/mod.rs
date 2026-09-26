@@ -311,7 +311,8 @@ pub struct Stack {
 }
 
 impl Stack {
-    /// Allocate a new stack of `size`. If size = 0, this is a `dummy_stack`
+    /// Allocate a new stack of `size` * size_of::<usize>() bytes. If size = 0,
+    /// this is a `dummy_stack`
     pub fn new(size: usize) -> Stack {
         let track = (size & 1) != 0;
 
