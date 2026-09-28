@@ -1,6 +1,9 @@
 use crate::detail::{align_down, mut_offset};
 use crate::stack::Stack;
 
+#[cfg(ppc64_global_asm)]
+std::arch::global_asm!(include_str!(concat!(env!("OUT_DIR"), "/asm_ppc64le_elf.S")));
+
 // first argument is task handle, second is thunk ptr
 pub type InitFn = extern "C" fn(usize, *mut usize) -> !;
 

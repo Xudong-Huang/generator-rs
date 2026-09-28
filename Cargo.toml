@@ -30,6 +30,7 @@ cfg-if = "1.0.0"
 [build-dependencies]
 rustversion = "1.0"
 cc = "1.0"
+regex-lite = "0.1"
 
 # release build
 [profile.release]
