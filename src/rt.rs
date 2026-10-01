@@ -14,6 +14,29 @@ use crate::reg_context::RegContext;
 thread_local! {
     // each thread has it's own generator context stack
     static ROOT_CONTEXT_P: Cell<*mut Context> = const { Cell::new(ptr::null_mut()) };
+    // frees the root context pointed to by `ROOT_CONTEXT_P` when the thread
+    // exits. Kept separate from `ROOT_CONTEXT_P` so that the pointer itself
+    // (which has no destructor) remains accessible during TLS teardown.
+    static ROOT_CONTEXT_OWNER: RootContextOwner = const { RootContextOwner };
+}
+
+struct RootContextOwner;
+
+impl Drop for RootContextOwner {
+    fn drop(&mut self) {
+        let root = ROOT_CONTEXT_P.get();
+        if root.is_null() {
+            return;
+        }
+        // Only free the root if no generator is currently running on this
+        // thread (i.e. the root is the top of the context stack). Otherwise
+        // leak it, since running generators may still reference it.
+        if !std::ptr::eq(unsafe { (*root).parent }, root) {
+            return;
+        }
+        ROOT_CONTEXT_P.set(ptr::null_mut());
+        drop(unsafe { Box::from_raw(root) });
+    }
 }
 
 /// yield panic error types
@@ -171,6 +194,10 @@ impl ContextStack {
         let root = Box::leak(Box::new(Context::new()));
         root.parent = root; // init top to current
         ROOT_CONTEXT_P.set(root);
+        // Touch the owner so its destructor is registered and frees `root` at
+        // thread exit. If the owner was already destroyed (we're being called
+        // during TLS teardown), the root is simply leaked.
+        let _ = ROOT_CONTEXT_OWNER.try_with(|_| ());
         root
     }
 
