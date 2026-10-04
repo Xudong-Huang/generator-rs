@@ -62,6 +62,7 @@ pub fn initialize_call_frame(
     stack: &Stack,
 ) {
     // Callee-saved registers start at x19
+    #[expect(clippy::eq_op)]
     const X19: usize = 19 - 19;
     const X20: usize = 20 - 19;
     const X21: usize = 21 - 19;
