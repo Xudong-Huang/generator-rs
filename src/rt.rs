@@ -95,8 +95,13 @@ impl Context {
     }
 
     /// get coroutine send para
+    ///
+    /// # Safety
+    ///
+    /// A must be matching self.para, so that para.downcast_mut::<Option<A>>()
+    /// holds.
     #[inline]
-    pub fn co_get_para<A>(&mut self) -> Option<A> {
+    pub unsafe fn co_get_para<A>(&mut self) -> Option<A> {
         let para = unsafe {
             let para_ptr = *self.para.as_mut_ptr();
             debug_assert!(!para_ptr.is_null());
@@ -120,8 +125,13 @@ impl Context {
 
     /// set coroutine send para
     /// without check the data type for coroutine performance reason
+    ///
+    /// # Safety
+    ///
+    /// A must be matching self.para, so that para.downcast_mut::<Option<A>>()
+    /// holds.
     #[inline]
-    pub fn co_set_para<A>(&mut self, data: A) {
+    pub unsafe fn co_set_para<A>(&mut self, data: A) {
         let para = unsafe {
             let para_ptr = *self.para.as_mut_ptr();
             debug_assert!(!para_ptr.is_null());
@@ -149,8 +159,13 @@ impl Context {
 
     /// set coroutine return value
     /// without check the data type for coroutine performance reason
+    ///
+    /// # Safety
+    ///
+    /// T must be matching self.ret, so that ret.downcast_mut::<Option<A>>()
+    /// holds.
     #[inline]
-    pub fn co_set_ret<T>(&mut self, v: T) {
+    pub unsafe fn co_set_ret<T>(&mut self, v: T) {
         let ret = unsafe {
             let ret_ptr = *self.ret.as_mut_ptr();
             debug_assert!(!ret_ptr.is_null());

@@ -120,7 +120,11 @@ pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
 }
 
 /// coroutine yield
-pub fn co_yield_with<T: Any>(v: T) {
+///
+/// # Safety
+///
+/// Current ContextStack must match `v` argument
+pub unsafe fn co_yield_with<T: Any>(v: T) {
     let env = ContextStack::current();
     let context = env.co_ctx().unwrap();
 
@@ -146,14 +150,22 @@ pub fn co_yield_with<T: Any>(v: T) {
 }
 
 /// coroutine get passed in yield para
-pub fn co_get_yield<A: Any>() -> Option<A> {
+///
+/// # Safety
+///
+/// Current ContextStack must match `A` type argument
+pub unsafe fn co_get_yield<A: Any>() -> Option<A> {
     ContextStack::current()
         .co_ctx()
         .and_then(|ctx| ctx.co_get_para())
 }
 
 /// set current coroutine para in user space
-pub fn co_set_para<A: Any>(para: A) {
+///
+/// # Safety
+///
+/// Current ContextStack must match the `para` arguments type.
+pub unsafe fn co_set_para<A: Any>(para: A) {
     if let Some(ctx) = ContextStack::current().co_ctx() {
         ctx.co_set_para(para)
     }
