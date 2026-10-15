@@ -117,40 +117,18 @@ impl Context {
         }
     }
 
-    /// get coroutine send para
+    /// set current generator send para
     #[inline]
-    pub fn co_get_para<A>(&mut self) -> Option<A> {
+    pub fn set_para<A: Any>(&mut self, data: A) {
         let para = unsafe {
             let para_ptr = *self.para.as_mut_ptr();
-            debug_assert!(!para_ptr.is_null());
-            &mut *(para_ptr as *mut Option<A>)
+            assert!(!para_ptr.is_null());
+            &mut *para_ptr
         };
-        para.take()
-    }
-
-    // /// set current generator send para
-    // #[inline]
-    // pub fn set_para<A>(&self, data: A)
-    // where
-    //     A: Any,
-    // {
-    //     let para = unsafe { &mut *self.para };
-    //     match para.downcast_mut::<Option<A>>() {
-    //         Some(v) => *v = Some(data),
-    //         None => type_error::<A>("set yield type mismatch error detected"),
-    //     }
-    // }
-
-    /// set coroutine send para
-    /// without check the data type for coroutine performance reason
-    #[inline]
-    pub fn co_set_para<A>(&mut self, data: A) {
-        let para = unsafe {
-            let para_ptr = *self.para.as_mut_ptr();
-            debug_assert!(!para_ptr.is_null());
-            &mut *(para_ptr as *mut Option<A>)
-        };
-        *para = Some(data);
+        match para.downcast_mut::<Option<A>>() {
+            Some(para) => *para = Some(data),
+            None => type_error::<A>("set yield type mismatch error detected"),
+        }
     }
 
     /// set current generator return value
@@ -166,20 +144,8 @@ impl Context {
         };
         match ret.downcast_mut::<Option<T>>() {
             Some(r) => *r = Some(v),
-            None => type_error::<T>("yield type mismatch error detected"),
+            None => type_error::<T>("set return type mismatch error detected"),
         }
-    }
-
-    /// set coroutine return value
-    /// without check the data type for coroutine performance reason
-    #[inline]
-    pub fn co_set_ret<T>(&mut self, v: T) {
-        let ret = unsafe {
-            let ret_ptr = *self.ret.as_mut_ptr();
-            debug_assert!(!ret_ptr.is_null());
-            &mut *(ret_ptr as *mut Option<T>)
-        };
-        *ret = Some(v);
     }
 }
 
