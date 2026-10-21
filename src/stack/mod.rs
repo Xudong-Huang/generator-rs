@@ -49,6 +49,22 @@ impl<T> StackBox<T> {
         let u_align = align / std::mem::size_of::<usize>();
         let pad_size = u_align - (*offset + size) % u_align;
         let data_size = size + pad_size;
+
+        // `Stack::end()` is `top - offset`, so the bump cursor has to stay
+        // within the stack: past `stack.size()` the header write below, and the
+        // caller's `init()` after it, both land under `buf.bottom` -- through
+        // the guard page and into whatever mapping happens to sit there.
+        let needed = *offset + data_size + HEADER_SIZE;
+        if needed > stack.size() {
+            stack_too_small(
+                stack,
+                need_drop,
+                *offset,
+                needed,
+                std::any::type_name::<T>(),
+            );
+        }
+
         *offset += data_size;
         let ptr = unsafe { ptr::NonNull::new_unchecked(stack.end() as *mut T) };
 
@@ -102,6 +118,32 @@ impl<T> StackBox<T> {
     //     std::mem::forget(b);
     //     ret
     // }
+}
+
+/// The bump allocator would have run off the end of the generator stack.
+///
+/// This is not a runtime stack overflow: it means the stack was never big
+/// enough to hold the generator's own bookkeeping plus the closure it has to
+/// carry, so it is a caller error and reported as one.
+#[cold]
+#[inline(never)]
+fn stack_too_small(stack: &Stack, need_drop: usize, offset: usize, needed: usize, what: &str) -> ! {
+    let word = std::mem::size_of::<usize>();
+    let cap = stack.size();
+
+    // A pristine stack (offset still at its initial 1) has handed out nothing,
+    // so there is no `StackBox` left to release the mapping while we unwind and
+    // we have to do it here. Otherwise the owning box frees it on the way out.
+    if need_drop != 0 && offset == 1 {
+        stack.drop_stack();
+    }
+
+    panic!(
+        "generator stack too small to hold {what}: needs {} bytes but the stack is {} bytes; \
+         pass a bigger size to Gn::new_opt/new_scoped_opt",
+        needed * word,
+        cap * word,
+    );
 }
 
 pub struct Func {
@@ -413,5 +455,160 @@ impl fmt::Debug for Stack {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let offset = self.get_offset();
         write!(f, "Stack<{:?}, Offset={}>", self.buf, unsafe { *offset })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::panic::{self, AssertUnwindSafe};
+    use std::process::Command;
+
+    /// Set by the parent test on the child process. Without it the child test
+    /// body is a no-op, so that a plain `cargo test -- --ignored` cannot take
+    /// the whole harness down with a SIGSEGV.
+    const CHILD_MARKER: &str = "GENERATOR_BOF_001_CHILD";
+
+    /// The child test's path, as `--exact` wants it.
+    const CHILD_TEST: &str = "stack::tests::bof_001_child";
+
+    /// What `stack_too_small` is expected to say.
+    const EXPECTED_PANIC: &str = "generator stack too small";
+
+    /// Exit code the child uses when the allocator handed out memory it should
+    /// have refused. The out-of-bounds write has already happened by then.
+    const EXIT_ALLOWED: i32 = 42;
+
+    /// Exit code the child uses when it was refused, but by some other panic.
+    const EXIT_WRONG_PANIC: i32 = 43;
+
+    /// Exactly 1MiB of usable stack: `SysStack::allocate` rounds the request
+    /// down to a page boundary and then adds one page back, so any page size up
+    /// to 1MiB lands on 1MiB here.
+    const STACK_WORDS: usize = (1 << 20) / std::mem::size_of::<usize>();
+
+    /// 1MiB plus 512 bytes. The 512 byte excess is what makes the reproducer
+    /// deterministic on unbounded code: the allocation overshoots `buf.bottom`
+    /// by a few hundred bytes, which is inside the one page guard, rather than
+    /// by a page or more into whatever mapping sits below it.
+    type Payload = [u8; (1 << 20) + 512];
+
+    /// BOF-001: `StackBox::new_uninit` is a bump allocator, and without a bound
+    /// on its cursor a payload larger than the stack makes `Stack::end()` point
+    /// below the mapping, so the `StackBoxHeader` write at that address goes
+    /// out of bounds.
+    ///
+    /// The allocation runs in a child process: if the bound is ever removed
+    /// again the write faults on the guard page, and this way that shows up as
+    /// a failing test rather than as a dead test harness.
+    #[test]
+    fn bof_001_new_uninit_must_not_allocate_past_the_end_of_the_stack() {
+        let exe = std::env::current_exe().expect("cannot locate the test binary");
+        let out = Command::new(&exe)
+            .args([
+                "--exact",
+                CHILD_TEST,
+                "--ignored",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CHILD_MARKER, "1")
+            .output()
+            .expect("cannot run the BOF-001 child process");
+
+        if out.status.success() {
+            // Refused with the expected panic, before touching any memory.
+            return;
+        }
+
+        let stack_bytes = STACK_WORDS * std::mem::size_of::<usize>();
+        let what = match out.status.code() {
+            Some(EXIT_ALLOWED) => format!(
+                "allocating {} bytes on a {stack_bytes} byte stack was allowed and escaped the mapping",
+                std::mem::size_of::<Payload>()
+            ),
+            Some(EXIT_WRONG_PANIC) => "the allocation was refused, but not by the bounds check".to_string(),
+            _ => format!(
+                "the child died ({}), i.e. the StackBoxHeader write hit the guard page",
+                out.status
+            ),
+        };
+
+        panic!(
+            "BOF-001: {what}\n--- child stdout ---\n{}\n--- child stderr ---\n{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr),
+        );
+    }
+
+    /// The other half of `bof_001_new_uninit_must_not_allocate_past_the_end_of_the_stack`.
+    /// Never run this directly: on unbounded code it crashes the process.
+    #[test]
+    #[ignore = "BOF-001 reproducer, run as a child process by the test above"]
+    fn bof_001_child() {
+        if std::env::var_os(CHILD_MARKER).is_none() {
+            return;
+        }
+
+        let mut stack = Stack::new(STACK_WORDS);
+        let begin = stack.begin();
+        let top = unsafe { begin.add(stack.size()) };
+
+        // Precondition: the payload genuinely does not fit in the stack.
+        assert!(std::mem::size_of::<Payload>() > stack.size() * std::mem::size_of::<usize>());
+
+        // A bounded allocator refuses this before touching any memory. An
+        // unbounded one writes the StackBoxHeader below `buf.bottom` instead,
+        // and on a guard page hit we never come back from this call.
+        let alloc = panic::catch_unwind(AssertUnwindSafe(|| stack.alloc_uninit_box::<Payload>()));
+
+        let b = match alloc {
+            Err(payload) => {
+                let msg = panic_message(&*payload);
+                if !msg.contains(EXPECTED_PANIC) {
+                    println!("refused, but by an unexpected panic: {msg}");
+                    std::process::exit(EXIT_WRONG_PANIC);
+                }
+                return;
+            }
+            Ok(b) => b,
+        };
+
+        // The allocation went through, which the precondition says it must not
+        // have. Report where it landed; `StackBox::drop` would read the header
+        // back from out of bounds, so leak the box instead.
+        let b = unsafe { b.assume_init() };
+        let ptr = b.as_ptr() as *mut usize;
+        std::mem::forget(b);
+
+        println!("allocation landed at {ptr:?}, stack is [{begin:?}, {top:?})");
+        std::process::exit(EXIT_ALLOWED);
+    }
+
+    /// The bound must not be off by one: an allocation that does fit has to
+    /// keep working and has to land inside the mapping.
+    #[test]
+    fn alloc_uninit_box_stays_inside_the_stack() {
+        let mut stack = Stack::new(STACK_WORDS);
+        let begin = stack.begin();
+        let top = unsafe { begin.add(stack.size()) };
+
+        let b = unsafe { stack.alloc_uninit_box::<[u8; 4096]>().assume_init() };
+        let ptr = b.as_ptr() as *mut usize;
+        // dropping the box also releases the stack, so exercise that path
+        drop(b);
+
+        assert!(
+            ptr >= begin && ptr < top,
+            "{ptr:?} is outside [{begin:?}, {top:?})"
+        );
+    }
+
+    fn panic_message(payload: &(dyn std::any::Any + Send)) -> &str {
+        payload
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| payload.downcast_ref::<&'static str>().copied())
+            .unwrap_or("<non string panic payload>")
     }
 }

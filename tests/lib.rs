@@ -543,3 +543,91 @@ fn test_yield_float() {
     assert_eq!(i, 23328.0);
     assert!(g.is_done());
 }
+
+// BOF-001 / URAPI-001: `new_scoped_opt` takes the stack size and the closure
+// size as two unrelated, caller-chosen quantities. When they do not fit
+// together the allocator must refuse rather than write outside the mapping.
+
+fn panicked_with(f: impl FnOnce() + std::panic::UnwindSafe, expected: &str) {
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let err = std::panic::catch_unwind(f).err();
+    std::panic::set_hook(hook);
+
+    let err = err.expect("expected a panic, the allocation was allowed through");
+    let msg = err
+        .downcast_ref::<String>()
+        .map(String::as_str)
+        .or_else(|| err.downcast_ref::<&'static str>().copied())
+        .unwrap_or("<non string panic payload>");
+    assert!(msg.contains(expected), "unexpected panic: {msg}");
+}
+
+#[test]
+fn small_stack_rejects_an_oversized_closure() {
+    // the closure alone is bigger than the whole stack
+    let captured = [0u8; 64 * 1024];
+    panicked_with(
+        move || {
+            let _ = Gn::<()>::new_scoped_opt(128, move |mut s| {
+                s.yield_(captured.len());
+                done!();
+            });
+        },
+        "generator stack too small",
+    );
+}
+
+#[test]
+fn small_stack_rejects_an_oversized_generator() {
+    // here it is the GeneratorImpl itself that does not fit, so the very first
+    // allocation on a pristine stack is the one that gets refused
+    panicked_with(
+        || {
+            let _ = Gn::<[u8; 64 * 1024]>::new_scoped_opt(128, |mut s| {
+                s.yield_(1usize);
+                done!();
+            });
+        },
+        "generator stack too small",
+    );
+}
+
+#[test]
+fn rejecting_an_oversized_closure_does_not_leak_or_double_free() {
+    for _ in 0..256 {
+        let captured = [0u8; 64 * 1024];
+        panicked_with(
+            move || {
+                let _ = Gn::<()>::new_scoped_opt(128, move |mut s| {
+                    s.yield_(captured.len());
+                    done!();
+                });
+            },
+            "generator stack too small",
+        );
+    }
+}
+
+#[test]
+fn a_refused_reinit_leaves_the_generator_safe_to_drop() {
+    let mut g = Gn::<()>::new_scoped_opt(DEFAULT_STACK_SIZE, |mut s| {
+        s.yield_(1usize);
+        done!();
+    });
+    assert_eq!(g.next(), Some(1));
+    assert_eq!(g.next(), None);
+    assert!(g.is_done());
+
+    // re-initializing a done generator with a closure that no longer fits has
+    // to leave it in the state it was already in, otherwise dropping it resumes
+    // a context that was never initialized for this round
+    let captured = [0u8; 64 * 1024];
+    panicked_with(
+        std::panic::AssertUnwindSafe(|| g.init_code(move || captured.len())),
+        "generator stack too small",
+    );
+
+    assert!(g.is_done());
+    drop(g);
+}

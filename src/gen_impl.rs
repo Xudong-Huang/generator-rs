@@ -349,16 +349,20 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // init ctx parent to itself, this would be the new top
         self.context.parent = &mut self.context;
 
-        // init the ref to 0 means that it's ready to start
-        self.context._ref = 0;
         let ret = &mut self.ret as *mut _;
-        // alloc the function on stack
+        // alloc the function on stack. this can panic when the stack is too
+        // small to hold the closure, so it has to happen before `_ref` is
+        // cleared below: a generator left with `_ref == 0` and no functor looks
+        // runnable to `Drop`, which would then resume a context that was never
+        // initialized for this round.
         let func = StackBox::new_fn_once(&mut self.stack, move || {
             let r = f();
             unsafe { *ret = Some(r) };
         });
 
         self.f = Some(func);
+        // init the ref to 0 means that it's ready to start
+        self.context._ref = 0;
 
         let guard = (self.stack.begin() as usize, self.stack.end() as usize);
         self.context.stack_guard = guard;
