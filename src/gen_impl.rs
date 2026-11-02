@@ -15,7 +15,12 @@ use std::marker::PhantomData;
 use std::panic;
 use std::thread;
 
-/// The default stack size for generators, in `usize` words.
+/// The default stack size for generators.
+///
+/// Expressed in `usize` words (not bytes): on a 64-bit target this is 4096
+/// words, i.e. 32 KiB; on a 32-bit target it is 8192 words, also 32 KiB. The
+/// public `*_opt` constructors take their `size` argument in the same unit
+/// (`usize` words).
 // windows has a minimal size as 0x4a8!!!!
 pub const DEFAULT_STACK_SIZE: usize = 0x8000 / std::mem::size_of::<usize>();
 
@@ -219,6 +224,9 @@ impl<A> Gn<A> {
     }
 
     /// create a scoped generator with specified stack size
+    ///
+    /// `size` is the stack size in `usize` words (not bytes), matching
+    /// [`DEFAULT_STACK_SIZE`].
     pub fn new_scoped_opt<'a, T, F>(size: usize, f: F) -> Generator<'a, A, T>
     where
         for<'scope> F: FnOnce(Scope<'scope, 'a, A, T>) -> T + Send + 'a,
@@ -231,6 +239,9 @@ impl<A> Gn<A> {
     }
 
     /// create a scoped local generator with specified stack size
+    ///
+    /// `size` is the stack size in `usize` words (not bytes), matching
+    /// [`DEFAULT_STACK_SIZE`].
     pub fn new_scoped_opt_local<'a, T, F>(size: usize, f: F) -> LocalGenerator<'a, A, T>
     where
         F: FnOnce(Scope<A, T>) -> T + 'a,
@@ -255,6 +266,9 @@ impl<A: Any> Gn<A> {
     }
 
     /// create a new generator with specified stack size
+    ///
+    /// `size` is the stack size in `usize` words (not bytes), matching
+    /// [`DEFAULT_STACK_SIZE`].
     // the `may` library use this API so we can't deprecated it yet.
     pub fn new_opt<'a, T: Any, F>(size: usize, f: F) -> Generator<'a, A, T>
     where
