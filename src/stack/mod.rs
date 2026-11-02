@@ -306,6 +306,15 @@ impl SysStack {
 
 unsafe impl Send for SysStack {}
 
+/// Sentinel word used to mark the unused (bottom) part of a stack so that
+/// `Stack::get_used_size` can estimate how much of it has been touched.
+///
+/// Both the writer (`Stack::new`) and the reader (`Stack::get_used_size`) use
+/// this same constant, so they always agree regardless of word size or
+/// endianness. A fairly high-entropy pattern is used to reduce (though not
+/// eliminate) the chance that real stack data happens to look untouched.
+const STACK_SENTINEL: usize = 0xDEAD_BEEFusize;
+
 /// generator stack
 /// this struct will not dealloc the memory
 /// instead StackBox<> would track it's usage and dealloc it
@@ -333,9 +342,15 @@ impl Stack {
             8
         };
 
+        // fill the bottom `count` words with the sentinel word. Filling whole
+        // words (instead of raw bytes) keeps the written pattern identical to
+        // what `get_used_size` compares against, on any word size/endianness.
         unsafe {
-            let buf = stk.buf.bottom as *mut usize;
-            ptr::write_bytes(buf, 0xEE, count);
+            let mut p = stk.buf.bottom as *mut usize;
+            for _ in 0..count {
+                p.write(STACK_SENTINEL);
+                p = p.offset(1);
+            }
         }
 
         // init the stack box usage
@@ -347,18 +362,20 @@ impl Stack {
 
     /// get used stack size
     pub fn get_used_size(&self) -> usize {
-        let mut offset: usize = 0;
+        let cap = self.size();
+        // count how many words at the bottom of the stack still hold the
+        // sentinel, i.e. are untouched. The loop is bounded by `cap` so that it
+        // can never read past the top of the stack (the sentinel is only
+        // written to at most `cap` words by `Stack::new`).
+        let mut free: usize = 0;
         unsafe {
-            let mut magic: usize = 0xEE;
-            ptr::write_bytes(&mut magic, 0xEE, 1);
-            let mut ptr = self.buf.bottom as *mut usize;
-            while *ptr == magic {
-                offset += 1;
+            let mut ptr = self.buf.bottom as *const usize;
+            while free < cap && *ptr == STACK_SENTINEL {
+                free += 1;
                 ptr = ptr.offset(1);
             }
         }
-        let cap = self.size();
-        cap - offset
+        cap - free
     }
 
     /// get the stack cap
