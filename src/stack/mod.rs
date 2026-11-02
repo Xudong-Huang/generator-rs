@@ -47,7 +47,10 @@ impl<T> StackBox<T> {
         let align = std::cmp::max(layout.align(), ALIGN);
         let size = ((layout.size() + align - 1) & !(align - 1)) / std::mem::size_of::<usize>();
         let u_align = align / std::mem::size_of::<usize>();
-        let pad_size = u_align - (*offset + size) % u_align;
+        // round up to the next multiple of `u_align`, but add no padding when
+        // the size is already aligned (otherwise a full `u_align` of padding
+        // would be wasted whenever `(*offset + size) % u_align == 0`)
+        let pad_size = (u_align - (*offset + size) % u_align) % u_align;
         let data_size = size + pad_size;
         *offset += data_size;
         let ptr = unsafe { ptr::NonNull::new_unchecked(stack.end() as *mut T) };
