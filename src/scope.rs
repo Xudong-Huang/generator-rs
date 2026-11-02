@@ -77,10 +77,28 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
         }
     }
 
-    /// yield and get the send para
+    /// Yield a value and get the sent parameter back, without requiring
+    /// `T: 'static`.
+    ///
+    /// Unlike [`yield_`](Self::yield_), this method is available on a
+    /// `Scope<'scope, 'a, A, T>` for any (possibly non-`'static`) `'a`, so `v`
+    /// may contain references to data that lives on this generator's own
+    /// stack. That extra power is exactly why this method is `unsafe`: the
+    /// compiler can no longer verify that those references outlive their use.
+    ///
     /// # Safety
-    /// When yield out, the reference of the captured data must be still valid
-    /// normally, you should always call the `drop` of the generator
+    ///
+    /// The caller must uphold the borrow rules the type system would normally
+    /// enforce for `'a`:
+    ///
+    /// - Any reference contained in `v` (e.g. borrowed from this generator's
+    ///   captured data) must remain valid for as long as the yielded value is
+    ///   observable by the `send`/`resume` caller. In practice this means:
+    ///   keep the generator alive (do not `drop` it) while such a reference is
+    ///   still held outside.
+    /// - The borrowed data must not be mutated through another `&mut` while the
+    ///   caller still holds the reference handed out by this `yield`, i.e. no
+    ///   aliasing `&mut` may cross a `yield` boundary.
     #[inline]
     pub unsafe fn yield_unsafe(&mut self, v: T) -> Option<A> {
         self.yield_with(v);
@@ -88,11 +106,25 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
         self.get_yield()
     }
 
-    /// `yield_from_unsafe`
-    /// the from generator must has the same type as itself
+    /// Drive an inner generator `g`, re-yielding every value it produces and
+    /// forwarding the sent parameter into it. Returns the last sent parameter.
+    ///
     /// # Safety
-    /// When yield out, the reference of the captured data must be still valid
-    /// normally, you should always call the `drop` of the generator
+    ///
+    /// In addition to the contract of [`yield_unsafe`](Self::yield_unsafe)
+    /// (every value produced by `g` is re-yielded through this `Scope`, so the
+    /// same borrow rules apply to them), the caller must guarantee:
+    ///
+    /// - `g` is an inner generator whose `A`/`T` match this `Scope`'s `A`/`T`,
+    ///   so that values and parameters line up. The `Generator<A, T>` parameter
+    ///   enforces that the element types match, but the caller remains
+    ///   responsible for the value/lifetime semantics of what `g` yields.
+    /// - `g` must not outlive, nor escape, this generator. It is driven to
+    ///   completion and dropped inside this call, so its stack must stay alive
+    ///   for the whole loop; do not move `g` out or share it across a `yield`
+    ///   boundary.
+    /// - As with `yield_unsafe`, any reference re-yielded from `g` must remain
+    ///   valid for as long as the outer `send`/`resume` caller can observe it.
     pub unsafe fn yield_from_unsafe(&mut self, mut g: Generator<A, T>) -> Option<A> {
         let env = ContextStack::current();
         let context = env.top();
