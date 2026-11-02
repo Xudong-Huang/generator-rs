@@ -479,11 +479,15 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // tell the func to panic
         // so that we can stop the inner func
         self.context._ref = 2;
-        // save the old panic hook, we don't want to print anything for the Cancel
-        let old = panic::take_hook();
-        panic::set_hook(Box::new(|_| {}));
+        // NOTE: the `Cancel` control-flow panic raised inside the generator is
+        // caught and silenced by `gen_init_impl`'s `catch_unwind_filter`, so we
+        // must NOT touch the global panic hook here. Doing `panic::set_hook`
+        // would race with other threads (the hook is process-global) and could
+        // swallow unrelated panics or leave the hook in a broken state.
+        // let old = panic::take_hook();
+        // panic::set_hook(Box::new(|_| {}));
         self.resume_gen();
-        panic::set_hook(old);
+        // panic::set_hook(old);
     }
 
     /// cancel the generator
