@@ -9,4 +9,4 @@ name = "api-gen"
 path = "src/main.rs"
 
 [dependencies]
-windows-bindgen = "0.65"
+windows-bindgen = "0.100"

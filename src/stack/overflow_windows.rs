@@ -1,9 +1,12 @@
 use super::windows_bindings::Windows::Win32::{
-    Foundation::EXCEPTION_STACK_OVERFLOW,
-    System::Diagnostics::Debug::{AddVectoredExceptionHandler, CONTEXT, EXCEPTION_POINTERS},
+    AddVectoredExceptionHandler, GetStdHandle, WriteFile, CONTEXT, EXCEPTION_POINTERS,
 };
 use crate::rt::{guard, Context, ContextStack};
 use std::sync::Once;
+use windows_sys::Win32::{
+    Foundation::EXCEPTION_STACK_OVERFLOW,
+    System::Console::STD_ERROR_HANDLE,
+};
 
 unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTERS) -> i32 {
     const EXCEPTION_CONTINUE_SEARCH: i32 = 0;
@@ -18,10 +21,20 @@ unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTE
     #[cfg(target_arch = "aarch64")]
     let fault_sp = context.Sp as usize;
 
-    if rec.ExceptionCode == EXCEPTION_STACK_OVERFLOW && guard::current().contains(&fault_sp) {
-        eprintln!(
-            "\ncoroutine in thread '{}' has overflowed its stack\n",
-            std::thread::current().name().unwrap_or("<unknown>")
+    if rec.ExceptionCode == EXCEPTION_STACK_OVERFLOW as u32
+        && guard::current().contains(&fault_sp)
+    {
+        // formatting/locking via eprintln! is unsafe while running on the
+        // overflowed stack, so write the message directly
+        let msg = b"\ncoroutine has overflowed its stack\n";
+        let mut written = 0u32;
+        let handle = GetStdHandle(STD_ERROR_HANDLE);
+        let _ = WriteFile(
+            handle,
+            Some(msg.as_ptr() as *const std::ffi::c_void),
+            msg.len() as u32,
+            Some(&mut written),
+            None,
         );
 
         let env = ContextStack::current();

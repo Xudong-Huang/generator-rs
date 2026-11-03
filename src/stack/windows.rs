@@ -3,9 +3,21 @@ use std::mem;
 use std::os::raw::c_void;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+#[allow(
+    non_snake_case,
+    non_upper_case_globals,
+    non_camel_case_types,
+    dead_code,
+    clippy::all
+)]
 mod windows_bindings;
 
-use windows_bindings::Windows::Win32::System::{Memory::*, SystemInformation::GetSystemInfo};
+use windows_bindings::Windows::Win32::{
+    GetSystemInfo, VirtualAlloc, VirtualFree, VirtualProtect,
+};
+use windows_sys::Win32::System::Memory::{
+    MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_GUARD, PAGE_READONLY, PAGE_READWRITE,
+};
 
 use super::SysStack;
 
@@ -31,12 +43,16 @@ pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
 
     debug_assert!(stack.len() % page_size == 0 && stack.len() != 0);
 
-    VirtualProtect(
+    if !VirtualProtect(
         stack.bottom(),
         page_size,
         PAGE_READONLY | PAGE_GUARD,
         &mut old_prot,
-    )?;
+    )
+    .as_bool()
+    {
+        return Err(io::Error::last_os_error());
+    }
 
     let bottom = (stack.bottom() as usize + page_size) as *mut c_void;
     Ok(SysStack::new(stack.top(), bottom))

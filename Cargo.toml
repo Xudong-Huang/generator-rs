@@ -2,7 +2,7 @@
 name = "generator"
 version = "0.8.11"
 edition = "2021"
-rust-version = "1.73"
+rust-version = "1.95"
 authors = ["Xudong Huang <huangxu008@hotmail.com>"]
 license = "MIT/Apache-2.0"
 repository = "https://github.com/Xudong-Huang/generator-rs.git"
@@ -17,8 +17,12 @@ build = "build.rs"
 
 
 [target.'cfg(windows)'.dependencies]
-windows-link = ">=0.1, <=0.2"
-windows-result = ">=0.3.1, <=0.4"
+windows-core = "0.100"
+windows-sys = { version = "0.61.2", features = [
+    "Win32_Foundation",
+    "Win32_System_Console",
+    "Win32_System_Memory",
+] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.100"

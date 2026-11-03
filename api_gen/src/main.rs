@@ -1,5 +1,5 @@
 use windows_bindgen::bindgen;
 
 fn main() {
-    bindgen(["--etc", "bindings.txt"]).unwrap()
+    bindgen(["--etc", "bindings.txt"])
 }
