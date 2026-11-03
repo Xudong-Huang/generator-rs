@@ -1,36 +1,39 @@
 use std::io;
-use std::mem;
 use std::os::raw::c_void;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::SysStack;
 
-#[path = "overflow_unix.rs"]
-pub mod overflow;
+cfg_select! {
+    // Fuchsia reports faults through exceptions rather than POSIX signals
+    target_os = "fuchsia" => {
+        pub mod overflow {
+            pub fn init_once() {}
+        }
+    }
+    _ => {
+        #[path = "overflow_unix.rs"]
+        pub mod overflow;
+    }
+}
 
-#[cfg(any(
-    target_os = "openbsd",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "tvos",
-    target_os = "watchos",
-    target_os = "android",
-    target_os = "illumos",
-    target_os = "solaris"
-))]
-const MAP_STACK: libc::c_int = 0;
-
-#[cfg(not(any(
-    target_os = "openbsd",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "tvos",
-    target_os = "watchos",
-    target_os = "android",
-    target_os = "illumos",
-    target_os = "solaris"
-)))]
-const MAP_STACK: libc::c_int = libc::MAP_STACK;
+cfg_select! {
+    any(
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "tvos",
+        target_os = "watchos",
+        target_os = "android",
+        target_os = "illumos",
+        target_os = "solaris"
+    ) => {
+        const MAP_STACK: libc::c_int = 0;
+    }
+    _ => {
+        const MAP_STACK: libc::c_int = libc::MAP_STACK;
+    }
+}
 
 pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
     const NULL: *mut libc::c_void = std::ptr::null_mut();
@@ -100,7 +103,7 @@ pub fn max_stack_size() -> usize {
     let mut ret = PAGE_SIZE.load(Ordering::Relaxed);
 
     if ret == 0 {
-        let mut limit = mem::MaybeUninit::uninit();
+        let mut limit = std::mem::MaybeUninit::uninit();
         let limitret = unsafe { libc::getrlimit(libc::RLIMIT_STACK, limit.as_mut_ptr()) };
         let limit = unsafe { limit.assume_init() };
 

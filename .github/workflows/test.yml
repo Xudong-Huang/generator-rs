@@ -23,7 +23,7 @@ jobs:
           - stable
           - nightly
         target:
-          #- { name: macOS-aarch64, os: macos-latest, tool: aarch64-apple-darwin }
+          - { name: macOS-aarch64, os: macos-latest, tool: aarch64-apple-darwin }
           - { name: macOS-x64, os: macos-latest, tool: x86_64-apple-darwin }
           - { name: Windows-x64, os: windows-latest, tool: x86_64-pc-windows-msvc }
           - { name: Windows-aarch64, os: windows-11-arm, tool: aarch64-pc-windows-msvc }
@@ -47,6 +47,9 @@ jobs:
           #- { name: FreeBSD-x64, os: ubuntu-latest, tool: x86_64-unknown-freebsd }
           #- { name: NetBSD-x64, os: ubuntu-latest, tool: x86_64-unknown-netbsd }
           #- { name: Illumos-x64, os: ubuntu-latest, tool: x86_64-unknown-illumos }
+          # Fuchsia needs the Fuchsia SDK to link and an emulator to run, so it is only checked in the build-only job
+          #- { name: Fuchsia-x64, os: ubuntu-latest, tool: x86_64-unknown-fuchsia }
+          #- { name: Fuchsia-aarch64, os: ubuntu-latest, tool: aarch64-unknown-fuchsia }
 
     env:
       CI: 1
@@ -70,3 +73,27 @@ jobs:
 
       - name: Test Release
         run: cross test --target ${{ matrix.target.tool }} --release
+
+  build-only:
+    name: ${{ matrix.channel }} Build on ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        channel:
+          - stable
+          - nightly
+        target:
+          - x86_64-unknown-fuchsia
+          - aarch64-unknown-fuchsia
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup rust toolchain
+        run: |
+          rustup default ${{ matrix.channel }}
+          rustup target add ${{ matrix.target }}
+
+      - name: Check
+        run: cargo check --lib --tests --target ${{ matrix.target }}

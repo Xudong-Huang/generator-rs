@@ -337,6 +337,7 @@ pub fn get_local_data() -> *mut u8 {
     env.co_ctx().map_or(ptr::null_mut(), |ctx| ctx.local_data)
 }
 
+#[cfg(not(target_os = "fuchsia"))]
 pub mod guard {
     use crate::is_generator;
     use crate::rt::ContextStack;
@@ -364,6 +365,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(not(target_os = "fuchsia"))]
     fn test_overflow() {
         use crate::*;
         use std::panic::catch_unwind;

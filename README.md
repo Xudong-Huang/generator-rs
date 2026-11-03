@@ -75,11 +75,11 @@ fn main() {
     - x86_64 Linux
     - x86_64 macOS
     - x86_64 Windows
-    - x86_64 Fuchsia
+    - x86_64 Fuchsia (build only)
     - x86_64 Android
     - aarch64 Linux
     - aarch64 macOS
-    - aarch64 Fuchsia
+    - aarch64 Fuchsia (build only)
     - aarch64 Android
     - aarch64 Windows
     - loongarch64 Linux
