@@ -48,9 +48,13 @@ unsafe extern "C" fn signal_handler(
         return;
     }
 
-    eprintln!(
-        "\ncoroutine in thread '{}' has overflowed its stack\n",
-        std::thread::current().name().unwrap_or("<unknown>")
+    // eprintln! is not async-signal-safe and crashes inside the handler on
+    // android x86_64, so write the message directly
+    let msg = b"\ncoroutine has overflowed its stack\n";
+    libc::write(
+        libc::STDERR_FILENO,
+        msg.as_ptr() as *const libc::c_void,
+        msg.len(),
     );
 
     ContextStack::current().top().err = Some(Box::new(crate::Error::StackErr));
