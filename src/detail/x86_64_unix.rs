@@ -8,10 +8,11 @@ pub extern "sysv64" fn gen_init(a1: usize, a2: *mut usize) -> ! {
     super::gen::gen_init_impl(a1, a2)
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(target_os = "macos")] {
+cfg_select! {
+    target_os = "macos" => {
         std::arch::global_asm!(include_str!("asm/asm_x86_64_sysv_macho.S"));
-    } else {
+    }
+    _ => {
         std::arch::global_asm!(include_str!("asm/asm_x86_64_sysv_elf.S"));
     }
 }

@@ -1,16 +1,16 @@
 use crate::detail::align_down;
 use crate::stack::Stack;
 
-cfg_if::cfg_if! {
-    if #[cfg(target_os = "macos")] {
+cfg_select! {
+    any(
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "tvos",
+        target_os = "watchos"
+    ) => {
         std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_macho.S"));
-    } else if #[cfg(target_os = "ios")] {
-        std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_macho.S"));
-    } else if #[cfg(target_os = "tvos")] {
-        std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_macho.S"));
-    } else if #[cfg(target_os = "watchos")] {
-        std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_macho.S"));
-    } else {
+    }
+    _ => {
         std::arch::global_asm!(include_str!("asm/asm_aarch64_aapcs_elf.S"));
     }
 }

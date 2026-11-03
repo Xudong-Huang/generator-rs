@@ -28,7 +28,6 @@ libc = "0.2.100"
 
 [dependencies]
 log = "0.4"
-cfg-if = "1.0.0"
 
 [build-dependencies]
 rustversion = "1.0"
