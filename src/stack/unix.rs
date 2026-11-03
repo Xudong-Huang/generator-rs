@@ -52,7 +52,7 @@ pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
 pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
     let page_size = page_size();
 
-    debug_assert!(stack.len() % page_size == 0 && stack.len() != 0);
+    debug_assert!(stack.len().is_multiple_of(page_size) && stack.len() != 0);
 
     let ret = {
         let bottom = stack.bottom();
