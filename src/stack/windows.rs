@@ -39,7 +39,7 @@ pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
     let page_size = page_size();
     let mut old_prot = mem::zeroed();
 
-    debug_assert!(stack.len() % page_size == 0 && stack.len() != 0);
+    debug_assert!(stack.len().is_multiple_of(page_size) && stack.len() != 0);
 
     if !VirtualProtect(
         stack.bottom(),
