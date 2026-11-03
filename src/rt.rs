@@ -174,39 +174,24 @@ impl ContextStack {
     /// causing ROOT_CONTEXT_P.get() to return stale or incorrect values.
     #[inline(never)] // Prevent inlining to ensure TLS access is correct
     pub fn current() -> ContextStack {
-        // Use volatile-style read for the TLS value
-        #[cfg(all(not(debug_assertions), any(windows, target_os = "macos")))]
-        let root = {
-            // Force a compiler fence before TLS access
-            compiler_fence(Ordering::SeqCst);
+        cfg_select! {
+            all(not(debug_assertions), any(windows, target_os = "macos")) => {
+                // Use a volatile-style read for the TLS value.
+                compiler_fence(Ordering::SeqCst);
+                let r = std::hint::black_box(ROOT_CONTEXT_P.get());
+                compiler_fence(Ordering::SeqCst);
 
-            // Read from TLS
-            let r = ROOT_CONTEXT_P.get();
-
-            // Prevent optimization
-            let r = std::hint::black_box(r);
-
-            // Force fence after read
-            compiler_fence(Ordering::SeqCst);
-
-            // If null, initialize
-            if r.is_null() {
-                let new_root = Self::init_root();
-                std::hint::black_box(new_root)
-            } else {
-                r
+                let root = if r.is_null() {
+                    std::hint::black_box(Self::init_root())
+                } else {
+                    r
+                };
             }
-        };
-
-        #[cfg(not(all(not(debug_assertions), any(windows, target_os = "macos"))))]
-        let root = {
-            let r = ROOT_CONTEXT_P.get();
-            if r.is_null() {
-                Self::init_root()
-            } else {
-                r
+            _ => {
+                let r = ROOT_CONTEXT_P.get();
+                let root = if r.is_null() { Self::init_root() } else { r };
             }
-        };
+        }
 
         ContextStack { root }
     }
@@ -230,18 +215,17 @@ impl ContextStack {
         inline
     )]
     pub fn co_ctx(&self) -> Option<&'static mut Context> {
-        // Ensure the root pointer is valid before searching
-        #[cfg(all(not(debug_assertions), any(windows, target_os = "macos")))]
-        {
-            compiler_fence(Ordering::SeqCst);
+        cfg_select! {
+            all(not(debug_assertions), any(windows, target_os = "macos")) => {
+                // Ensure the root pointer is valid before searching.
+                compiler_fence(Ordering::SeqCst);
+                // Prevent optimization issues when reading the top context.
+                let mut ctx = std::hint::black_box(self.top());
+            }
+            _ => {
+                let mut ctx = self.top();
+            }
         }
-
-        // search from top - use black_box to prevent optimization issues
-        #[cfg(all(not(debug_assertions), any(windows, target_os = "macos")))]
-        let mut ctx = std::hint::black_box(self.top());
-
-        #[cfg(not(all(not(debug_assertions), any(windows, target_os = "macos"))))]
-        let mut ctx = self.top();
 
         while !std::ptr::eq(ctx, self.root) {
             if !ctx.local_data.is_null() {
