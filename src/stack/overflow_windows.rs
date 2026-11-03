@@ -13,8 +13,6 @@ unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTE
     let rec = &(*info.ExceptionRecord);
     let context = &mut (*info.ContextRecord);
 
-    #[cfg(target_arch = "x86")]
-    let fault_sp = context.Esp as usize;
     #[cfg(target_arch = "x86_64")]
     let fault_sp = context.Rsp as usize;
     #[cfg(target_arch = "aarch64")]
@@ -90,37 +88,6 @@ unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
     *((teb + 0x08) as *mut usize) = stack_base;
     *((teb + 0x10) as *mut usize) = stack_limit;
     *((teb + 0x1478) as *mut usize) = dealloc_stack;
-}
-
-#[cfg(target_arch = "x86")]
-unsafe fn context_init(parent: &mut Context, context: &mut CONTEXT) {
-    let [ebx, esp, ebp, esi, edi, seh_chain, stack_base, stack_limit, dealloc_stack] =
-        parent.regs.regs.gpr;
-
-    // resume as if the parent returned from swap_registers
-    let eip = *(esp as *const usize);
-    let esp = esp + std::mem::size_of::<usize>();
-
-    context.Ebx = ebx as u32;
-    context.Esp = esp as u32;
-    context.Ebp = ebp as u32;
-    context.Esi = esi as u32;
-    context.Edi = edi as u32;
-    context.Eip = eip as u32;
-
-    let teb: usize;
-
-    unsafe {
-        std::arch::asm!(
-        "mov {0}, fs:[0x18]",
-        out(reg) teb
-        );
-    }
-
-    *(teb as *mut usize) = seh_chain;
-    *((teb + 0x04) as *mut usize) = stack_base;
-    *((teb + 0x08) as *mut usize) = stack_limit;
-    *((teb + 0xE0C) as *mut usize) = dealloc_stack;
 }
 
 #[cfg(target_arch = "aarch64")]
