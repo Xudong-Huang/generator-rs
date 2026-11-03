@@ -3,10 +3,7 @@ use super::windows_bindings::Windows::Win32::{
 };
 use crate::rt::{guard, Context, ContextStack};
 use std::sync::Once;
-use windows_sys::Win32::{
-    Foundation::EXCEPTION_STACK_OVERFLOW,
-    System::Console::STD_ERROR_HANDLE,
-};
+use windows_sys::Win32::{Foundation::EXCEPTION_STACK_OVERFLOW, System::Console::STD_ERROR_HANDLE};
 
 unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTERS) -> i32 {
     const EXCEPTION_CONTINUE_SEARCH: i32 = 0;
@@ -21,8 +18,7 @@ unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTE
     #[cfg(target_arch = "aarch64")]
     let fault_sp = context.Sp as usize;
 
-    if rec.ExceptionCode == EXCEPTION_STACK_OVERFLOW as u32
-        && guard::current().contains(&fault_sp)
+    if rec.ExceptionCode == EXCEPTION_STACK_OVERFLOW as u32 && guard::current().contains(&fault_sp)
     {
         // formatting/locking via eprintln! is unsafe while running on the
         // overflowed stack, so write the message directly

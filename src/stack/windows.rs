@@ -12,9 +12,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 )]
 mod windows_bindings;
 
-use windows_bindings::Windows::Win32::{
-    GetSystemInfo, VirtualAlloc, VirtualFree, VirtualProtect,
-};
+use windows_bindings::Windows::Win32::{GetSystemInfo, VirtualAlloc, VirtualFree, VirtualProtect};
 use windows_sys::Win32::System::Memory::{
     MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_GUARD, PAGE_READONLY, PAGE_READWRITE,
 };
