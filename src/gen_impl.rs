@@ -402,15 +402,18 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // make sure the last one is finished
         if self.f.is_none() && self.context._ref == 0 {
             self.cancel();
-        } else {
-            let _ = self.f.take();
         }
 
-        // init ctx parent to itself, this would be the new top
+        // From here on the generator has no live run. Mark it done before the
+        // fallible steps below: dropping a previous functor runs user code,
+        // and allocating the new one can panic when it does not fit into the
+        // stack. A caught panic must not leave the generator resumable with
+        // stale registers.
         self.context.parent = &mut self.context;
+        self.context._ref = 1;
 
-        // init the ref to 0 means that it's ready to start
-        self.context._ref = 0;
+        let _ = self.f.take();
+
         let ret = &mut self.ret as *mut _;
         // alloc the function on stack
         let func = StackBox::new_fn_once(&self.stack, move || {
@@ -418,7 +421,9 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             unsafe { *ret = Some(r) };
         });
 
+        // the function is installed, the generator is ready to start again
         self.f = Some(func);
+        self.context._ref = 0;
 
         let guard = (self.stack.begin() as usize, self.stack.end() as usize);
         self.context.stack_guard = guard;

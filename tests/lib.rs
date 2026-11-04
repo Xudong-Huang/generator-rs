@@ -532,6 +532,39 @@ fn test_re_init() {
 }
 
 #[test]
+fn test_re_init_after_failed_allocation() {
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+
+    // Re-initializing with a closure too large for the stack panics inside
+    // `init_code`. If that panic is caught, the generator must be left done
+    // (it has no function installed) instead of resumable with stale
+    // registers.
+    let mut g = Gn::<()>::new_opt(0x800, || 0u32);
+    assert_eq!(g.next(), Some(0));
+    assert!(g.is_done());
+
+    // 32 KiB capture vs a 16 KiB stack: the allocation must fail. Keep the
+    // array small enough not to overflow the test thread's own stack.
+    let big = [0u8; 1 << 15];
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        g.init_code(move || {
+            std::hint::black_box(big[0]);
+            1u32
+        });
+    }));
+    assert!(result.is_err(), "the oversized functor must panic");
+
+    // the generator has no function installed, so it must not be resumable
+    assert!(g.is_done());
+    assert_eq!(g.next(), None);
+
+    // and it must still be re-initializable afterwards
+    g.init_code(|| 2u32);
+    assert_eq!(g.next(), Some(2));
+    assert!(g.is_done());
+}
+
+#[test]
 #[should_panic]
 fn done_in_normal() {
     done!();
