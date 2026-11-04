@@ -414,6 +414,13 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         let _ = self.f.take();
 
+        // The new run must not observe input, output or panic state left over
+        // from the previous one: `para` may hold a value the old body never
+        // consumed, and a coroutine's `err` is only taken by `get_panic_data`.
+        self.para = None;
+        self.ret = None;
+        self.context.err = None;
+
         let ret = &mut self.ret as *mut _;
         // alloc the function on stack
         let func = StackBox::new_fn_once(&self.stack, move || {

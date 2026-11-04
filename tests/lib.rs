@@ -620,6 +620,46 @@ fn test_re_init_after_failed_allocation() {
 }
 
 #[test]
+fn test_re_init_clears_stale_para() {
+    // The first run never consumes the para that was set before it started.
+    let mut g = Gn::new_scoped(|mut s: Scope<u32, u32>| {
+        s.yield_with(0);
+        1
+    });
+    g.set_para(7);
+    assert_eq!(g.resume(), Some(0));
+    assert_eq!(g.resume(), Some(1));
+    assert!(g.is_done());
+
+    // the new run must not receive the stale para
+    g.scoped_init(|mut s: Scope<u32, u32>| {
+        s.yield_with(0);
+        assert_eq!(s.get_yield(), None, "stale para leaked into the new run");
+        2
+    });
+    assert_eq!(g.resume(), Some(0));
+    assert_eq!(g.resume(), Some(2));
+    assert!(g.is_done());
+}
+
+#[test]
+fn test_re_init_clears_panic_data() {
+    let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(0x800, || panic!("boom"));
+    // mark it as a coroutine, so the panic is stored instead of being
+    // re-raised by `resume`
+    g.set_local_data(1 as *mut u8);
+    assert_eq!(g.next(), None);
+    assert!(g.is_done());
+
+    // Re-init without taking the panic data: the old error must not be
+    // re-raised by the next resume.
+    g.init_code(|| 1u32);
+    g.set_local_data(std::ptr::null_mut());
+    assert_eq!(g.next(), Some(1));
+    assert!(g.is_done());
+}
+
+#[test]
 #[should_panic]
 fn done_in_normal() {
     done!();
