@@ -48,6 +48,19 @@ pub struct GeneratorObj<'a, A, T, const LOCAL: bool> {
 }
 
 /// the generator type, the functor passed to it must be Send
+///
+/// `A` is an input to the generator body, so the type is invariant in it:
+/// the input lifetime cannot be shortened after the generator is created.
+///
+/// ```compile_fail
+/// use generator::Generator;
+///
+/// fn shorten<'b>(
+///     g: Generator<'static, &'static str, u32>,
+/// ) -> Generator<'static, &'b str, u32> {
+///     g
+/// }
+/// ```
 pub type Generator<'a, A, T> = GeneratorObj<'a, A, T, false>;
 
 // Only when A, T and the functor are all sendable can the generator be sent.
@@ -304,6 +317,13 @@ struct GeneratorImpl<'a, A, T> {
     f: Option<Func>,
     // phantom lifetime
     phantom: PhantomData<&'a T>,
+    // `A` is an input to the erased closure (`Scope::get_yield` consumes it),
+    // so it must be invariant: `para: Option<A>` alone only makes the struct
+    // covariant, which would let safe code shorten a `'static` input lifetime
+    // and hand a short-lived value to a body compiled for `'static`.
+    // `fn(A) -> A` gives that invariance without affecting auto traits or
+    // drop order. `T` is output only and may stay covariant.
+    input: PhantomData<fn(A) -> A>,
 }
 
 impl<A: Any, T: Any> GeneratorImpl<'_, A, T> {
@@ -332,6 +352,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             f: None,
             context: Context::new(),
             phantom: PhantomData,
+            input: PhantomData,
         })
     }
 
