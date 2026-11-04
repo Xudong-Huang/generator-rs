@@ -119,13 +119,27 @@ impl<'a, A, T> LocalGenerator<'a, A, T> {
 }
 
 impl<'a, A, T, const LOCAL: bool> GeneratorObj<'a, A, T, LOCAL> {
-    /// Constructs a Generator from a raw pointer.
+    /// Constructs a `Generator` from a raw pointer.
     ///
     /// # Safety
     ///
-    /// This function is unsafe because improper use may lead to
-    /// memory problems. For example, a double-free may occur if the
-    /// function is called twice on the same raw pointer.
+    /// `raw` must be a non-null pointer returned by
+    /// [`into_raw`](Self::into_raw), and it must be reconstructed only once:
+    ///
+    /// - reconstructing a pointer twice (or while another handle still owns
+    ///   it) causes a double free;
+    /// - the pointer must be reconstructed with the same `A`, `T` and
+    ///   `LOCAL` parameters it was created with. In particular, a pointer
+    ///   obtained from a [`LocalGenerator`] must never be reconstructed as a
+    ///   [`Generator`]: the local generator's functor was not required to be
+    ///   `Send`, and that requirement cannot be recovered after the closure
+    ///   was type-erased;
+    /// - the reconstructed `'a` must be the lifetime the generator was
+    ///   created with. The erased functor may borrow data for `'a`, and this
+    ///   lifetime is what makes the borrow checker keep that data alive until
+    ///   the generator (and its destructor) is gone; choosing a different
+    ///   lifetime can let the destructor run after the borrowed data has been
+    ///   freed.
     #[inline]
     pub unsafe fn from_raw(raw: *mut usize) -> Self {
         GeneratorObj {
@@ -134,6 +148,10 @@ impl<'a, A, T, const LOCAL: bool> GeneratorObj<'a, A, T, LOCAL> {
     }
 
     /// Consumes the `Generator`, returning a wrapped raw pointer.
+    ///
+    /// The pointer owns the generator and its stack. It must be reclaimed
+    /// exactly once with [`from_raw`](Self::from_raw) on the matching
+    /// generator type, or leaked deliberately.
     #[inline]
     pub fn into_raw(self) -> *mut usize {
         let ret = self.gen.as_ptr() as *mut usize;
