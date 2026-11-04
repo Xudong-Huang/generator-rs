@@ -175,7 +175,12 @@ impl<'a, A, T, const LOCAL: bool> GeneratorObj<'a, A, T, LOCAL> {
         self.gen.is_done()
     }
 
-    /// get stack total size and used size in word
+    /// Get the stack total size and used size, in `usize` words.
+    ///
+    /// `used` is exact only when the generator was created with an odd stack
+    /// size, which enables full usage tracking. Otherwise only a small sample
+    /// at the bottom of the stack is checked and `used` is an upper bound
+    /// close to the total.
     pub fn stack_usage(&self) -> (usize, usize) {
         self.gen.stack_usage()
     }
@@ -317,18 +322,18 @@ impl<A: Any, T: Any> GeneratorImpl<'_, A, T> {
 impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// create a new generator with specified stack size
     fn new(mut stack: Stack) -> StackBox<Self> {
-        // the stack box would finally dealloc the stack!
+        // the box keeps the stack alive; the mapping is released with the
+        // last `Stack` handle
         unsafe {
-            let mut stack_box = stack.alloc_uninit_box::<GeneratorImpl<'a, A, T>>();
-            (*stack_box.as_mut_ptr()).init(GeneratorImpl {
+            let stack_box = stack.alloc_uninit_box::<GeneratorImpl<'a, A, T>>();
+            stack_box.init(GeneratorImpl {
                 para: None,
                 stack,
                 ret: None,
                 f: None,
                 context: Context::new(),
                 phantom: PhantomData,
-            });
-            stack_box.assume_init()
+            })
         }
     }
 
@@ -370,7 +375,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.context._ref = 0;
         let ret = &mut self.ret as *mut _;
         // alloc the function on stack
-        let func = StackBox::new_fn_once(&mut self.stack, move || {
+        let func = StackBox::new_fn_once(&self.stack, move || {
             let r = f();
             unsafe { *ret = Some(r) };
         });

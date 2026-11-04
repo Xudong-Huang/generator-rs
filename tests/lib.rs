@@ -571,6 +571,20 @@ fn test_yield_float() {
 }
 
 #[test]
+fn test_stack_usage_tracking() {
+    // even size: only the bottom words are sampled, so the estimate is an
+    // upper bound close to the total
+    let g = Gn::<()>::new_opt(0x800, || 0u32);
+    let (total, used) = g.stack_usage();
+    assert!(used + 8 >= total, "used={used}, total={total}");
+
+    // odd size: full tracking, so an almost unused stack reports a small usage
+    let g = Gn::<()>::new_opt(0x801, || 0u32);
+    let (total, used) = g.stack_usage();
+    assert!(used < total / 2, "used={used}, total={total}");
+}
+
+#[test]
 fn test_generator_moves_across_threads() {
     let mut g = Gn::<()>::new_scoped(|mut s| {
         s.yield_(1u32);

@@ -6,7 +6,6 @@ use std::cell::Cell;
 use std::error::Error;
 use std::fmt::{self, Display};
 use std::io;
-use std::mem::MaybeUninit;
 use std::os::raw::c_void;
 use std::ptr;
 use std::rc::Rc;
@@ -36,6 +35,12 @@ struct StackBoxHeader {
     end_offset: usize,
 }
 
+/// The header sits immediately in front of the data.
+#[inline]
+fn block_header(data: *const u8) -> *const StackBoxHeader {
+    data.cast::<usize>().wrapping_sub(HEADER_SIZE).cast()
+}
+
 /// Compute the data address for a block of `size` bytes placed below
 /// `old_end`, aligned down to `align` (which must be a power of two).
 ///
@@ -57,11 +62,7 @@ impl<T> StackBox<T> {
     /// words of bookkeeping below the data.
     ///
     /// Returns `(data_addr, prev_offset, end_offset)`.
-    fn reserve(stack: &mut Stack, extra_words: usize) -> (usize, usize, usize) {
-        // cheat #[warn(clippy::needless_pass_by_ref_mut)]
-        // we need mutable ref for ownership
-        let _ = stack as *mut Stack;
-
+    fn reserve(stack: &Stack, extra_words: usize) -> (usize, usize, usize) {
         let layout = std::alloc::Layout::new::<T>();
         let align = std::cmp::max(layout.align(), HEADER_ALIGN);
         let word = std::mem::size_of::<usize>();
@@ -98,7 +99,7 @@ impl<T> StackBox<T> {
     }
 
     /// create uninit stack box
-    fn new_uninit(stack: &mut Stack) -> MaybeUninit<Self> {
+    fn new_uninit(stack: &Stack) -> StackBoxUninit<T> {
         let (data_addr, prev_offset, end_offset) = Self::reserve(stack, HEADER_SIZE);
         // A successful reservation guarantees that the header fits too.
         let header_addr = data_addr - HEADER_BYTES;
@@ -114,7 +115,7 @@ impl<T> StackBox<T> {
         unsafe { ptr::write(header_addr as *mut StackBoxHeader, header) };
 
         let ptr = unsafe { ptr::NonNull::new_unchecked(data_addr as *mut T) };
-        MaybeUninit::new(StackBox { ptr })
+        StackBoxUninit { ptr }
     }
 
     /// Panic with a clear message when a block does not fit into the stack.
@@ -130,16 +131,7 @@ impl<T> StackBox<T> {
     }
 
     fn header_ptr(&self) -> *const StackBoxHeader {
-        self.ptr
-            .as_ptr()
-            .cast::<usize>()
-            .wrapping_sub(HEADER_SIZE)
-            .cast()
-    }
-
-    /// move data into the box
-    pub(crate) unsafe fn init(&mut self, data: T) {
-        ptr::write(self.ptr.as_ptr(), data);
+        block_header(self.ptr.as_ptr().cast())
     }
 
     // get the stack ptr
@@ -160,14 +152,50 @@ impl<T> StackBox<T> {
             ptr: ptr::NonNull::new_unchecked(raw),
         }
     }
+}
 
-    // Consumes the `StackBox`, returning a wrapped raw pointer.
-    // #[inline]
-    // pub(crate) fn into_raw(b: StackBox<T>) -> *mut T {
-    //     let ret = b.ptr.as_ptr();
-    //     std::mem::forget(b);
-    //     ret
-    // }
+/// A reserved stack block whose value has not been initialized yet.
+///
+/// Created by [`Stack::alloc_uninit_box`]. Dropping it without calling
+/// [`init`](Self::init) releases the reservation without dropping a value.
+pub struct StackBoxUninit<T> {
+    ptr: ptr::NonNull<T>,
+}
+
+impl<T> StackBoxUninit<T> {
+    /// The address of the value to initialize.
+    #[cfg(test)]
+    pub(crate) fn as_ptr(&self) -> *mut T {
+        self.ptr.as_ptr()
+    }
+
+    /// Write `value` into the block and turn it into a [`StackBox`].
+    ///
+    /// # Safety
+    ///
+    /// The block must not be initialized twice. Consuming `self` enforces
+    /// this for safe code.
+    pub(crate) unsafe fn init(self, value: T) -> StackBox<T> {
+        let this = std::mem::ManuallyDrop::new(self);
+        ptr::write(this.ptr.as_ptr(), value);
+        StackBox { ptr: this.ptr }
+    }
+}
+
+impl<T> Drop for StackBoxUninit<T> {
+    fn drop(&mut self) {
+        // The block was never initialized: release its reservation and the
+        // header's stack handle, without running a destructor.
+        let header = block_header(self.ptr.as_ptr().cast());
+        unsafe {
+            let stack = ptr::read(ptr::addr_of!((*header).stack));
+            let _restore = OffsetGuard {
+                offset: stack.offset_cell(),
+                prev_offset: (*header).prev_offset,
+                end_offset: (*header).end_offset,
+            };
+        }
+    }
 }
 
 pub struct Func {
@@ -223,7 +251,7 @@ impl<F: FnOnce()> StackBox<F> {
     }
 
     /// create a functor on the stack
-    pub(crate) fn new_fn_once(stack: &mut Stack, data: F) -> Func {
+    pub(crate) fn new_fn_once(stack: &Stack, data: F) -> Func {
         unsafe {
             // A functor block is a sub-allocation managed by `Func`: it needs
             // no header and no stack handle of its own. The generator holds
@@ -403,7 +431,9 @@ impl SysStack {
             size = min_stack_size;
         }
 
-        size = (size - 1) & !(page_size.overflowing_sub(1).0);
+        // Round down to a page boundary; together with the extra pages added
+        // below, the usable length becomes `size` rounded up to a whole page.
+        size = (size - 1) & !(page_size - 1);
 
         if let Some(size) = size.checked_add(add) {
             if size <= max_stack_size {
@@ -419,7 +449,9 @@ impl SysStack {
             }
         }
 
-        Err(StackError::ExceedsMaximumSize(max_stack_size - add))
+        Err(StackError::ExceedsMaximumSize(
+            max_stack_size.saturating_sub(add),
+        ))
     }
 }
 
@@ -457,9 +489,6 @@ thread_local! {
 
 impl Drop for StackMem {
     fn drop(&mut self) {
-        if self.buf.len() == 0 {
-            return;
-        }
         let page_size = sys::page_size();
         let guard = (self.buf.bottom as usize - page_size) as *mut c_void;
         let size_with_guard = self.buf.len() + page_size;
@@ -471,13 +500,24 @@ impl Drop for StackMem {
     }
 }
 
-impl Stack {
-    /// Allocate a new stack of `size` * size_of::<usize>() bytes. If size = 0,
-    /// this is a `dummy_stack`
-    pub fn new(size: usize) -> Stack {
-        let track = (size & 1) != 0;
+/// Number of words sampled at the bottom of a stack when full usage tracking
+/// was not requested.
+const STACK_USAGE_SAMPLE: usize = 8;
 
-        let bytes = usize::max(size * std::mem::size_of::<usize>(), SysStack::min_size());
+impl Stack {
+    /// Allocate a new stack of `size` words (`size * size_of::<usize>()`
+    /// bytes). Sizes below the platform minimum are rounded up to it.
+    ///
+    /// An odd `size` requests full usage tracking for
+    /// [`get_used_size`](Self::get_used_size); even sizes only sample the
+    /// bottom [`STACK_USAGE_SAMPLE`] words to keep creation cheap.
+    pub fn new(size: usize) -> Stack {
+        let track_usage = (size & 1) != 0;
+
+        let bytes = size
+            .checked_mul(std::mem::size_of::<usize>())
+            .unwrap_or_else(|| panic!("requested stack size {size} words overflows usize"))
+            .max(SysStack::min_size());
 
         let buf = SysStack::allocate(bytes, true).expect("failed to alloc sys stack");
 
@@ -488,12 +528,13 @@ impl Stack {
             }),
         };
 
-        // if size is not even we do the full foot print test
-        let count = if track {
+        // Full tracking touches every stack page, so only do it when
+        // requested; otherwise sample the bottom words, which is enough to
+        // notice a stack that grew all the way down.
+        let count = if track_usage {
             stk.size()
         } else {
-            // we only check the last few words
-            8
+            STACK_USAGE_SAMPLE
         };
 
         // fill the bottom `count` words with the sentinel word. Filling whole
@@ -510,7 +551,11 @@ impl Stack {
         stk
     }
 
-    /// get used stack size
+    /// Estimate how many words of the stack were used.
+    ///
+    /// Exact only when [`Stack::new`] was called with an odd size (full
+    /// tracking). Otherwise only the bottom [`STACK_USAGE_SAMPLE`] words are
+    /// checked, so the result is an upper bound close to `size()`.
     pub fn get_used_size(&self) -> usize {
         let cap = self.size();
         // count how many words at the bottom of the stack still hold the
@@ -545,8 +590,12 @@ impl Stack {
         self.mem.buf.bottom as *mut _
     }
 
-    /// alloc buffer on this stack
-    pub fn alloc_uninit_box<T>(&mut self) -> MaybeUninit<StackBox<T>> {
+    /// Reserve a block for `T` on this stack.
+    ///
+    /// The returned token must be initialized with
+    /// [`StackBoxUninit::init`]; dropping it uninitialized releases the block.
+    #[must_use]
+    pub fn alloc_uninit_box<T>(&mut self) -> StackBoxUninit<T> {
         StackBox::<T>::new_uninit(self)
     }
 
@@ -598,9 +647,11 @@ mod tests {
     #[test]
     fn stack_box_aligns_over_aligned_data() {
         let mut stack = Stack::new(0x2000);
-        let mut uninit = stack.alloc_uninit_box::<OverAligned>();
-        unsafe { (*uninit.as_mut_ptr()).init(OverAligned([1; 8])) };
-        let boxed = unsafe { uninit.assume_init() };
+        let boxed = unsafe {
+            stack
+                .alloc_uninit_box::<OverAligned>()
+                .init(OverAligned([1; 8]))
+        };
 
         assert_eq!(
             boxed.as_ptr() as usize % std::mem::align_of::<OverAligned>(),
@@ -618,12 +669,10 @@ mod tests {
 
     #[test]
     fn stack_box_restores_offset_when_drop_panics() {
-        let mut stack = Stack::new(0x100);
+        let stack = Stack::new(0x100);
         let offset = stack.offset();
 
-        let mut uninit = StackBox::<PanicOnDrop>::new_uninit(&mut stack);
-        unsafe { (*uninit.as_mut_ptr()).init(PanicOnDrop) };
-        let boxed = unsafe { uninit.assume_init() };
+        let boxed = unsafe { StackBox::<PanicOnDrop>::new_uninit(&stack).init(PanicOnDrop) };
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(boxed)));
         assert!(result.is_err());
@@ -631,12 +680,21 @@ mod tests {
     }
 
     #[test]
+    fn stack_box_uninit_drop_releases_the_block() {
+        let mut stack = Stack::new(0x100);
+        let offset = stack.offset();
+
+        // dropping a token that was never initialized must not leak the block
+        drop(stack.alloc_uninit_box::<u64>());
+
+        assert_eq!(stack.offset(), offset);
+    }
+
+    #[test]
     fn stack_box_frees_stack_when_drop_panics() {
         let mut stack = Stack::new(0x100);
 
-        let mut uninit = stack.alloc_uninit_box::<PanicOnDrop>();
-        unsafe { (*uninit.as_mut_ptr()).init(PanicOnDrop) };
-        let boxed = unsafe { uninit.assume_init() };
+        let boxed = unsafe { stack.alloc_uninit_box::<PanicOnDrop>().init(PanicOnDrop) };
 
         // the box's handle is the last one, so dropping it frees the mapping
         drop(stack);
@@ -664,13 +722,8 @@ mod tests {
     fn stack_box_multiple_boxes_free_once() {
         let mut stack = Stack::new(0x100);
 
-        let mut first = stack.alloc_uninit_box::<u64>();
-        unsafe { (*first.as_mut_ptr()).init(1) };
-        let first = unsafe { first.assume_init() };
-
-        let mut second = stack.alloc_uninit_box::<u64>();
-        unsafe { (*second.as_mut_ptr()).init(2) };
-        let second = unsafe { second.assume_init() };
+        let first = unsafe { stack.alloc_uninit_box::<u64>().init(1) };
+        let second = unsafe { stack.alloc_uninit_box::<u64>().init(2) };
 
         let deallocations_before = STACK_DEALLOCS.with(std::cell::Cell::get);
         drop(second);
@@ -686,15 +739,10 @@ mod tests {
     #[cfg(debug_assertions)]
     #[test]
     fn stack_box_detects_non_lifo_drop() {
-        let mut stack = Stack::new(0x100);
+        let stack = Stack::new(0x100);
 
-        let mut first = StackBox::<u64>::new_uninit(&mut stack);
-        unsafe { (*first.as_mut_ptr()).init(1) };
-        let first = unsafe { first.assume_init() };
-
-        let mut second = StackBox::<u64>::new_uninit(&mut stack);
-        unsafe { (*second.as_mut_ptr()).init(2) };
-        let second = unsafe { second.assume_init() };
+        let first = unsafe { StackBox::<u64>::new_uninit(&stack).init(1) };
+        let second = unsafe { StackBox::<u64>::new_uninit(&stack).init(2) };
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(first)));
         assert!(
@@ -716,14 +764,12 @@ mod tests {
         fn drop(&mut self) {
             // Copy everything needed to locals before allocating: with a
             // broken drop order the nested allocation overwrites this object.
-            let mut stack = self.stack.clone();
+            let stack = self.stack.clone();
             let out = self.out;
 
             // Same-stack allocation from a destructor: it must land below the
             // box being dropped, which is still reserved at this point.
-            let mut uninit = StackBox::<u64>::new_uninit(&mut stack);
-            unsafe { (*uninit.as_mut_ptr()).init(0xAA) };
-            let nested = unsafe { uninit.assume_init() };
+            let nested = unsafe { StackBox::<u64>::new_uninit(&stack).init(0xAA) };
             unsafe { (*out).set(Some(nested.as_ptr() as usize)) };
         }
     }
@@ -731,18 +777,18 @@ mod tests {
     #[test]
     fn stack_box_stays_reserved_while_dropping() {
         let mut stack = Stack::new(0x100);
-        let mut uninit = stack.alloc_uninit_box::<AllocOnDrop>();
-        let self_addr = unsafe { (*uninit.as_mut_ptr()).as_ptr() as usize };
+        let uninit = stack.alloc_uninit_box::<AllocOnDrop>();
+        let self_addr = uninit.as_ptr() as usize;
         let self_end = self_addr + std::mem::size_of::<AllocOnDrop>();
         let nested_addr = std::cell::Cell::new(None);
 
-        unsafe {
-            (*uninit.as_mut_ptr()).init(AllocOnDrop {
+        let boxed = unsafe {
+            uninit.init(AllocOnDrop {
                 stack,
                 out: &nested_addr,
             })
         };
-        drop(unsafe { uninit.assume_init() });
+        drop(boxed);
 
         let nested_start = nested_addr.get().expect("destructor did not run");
         let nested_end = nested_start + std::mem::size_of::<u64>();
