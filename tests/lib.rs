@@ -463,6 +463,40 @@ fn test_stack_box_large_functor_fits() {
     assert!(g.is_done());
 }
 
+#[cfg(not(target_os = "fuchsia"))]
+#[test]
+fn test_nested_stack_overflow() {
+    use std::panic::catch_unwind;
+
+    // not a tail call, so release builds cannot turn the recursion into a loop
+    #[inline(never)]
+    fn recurse(n: usize) -> usize {
+        let buf = [0u8; 512];
+        std::hint::black_box(&buf);
+        if n == usize::MAX {
+            return 0;
+        }
+        let r = recurse(n + 1);
+        std::hint::black_box(r.wrapping_add(buf[0] as usize))
+    }
+
+    // The inner generator overflows its own stack while the outer generator is
+    // running. The overflow handler must validate the fault against the inner
+    // (currently executing) stack guard, not the outermost generator's.
+    let result = catch_unwind(|| {
+        let mut outer = Gn::new_scoped(|_s: Scope<(), ()>| {
+            let mut inner = Gn::<()>::new_opt(16, || recurse(0));
+            inner.next();
+        });
+        outer.next();
+    });
+
+    assert!(matches!(
+        result.map_err(|err| *err.downcast::<Error>().unwrap()),
+        Err(Error::StackErr)
+    ));
+}
+
 #[test]
 fn test_scope_gen() {
     // now we can even deduce the input para type

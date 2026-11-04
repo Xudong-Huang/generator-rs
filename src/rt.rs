@@ -323,7 +323,6 @@ pub fn get_local_data() -> *mut u8 {
 
 #[cfg(not(target_os = "fuchsia"))]
 pub mod guard {
-    use crate::is_generator;
     use crate::rt::ContextStack;
     use crate::stack::sys::page_size;
     use std::ops::Range;
@@ -331,10 +330,22 @@ pub mod guard {
     pub type Guard = Range<usize>;
 
     pub fn current() -> Guard {
-        assert!(is_generator());
-        let guard = unsafe { (*(*ContextStack::current().root).child).stack_guard };
+        // The guard belongs to the stack that is currently executing, which is
+        // the top context. `root.child` is only the outermost generator: a
+        // nested generator (or a coroutine resumed from another generator)
+        // runs on a different mapping, so its overflow would be checked
+        // against the wrong guard.
+        let (start, end) = ContextStack::current().top().stack_guard;
 
-        guard.0 - page_size()..guard.1
+        // This runs from the signal/exception handler, so it must not panic.
+        // The root context (and anything that was never initialized) has a
+        // zero guard; an empty range makes the caller fall through to the
+        // previously installed handler.
+        if start == 0 {
+            return 0..0;
+        }
+
+        start - page_size()..end
     }
 }
 
