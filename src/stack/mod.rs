@@ -229,16 +229,63 @@ impl<T> std::ops::DerefMut for StackBox<T> {
     }
 }
 
+/// Restores the bump offset of a `StackBox` when it goes away, even if
+/// `T::drop` panics.
+struct OffsetGuard {
+    offset: *mut usize,
+    size: usize,
+}
+
+impl Drop for OffsetGuard {
+    fn drop(&mut self) {
+        unsafe { *self.offset -= self.size }
+    }
+}
+
+/// Releases the stack memory once the owning `StackBox` is gone, even if
+/// `T::drop` panics.
+struct DeallocGuard(Stack);
+
+#[cfg(test)]
+thread_local! {
+    static DEALLOC_GUARD_DROPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+impl Drop for DeallocGuard {
+    fn drop(&mut self) {
+        self.0.drop_stack();
+        #[cfg(test)]
+        DEALLOC_GUARD_DROPS.with(|drops| drops.set(drops.get() + 1));
+    }
+}
+
 impl<T> Drop for StackBox<T> {
     fn drop(&mut self) {
+        // Read the header before dropping `T`: `T::drop` may run arbitrary
+        // code (a generator destructor resumes the coroutine), so no
+        // reference into the stack may stay alive across it.
         let header = self.get_header();
-        unsafe {
-            *header.stack.get_offset() -= header.data_size + HEADER_SIZE;
-            ptr::drop_in_place(self.ptr.as_ptr());
-            if header.need_drop != 0 {
-                header.stack.drop_stack();
-            }
-        }
+        let data_size = header.data_size;
+        let need_drop = header.need_drop != 0;
+        let stack = header.stack.shadow_clone();
+
+        // Keep the box reserved while `T` is destroyed, so any allocation a
+        // destructor performs lands below this block instead of on top of it.
+        // Guards make both the offset restore and the deallocation happen
+        // even when `T::drop` unwinds. `_restore` is declared last, so it is
+        // dropped first (normal and unwinding paths), before the mapping is
+        // released.
+        let _dealloc = if need_drop {
+            Some(DeallocGuard(stack.shadow_clone()))
+        } else {
+            None
+        };
+        let _restore = OffsetGuard {
+            offset: stack.get_offset(),
+            size: data_size + HEADER_SIZE,
+        };
+
+        unsafe { ptr::drop_in_place(self.ptr.as_ptr()) };
     }
 }
 
@@ -521,6 +568,97 @@ mod tests {
         assert_eq!(
             boxed.as_ptr() as usize % std::mem::align_of::<OverAligned>(),
             0
+        );
+    }
+
+    struct PanicOnDrop;
+
+    impl Drop for PanicOnDrop {
+        fn drop(&mut self) {
+            panic!("panic while dropping a stack box");
+        }
+    }
+
+    #[test]
+    fn stack_box_restores_offset_when_drop_panics() {
+        let mut stack = Stack::new(0x100);
+        let offset = unsafe { *stack.get_offset() };
+
+        let mut uninit = StackBox::<PanicOnDrop>::new_uninit(&mut stack, 0);
+        unsafe { (*uninit.as_mut_ptr()).init(PanicOnDrop) };
+        let boxed = unsafe { uninit.assume_init() };
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(boxed)));
+        assert!(result.is_err());
+        assert_eq!(unsafe { *stack.get_offset() }, offset);
+
+        // hand the stack to an owning box so the mapping is released
+        let mut owner = stack.alloc_uninit_box::<u64>();
+        unsafe { (*owner.as_mut_ptr()).init(0) };
+        drop(unsafe { owner.assume_init() });
+    }
+
+    #[test]
+    fn stack_box_frees_stack_when_drop_panics() {
+        let mut stack = Stack::new(0x100);
+
+        let mut uninit = stack.alloc_uninit_box::<PanicOnDrop>();
+        unsafe { (*uninit.as_mut_ptr()).init(PanicOnDrop) };
+        let boxed = unsafe { uninit.assume_init() };
+
+        let deallocations_before = DEALLOC_GUARD_DROPS.with(std::cell::Cell::get);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(boxed)));
+        assert!(result.is_err());
+
+        let deallocations_after = DEALLOC_GUARD_DROPS.with(std::cell::Cell::get);
+        assert_eq!(deallocations_after, deallocations_before + 1);
+    }
+
+    struct AllocOnDrop {
+        stack: Stack,
+        // points at a `Cell` in the test's frame, outside the stack memory, so
+        // a broken drop order that overwrites this object cannot hide itself
+        out: *const std::cell::Cell<Option<usize>>,
+    }
+
+    impl Drop for AllocOnDrop {
+        fn drop(&mut self) {
+            // Copy everything needed to locals before allocating: with a
+            // broken drop order the nested allocation overwrites this object.
+            let mut stack = self.stack.shadow_clone();
+            let out = self.out;
+
+            // Same-stack allocation from a destructor: it must land below the
+            // box being dropped, which is still reserved at this point.
+            let mut uninit = StackBox::<u64>::new_uninit(&mut stack, 0);
+            unsafe { (*uninit.as_mut_ptr()).init(0xAA) };
+            let nested = unsafe { uninit.assume_init() };
+            unsafe { (*out).set(Some(nested.as_ptr() as usize)) };
+        }
+    }
+
+    #[test]
+    fn stack_box_stays_reserved_while_dropping() {
+        let mut stack = Stack::new(0x100);
+        let mut uninit = stack.alloc_uninit_box::<AllocOnDrop>();
+        let self_addr = unsafe { (*uninit.as_mut_ptr()).as_ptr() as usize };
+        let self_end = self_addr + std::mem::size_of::<AllocOnDrop>();
+        let nested_addr = std::cell::Cell::new(None);
+
+        unsafe {
+            (*uninit.as_mut_ptr()).init(AllocOnDrop {
+                stack,
+                out: &nested_addr,
+            })
+        };
+        drop(unsafe { uninit.assume_init() });
+
+        let nested_start = nested_addr.get().expect("destructor did not run");
+        let nested_end = nested_start + std::mem::size_of::<u64>();
+        assert!(
+            nested_end <= self_addr || nested_start >= self_end,
+            "nested allocation {nested_start:#x}..{nested_end:#x} overlaps \
+             the box being dropped {self_addr:#x}..{self_end:#x}"
         );
     }
 }
