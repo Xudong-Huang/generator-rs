@@ -50,6 +50,9 @@ const REG_R14: usize = 5; // used to pass parameters on initialisation
 const REG_R15: usize = 6; // used to pass parameters on initialistaion
 const REG_R16: usize = 7; // used to pass parameters on initialisation
 
+// size of the ELFv2 linkage area in words
+const LINKAGE_AREA: isize = 4;
+
 impl Registers {
     pub fn new() -> Self {
         Self {
@@ -76,7 +79,10 @@ pub fn initialize_call_frame(
     // stack grows towards lower addresses (downward)
     let end = stack.end();
     let sp = align_down(end);
-    let sp = mut_offset(sp, -2); // allow for back chain and CR save word
+    // Leave room for the ELFv2 linkage area (back chain, CR, LR and TOC save
+    // words). The entry function saves LR into `16(sp)`, which must not land
+    // on the data stored right above the stack end.
+    let sp = mut_offset(sp, -LINKAGE_AREA);
 
     regs.gpr[REG_FP] = sp as usize;
 
