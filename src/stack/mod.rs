@@ -15,9 +15,14 @@ pub mod sys;
 
 pub use sys::overflow;
 
-// must align with StackBoxHeader
-const ALIGN: usize = std::mem::size_of::<StackBoxHeader>();
-const HEADER_SIZE: usize = std::mem::size_of::<StackBoxHeader>() / std::mem::size_of::<usize>();
+// `StackBoxHeader` is placed right in front of the data, so the data pointer
+// must be aligned to at least this.
+const HEADER_ALIGN: usize = std::mem::align_of::<StackBoxHeader>();
+const HEADER_BYTES: usize = std::mem::size_of::<StackBoxHeader>();
+// the bookkeeping counts whole words, so the header must be a whole number of
+// them
+const HEADER_SIZE: usize = HEADER_BYTES / std::mem::size_of::<usize>();
+const _: () = assert!(HEADER_BYTES.is_multiple_of(std::mem::size_of::<usize>()));
 
 struct StackBoxHeader {
     // track the stack
@@ -26,6 +31,19 @@ struct StackBoxHeader {
     data_size: usize,
     // non zero dealloc the stack
     need_drop: usize,
+}
+
+/// Compute the addresses of a block of `size` bytes placed below `old_end`.
+///
+/// The data pointer is aligned down to `align` (which must be a power of two)
+/// and the header is placed right in front of it. Returns `(data_addr,
+/// header_addr)`, or `None` if the block cannot be placed above address 0.
+#[inline]
+fn block_addresses(old_end: usize, size: usize, align: usize) -> Option<(usize, usize)> {
+    debug_assert!(align.is_power_of_two());
+    let data_addr = old_end.checked_sub(size)? & !(align - 1);
+    let header_addr = data_addr.checked_sub(HEADER_BYTES)?;
+    Some((data_addr, header_addr))
 }
 
 /// A pointer type for stack allocation.
@@ -42,40 +60,41 @@ impl<T> StackBox<T> {
         let _ = stack as *mut Stack;
 
         let offset = unsafe { &mut *stack.get_offset() };
-        // alloc the data
         let layout = std::alloc::Layout::new::<T>();
-        let align = std::cmp::max(layout.align(), ALIGN);
-        let size = ((layout.size() + align - 1) & !(align - 1)) / std::mem::size_of::<usize>();
-        let u_align = align / std::mem::size_of::<usize>();
-        // round up to the next multiple of `u_align`, but add no padding when
-        // the size is already aligned (otherwise a full `u_align` of padding
-        // would be wasted whenever `(*offset + size) % u_align == 0`)
-        let pad_size = (u_align - (*offset + size) % u_align) % u_align;
-        let data_size = size + pad_size;
+        let align = std::cmp::max(layout.align(), HEADER_ALIGN);
+        let word = std::mem::size_of::<usize>();
+
+        // Align the data using the real address instead of assuming `top` is
+        // `align` aligned: `top` is only guaranteed to be page aligned and
+        // `align` may exceed the page size. The data is placed as low as
+        // possible while staying aligned; everything between its end and the
+        // old end of the used area is padding.
+        let top = stack.buf.top as usize;
+        let old_end = top - *offset * word;
+        let needed = layout.size().div_ceil(word).saturating_add(HEADER_SIZE);
+        let (data_addr, header_addr) = match block_addresses(old_end, layout.size(), align) {
+            Some(addresses) => addresses,
+            None => Self::alloc_overflow(needed, stack.size()),
+        };
 
         // The data plus its header must fit into the stack. Check this before
         // mutating `*offset`: without the check, a `T` bigger than the stack
-        // (for example a closure capturing a large array) would move `end()`
-        // past the bottom of the mapping and the writes below would go out of
-        // bounds instead of failing cleanly.
-        let data_offset = match offset.checked_add(data_size) {
-            Some(data_offset) => data_offset,
-            None => Self::alloc_overflow(data_size, stack.size()),
-        };
-        let end_offset = match data_offset.checked_add(HEADER_SIZE) {
-            Some(end_offset) if end_offset <= stack.size() => end_offset,
-            _ => Self::alloc_overflow(data_size, stack.size()),
-        };
+        // (for example a closure capturing a large array) would place the
+        // block below the bottom of the mapping and the writes below would go
+        // out of bounds instead of failing cleanly.
+        let data_size = (old_end - data_addr) / word;
+        let end_offset = *offset + data_size + HEADER_SIZE;
+        if end_offset > stack.size() {
+            Self::alloc_overflow(data_size.saturating_add(HEADER_SIZE), stack.size());
+        }
 
-        // Update the statck offset to point to the start of the data.
-        *offset = data_offset;
-        let ptr = unsafe { ptr::NonNull::new_unchecked(stack.end() as *mut T) };
+        // Commit the reservation (data + header) in one step.
+        *offset = end_offset;
+        let ptr = unsafe { ptr::NonNull::new_unchecked(data_addr as *mut T) };
 
         // init the header
-        *offset = end_offset;
         unsafe {
-            let mut header = ptr::NonNull::new_unchecked(stack.end() as *mut StackBoxHeader);
-            let header = header.as_mut();
+            let header = &mut *(header_addr as *mut StackBoxHeader);
             header.data_size = data_size;
             header.need_drop = need_drop;
             header.stack = stack.shadow_clone();
@@ -86,11 +105,11 @@ impl<T> StackBox<T> {
     /// Panic with a clear message when a block does not fit into the stack.
     #[cold]
     #[inline(never)]
-    fn alloc_overflow(data_size: usize, capacity: usize) -> ! {
+    fn alloc_overflow(needed: usize, capacity: usize) -> ! {
         panic!(
             "StackBox<{}> allocation exceeds stack: {} words needed, {} words capacity",
             std::any::type_name::<T>(),
-            data_size.saturating_add(HEADER_SIZE),
+            needed,
             capacity
         );
     }
@@ -461,5 +480,47 @@ impl fmt::Debug for Stack {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let offset = self.get_offset();
         write!(f, "Stack<{:?}, Offset={}>", self.buf, unsafe { *offset })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn block_addresses_align_to_the_real_address() {
+        const ALIGN: usize = 8192;
+        // `mmap` only guarantees page alignment, so a stack top can look like
+        // this even when the data requires a bigger alignment.
+        let old_end = 0x1000_1000;
+        assert_ne!(old_end % ALIGN, 0);
+
+        let (data_addr, header_addr) = block_addresses(old_end, 100, ALIGN).unwrap();
+
+        assert_eq!(data_addr % ALIGN, 0);
+        assert!(data_addr + 100 <= old_end);
+        assert_eq!(header_addr, data_addr - HEADER_BYTES);
+        assert_eq!(header_addr % HEADER_ALIGN, 0);
+    }
+
+    #[test]
+    fn block_addresses_reject_blocks_below_address_zero() {
+        assert!(block_addresses(HEADER_BYTES - 1, 0, HEADER_ALIGN).is_none());
+    }
+
+    #[repr(C, align(8192))]
+    struct OverAligned([u8; 8]);
+
+    #[test]
+    fn stack_box_aligns_over_aligned_data() {
+        let mut stack = Stack::new(0x2000);
+        let mut uninit = stack.alloc_uninit_box::<OverAligned>();
+        unsafe { (*uninit.as_mut_ptr()).init(OverAligned([1; 8])) };
+        let boxed = unsafe { uninit.assume_init() };
+
+        assert_eq!(
+            boxed.as_ptr() as usize % std::mem::align_of::<OverAligned>(),
+            0
+        );
     }
 }
