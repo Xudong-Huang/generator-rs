@@ -2,6 +2,7 @@
 //!
 //!
 
+use std::cell::Cell;
 use std::error::Error;
 use std::fmt::{self, Display};
 use std::io;
@@ -61,7 +62,6 @@ impl<T> StackBox<T> {
         // we need mutable ref for ownership
         let _ = stack as *mut Stack;
 
-        let offset = unsafe { &mut *stack.get_offset() };
         let layout = std::alloc::Layout::new::<T>();
         let align = std::cmp::max(layout.align(), HEADER_ALIGN);
         let word = std::mem::size_of::<usize>();
@@ -71,8 +71,9 @@ impl<T> StackBox<T> {
         // `align` may exceed the page size. The data is placed as low as
         // possible while staying aligned; everything between its end and the
         // old end of the used area is padding.
+        let offset = stack.offset();
         let top = stack.mem.buf.top as usize;
-        let old_end = top - *offset * word;
+        let old_end = top - offset * word;
         let needed = layout.size().div_ceil(word).saturating_add(extra_words);
         let data_addr = match data_address(old_end, layout.size(), align) {
             Some(data_addr) => data_addr,
@@ -80,11 +81,11 @@ impl<T> StackBox<T> {
         };
 
         // The data plus its bookkeeping must fit into the stack. Check this
-        // before mutating `*offset`: without the check, a `T` bigger than the
+        // before mutating the offset: without the check, a `T` bigger than the
         // stack (for example a closure capturing a large array) would place
         // the block below the bottom of the mapping and the writes below would
         // go out of bounds instead of failing cleanly.
-        let prev_offset = *offset;
+        let prev_offset = offset;
         let data_size = (old_end - data_addr) / word;
         let end_offset = prev_offset + data_size + extra_words;
         if end_offset > stack.size() {
@@ -92,7 +93,7 @@ impl<T> StackBox<T> {
         }
 
         // Commit the reservation in one step.
-        *offset = end_offset;
+        stack.mem.offset.set(end_offset);
         (data_addr, prev_offset, end_offset)
     }
 
@@ -128,11 +129,12 @@ impl<T> StackBox<T> {
         );
     }
 
-    fn get_header(&self) -> &StackBoxHeader {
-        unsafe {
-            let header = (self.ptr.as_ptr() as *mut usize).offset(0 - HEADER_SIZE as isize);
-            &*(header as *const StackBoxHeader)
-        }
+    fn header_ptr(&self) -> *const StackBoxHeader {
+        self.ptr
+            .as_ptr()
+            .cast::<usize>()
+            .wrapping_sub(HEADER_SIZE)
+            .cast()
     }
 
     /// move data into the box
@@ -170,7 +172,9 @@ impl<T> StackBox<T> {
 
 pub struct Func {
     data: *mut (),
-    offset: *mut usize,
+    // points into the generator's stack control block, which outlives every
+    // `Func` that can still be dropped
+    offset: *const Cell<usize>,
     prev_offset: usize,
     end_offset: usize,
     func: fn(*mut ()),
@@ -192,7 +196,7 @@ impl Drop for Func {
         let data = self.data;
         self.data = ptr::null_mut();
         let _restore = OffsetGuard {
-            offset: self.offset,
+            offset: unsafe { &*self.offset },
             prev_offset: self.prev_offset,
             end_offset: self.end_offset,
         };
@@ -230,7 +234,7 @@ impl<F: FnOnce()> StackBox<F> {
 
             Func {
                 data: data_addr as *mut (),
-                offset: stack.get_offset(),
+                offset: stack.offset_cell(),
                 prev_offset,
                 end_offset,
                 func: Self::call_once,
@@ -261,26 +265,25 @@ impl<T> std::ops::DerefMut for StackBox<T> {
 /// before it was allocated. If the offset is not the block's own end offset,
 /// another allocation happened after it (or the accounting is corrupt), which
 /// this guard flags in debug builds.
-struct OffsetGuard {
-    offset: *mut usize,
+struct OffsetGuard<'a> {
+    offset: &'a Cell<usize>,
     prev_offset: usize,
     end_offset: usize,
 }
 
-impl Drop for OffsetGuard {
+impl Drop for OffsetGuard<'_> {
     fn drop(&mut self) {
-        unsafe {
-            // Destructors may be skipped while unwinding (for example an
-            // abandoned generator's functor), so only enforce strict LIFO
-            // accounting on the normal path.
-            if !std::thread::panicking() {
-                debug_assert_eq!(
-                    *self.offset, self.end_offset,
-                    "stack block freed out of LIFO order"
-                );
-            }
-            *self.offset = self.prev_offset;
+        // Destructors may be skipped while unwinding (for example an
+        // abandoned generator's functor), so only enforce strict LIFO
+        // accounting on the normal path.
+        if !std::thread::panicking() {
+            debug_assert_eq!(
+                self.offset.get(),
+                self.end_offset,
+                "stack block freed out of LIFO order"
+            );
         }
+        self.offset.set(self.prev_offset);
     }
 }
 
@@ -289,12 +292,12 @@ impl<T> Drop for StackBox<T> {
         // Read the header before dropping `T`: `T::drop` may run arbitrary
         // code (a generator destructor resumes the coroutine), so no
         // reference into the stack may stay alive across it.
-        let header = self.get_header();
-        let prev_offset = header.prev_offset;
-        let end_offset = header.end_offset;
+        let header = self.header_ptr();
+        let prev_offset = unsafe { (*header).prev_offset };
+        let end_offset = unsafe { (*header).end_offset };
         // Take the stack handle out of the raw header: it keeps the mapping
         // alive until this drop is finished.
-        let stack = unsafe { ptr::read(&header.stack) };
+        let stack = unsafe { ptr::read(ptr::addr_of!((*header).stack)) };
 
         // Keep the box reserved while `T` is destroyed, so any allocation a
         // destructor performs lands below this block instead of on top of it.
@@ -302,7 +305,7 @@ impl<T> Drop for StackBox<T> {
         // dropped before `stack`, so the bookkeeping still happens while the
         // memory is mapped.
         let _restore = OffsetGuard {
-            offset: stack.get_offset(),
+            offset: stack.offset_cell(),
             prev_offset,
             end_offset,
         };
@@ -443,6 +446,8 @@ pub struct Stack {
 /// The shared allocation backing a `Stack`.
 struct StackMem {
     buf: SysStack,
+    // bump offset in words from the top of the stack
+    offset: Cell<usize>,
 }
 
 #[cfg(test)]
@@ -477,7 +482,10 @@ impl Stack {
         let buf = SysStack::allocate(bytes, true).expect("failed to alloc sys stack");
 
         let stk = Stack {
-            mem: Rc::new(StackMem { buf }),
+            mem: Rc::new(StackMem {
+                buf,
+                offset: Cell::new(0),
+            }),
         };
 
         // if size is not even we do the full foot print test
@@ -498,10 +506,6 @@ impl Stack {
                 p = p.offset(1);
             }
         }
-
-        // init the stack box usage
-        let offset = stk.get_offset();
-        unsafe { *offset = 1 };
 
         stk
     }
@@ -532,8 +536,8 @@ impl Stack {
 
     /// Point to the high end of the allocated stack
     pub fn end(&self) -> *mut usize {
-        let offset = self.get_offset();
-        unsafe { (self.mem.buf.top as *mut usize).offset(0 - *offset as isize) }
+        let offset = self.offset();
+        unsafe { (self.mem.buf.top as *mut usize).offset(0 - offset as isize) }
     }
 
     /// Point to the low end of the allocated stack
@@ -546,18 +550,21 @@ impl Stack {
         StackBox::<T>::new_uninit(self)
     }
 
-    // get offset
-    fn get_offset(&self) -> *mut usize {
-        unsafe { (self.mem.buf.top as *mut usize).offset(-1) }
+    // current bump offset in words
+    fn offset(&self) -> usize {
+        self.mem.offset.get()
+    }
+
+    // the offset can be restored from a guard
+    fn offset_cell(&self) -> &Cell<usize> {
+        &self.mem.offset
     }
 }
 
 impl fmt::Debug for Stack {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let offset = self.get_offset();
-        write!(f, "Stack<{:?}, Offset={}>", self.mem.buf, unsafe {
-            *offset
-        })
+        let offset = self.offset();
+        write!(f, "Stack<{:?}, Offset={}>", self.mem.buf, offset)
     }
 }
 
@@ -612,7 +619,7 @@ mod tests {
     #[test]
     fn stack_box_restores_offset_when_drop_panics() {
         let mut stack = Stack::new(0x100);
-        let offset = unsafe { *stack.get_offset() };
+        let offset = stack.offset();
 
         let mut uninit = StackBox::<PanicOnDrop>::new_uninit(&mut stack);
         unsafe { (*uninit.as_mut_ptr()).init(PanicOnDrop) };
@@ -620,7 +627,7 @@ mod tests {
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(boxed)));
         assert!(result.is_err());
-        assert_eq!(unsafe { *stack.get_offset() }, offset);
+        assert_eq!(stack.offset(), offset);
     }
 
     #[test]
