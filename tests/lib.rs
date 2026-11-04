@@ -569,3 +569,41 @@ fn test_yield_float() {
     assert_eq!(i, 23328.0);
     assert!(g.is_done());
 }
+
+#[test]
+fn test_generator_moves_across_threads() {
+    let mut g = Gn::<()>::new_scoped(|mut s| {
+        s.yield_(1u32);
+        s.yield_(2u32);
+        3u32
+    });
+    assert_eq!(g.next(), Some(1));
+
+    // Moving the suspended generator also moves access to every stack handle;
+    // the owning thread no longer touches it.
+    let handle = std::thread::spawn(move || {
+        assert_eq!(g.next(), Some(2));
+        assert_eq!(g.next(), Some(3));
+        assert!(g.is_done());
+    });
+    handle.join().unwrap();
+}
+
+#[test]
+fn test_into_raw_from_raw() {
+    let g = Gn::<()>::new_scoped(|mut s| {
+        s.yield_(1u32);
+        s.yield_(2u32);
+        3u32
+    });
+
+    // the raw pointer owns the generator (and its stack) until it is
+    // reconstructed
+    let raw = g.into_raw();
+    let mut g = unsafe { Generator::<(), u32>::from_raw(raw) };
+
+    assert_eq!(g.next(), Some(1));
+    assert_eq!(g.next(), Some(2));
+    assert_eq!(g.next(), Some(3));
+    assert!(g.is_done());
+}

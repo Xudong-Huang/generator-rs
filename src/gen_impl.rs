@@ -50,7 +50,10 @@ pub struct GeneratorObj<'a, A, T, const LOCAL: bool> {
 /// the generator type, the functor passed to it must be Send
 pub type Generator<'a, A, T> = GeneratorObj<'a, A, T, false>;
 
-// only when A, T and Functor are all sendable, the generator could be send
+// Only when A, T and the functor are all sendable can the generator be sent.
+// The stack handles are thread-affine (`Rc`): they all live in the generator's
+// own stack allocation, so moving the generator moves the access to them too
+// and the non-atomic counts are never touched from several threads at once.
 unsafe impl<A: Send, T: Send> Send for Generator<'static, A, T> {}
 
 impl<'a, A, T> Generator<'a, A, T> {
