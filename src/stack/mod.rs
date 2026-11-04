@@ -27,8 +27,11 @@ const _: () = assert!(HEADER_BYTES.is_multiple_of(std::mem::size_of::<usize>()))
 struct StackBoxHeader {
     // track the stack
     stack: Stack,
-    // track how big the data is (in usize)
-    data_size: usize,
+    // the offset before this block was allocated
+    prev_offset: usize,
+    // the offset with this block allocated; it must still be the live offset
+    // when the block is freed (the allocator is LIFO)
+    end_offset: usize,
     // non zero dealloc the stack
     need_drop: usize,
 }
@@ -82,8 +85,9 @@ impl<T> StackBox<T> {
         // (for example a closure capturing a large array) would place the
         // block below the bottom of the mapping and the writes below would go
         // out of bounds instead of failing cleanly.
+        let prev_offset = *offset;
         let data_size = (old_end - data_addr) / word;
-        let end_offset = *offset + data_size + HEADER_SIZE;
+        let end_offset = prev_offset + data_size + HEADER_SIZE;
         if end_offset > stack.size() {
             Self::alloc_overflow(data_size.saturating_add(HEADER_SIZE), stack.size());
         }
@@ -95,7 +99,8 @@ impl<T> StackBox<T> {
         // init the header
         unsafe {
             let header = &mut *(header_addr as *mut StackBoxHeader);
-            header.data_size = data_size;
+            header.prev_offset = prev_offset;
+            header.end_offset = end_offset;
             header.need_drop = need_drop;
             header.stack = stack.shadow_clone();
             MaybeUninit::new(StackBox { ptr })
@@ -156,8 +161,9 @@ impl<T> StackBox<T> {
 
 pub struct Func {
     data: *mut (),
-    size: usize,
     offset: *mut usize,
+    prev_offset: usize,
+    end_offset: usize,
     func: fn(*mut ()),
     drop: fn(*mut ()),
 }
@@ -172,10 +178,19 @@ impl Func {
 
 impl Drop for Func {
     fn drop(&mut self) {
-        if !self.data.is_null() {
-            (self.drop)(self.data);
+        // Restore the offset even if the closure's destructor panics, and make
+        // sure the closure's block is the most recent allocation.
+        let data = self.data;
+        self.data = ptr::null_mut();
+        let _restore = OffsetGuard {
+            offset: self.offset,
+            prev_offset: self.prev_offset,
+            end_offset: self.end_offset,
+            check_lifo: true,
+        };
+        if !data.is_null() {
+            (self.drop)(data);
         }
-        unsafe { *self.offset -= self.size };
     }
 }
 
@@ -204,8 +219,9 @@ impl<F: FnOnce()> StackBox<F> {
             let header = d.get_header();
             let f = Func {
                 data: d.ptr.as_ptr() as *mut (),
-                size: header.data_size + HEADER_SIZE,
                 offset: stack.get_offset(),
+                prev_offset: header.prev_offset,
+                end_offset: header.end_offset,
                 func: Self::call_once,
                 drop: Self::drop_inner,
             };
@@ -231,14 +247,32 @@ impl<T> std::ops::DerefMut for StackBox<T> {
 
 /// Restores the bump offset of a `StackBox` when it goes away, even if
 /// `T::drop` panics.
+///
+/// The allocator is LIFO: freeing a block restores the offset that was live
+/// before it was allocated. If the offset is not the block's own end offset,
+/// another allocation happened after it (or the accounting is corrupt), which
+/// this guard flags in debug builds.
 struct OffsetGuard {
     offset: *mut usize,
-    size: usize,
+    prev_offset: usize,
+    end_offset: usize,
+    // The owning box deallocates the whole stack right away, so blocks that
+    // were never dropped (for example a suspended generator's functor) do not
+    // matter and the offset is not expected to be LIFO at that point.
+    check_lifo: bool,
 }
 
 impl Drop for OffsetGuard {
     fn drop(&mut self) {
-        unsafe { *self.offset -= self.size }
+        unsafe {
+            if self.check_lifo {
+                debug_assert_eq!(
+                    *self.offset, self.end_offset,
+                    "stack block freed out of LIFO order"
+                );
+            }
+            *self.offset = self.prev_offset;
+        }
     }
 }
 
@@ -265,7 +299,8 @@ impl<T> Drop for StackBox<T> {
         // code (a generator destructor resumes the coroutine), so no
         // reference into the stack may stay alive across it.
         let header = self.get_header();
-        let data_size = header.data_size;
+        let prev_offset = header.prev_offset;
+        let end_offset = header.end_offset;
         let need_drop = header.need_drop != 0;
         let stack = header.stack.shadow_clone();
 
@@ -282,7 +317,9 @@ impl<T> Drop for StackBox<T> {
         };
         let _restore = OffsetGuard {
             offset: stack.get_offset(),
-            size: data_size + HEADER_SIZE,
+            prev_offset,
+            end_offset,
+            check_lifo: !need_drop,
         };
 
         unsafe { ptr::drop_in_place(self.ptr.as_ptr()) };
@@ -612,6 +649,35 @@ mod tests {
 
         let deallocations_after = DEALLOC_GUARD_DROPS.with(std::cell::Cell::get);
         assert_eq!(deallocations_after, deallocations_before + 1);
+    }
+
+    // The LIFO check is a `debug_assert`, so this test only exists in debug
+    // builds.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn stack_box_detects_non_lifo_drop() {
+        let mut stack = Stack::new(0x100);
+
+        let mut first = StackBox::<u64>::new_uninit(&mut stack, 0);
+        unsafe { (*first.as_mut_ptr()).init(1) };
+        let first = unsafe { first.assume_init() };
+
+        let mut second = StackBox::<u64>::new_uninit(&mut stack, 0);
+        unsafe { (*second.as_mut_ptr()).init(2) };
+        let second = unsafe { second.assume_init() };
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(first)));
+        assert!(
+            result.is_err(),
+            "freeing a block that is not the most recent allocation must trip the LIFO check"
+        );
+
+        drop(second);
+
+        // hand the stack to an owning box so the mapping is released
+        let mut owner = stack.alloc_uninit_box::<u64>();
+        unsafe { (*owner.as_mut_ptr()).init(3) };
+        drop(unsafe { owner.assume_init() });
     }
 
     struct AllocOnDrop {
