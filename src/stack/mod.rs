@@ -25,6 +25,37 @@ const HEADER_BYTES: usize = std::mem::size_of::<StackBoxHeader>();
 const HEADER_SIZE: usize = HEADER_BYTES / std::mem::size_of::<usize>();
 const _: () = assert!(HEADER_BYTES.is_multiple_of(std::mem::size_of::<usize>()));
 
+// Words `initialize_call_frame` writes (or leaves as linkage area) just below
+// `Stack::end()`, per architecture.
+cfg_select! {
+    // register save area
+    target_arch = "s390x" => {
+        const INITIAL_FRAME_WORDS: usize = 160 / std::mem::size_of::<usize>();
+    }
+    // back chain, CR, LR and TOC save words
+    target_arch = "powerpc64" => {
+        const INITIAL_FRAME_WORDS: usize = 4;
+    }
+    // return address and a zero word
+    any(target_arch = "x86", target_arch = "x86_64") => {
+        const INITIAL_FRAME_WORDS: usize = 2;
+    }
+    // only the stack pointer is set up
+    any(
+        target_arch = "aarch64",
+        target_arch = "arm",
+        target_arch = "riscv64",
+        target_arch = "loongarch64"
+    ) => {
+        const INITIAL_FRAME_WORDS: usize = 0;
+    }
+}
+
+/// Words that must stay free below the last block allocated before the
+/// generator starts: the initial frame plus up to 16 bytes lost to aligning
+/// the stack pointer.
+const INITIAL_FRAME_RESERVE: usize = INITIAL_FRAME_WORDS + 16 / std::mem::size_of::<usize>();
+
 struct StackBoxHeader {
     // keeps the mapped memory alive while the block exists
     stack: Stack,
@@ -59,10 +90,11 @@ pub struct StackBox<T> {
 
 impl<T> StackBox<T> {
     /// Reserve a block for `T` at the current stack end, plus `extra_words`
-    /// words of bookkeeping below the data.
+    /// words of bookkeeping below the data, while keeping `headroom` words
+    /// free below the reservation.
     ///
     /// Returns `(data_addr, prev_offset, end_offset)`.
-    fn reserve(stack: &Stack, extra_words: usize) -> (usize, usize, usize) {
+    fn reserve(stack: &Stack, extra_words: usize, headroom: usize) -> (usize, usize, usize) {
         let layout = std::alloc::Layout::new::<T>();
         let align = std::cmp::max(layout.align(), HEADER_ALIGN);
         let word = std::mem::size_of::<usize>();
@@ -81,16 +113,23 @@ impl<T> StackBox<T> {
             None => Self::alloc_overflow(needed, stack.size()),
         };
 
-        // The data plus its bookkeeping must fit into the stack. Check this
-        // before mutating the offset: without the check, a `T` bigger than the
-        // stack (for example a closure capturing a large array) would place
-        // the block below the bottom of the mapping and the writes below would
-        // go out of bounds instead of failing cleanly.
+        // The data plus its bookkeeping must fit into the stack, and `headroom`
+        // words must remain free below it. Check this before mutating the
+        // offset: without the check, a `T` bigger than the stack (for example a
+        // closure capturing a large array) would place the block below the
+        // bottom of the mapping and the writes below would go out of bounds
+        // instead of failing cleanly.
         let prev_offset = offset;
         let data_size = (old_end - data_addr) / word;
         let end_offset = prev_offset + data_size + extra_words;
-        if end_offset > stack.size() {
-            Self::alloc_overflow(data_size.saturating_add(extra_words), stack.size());
+        let needed = data_size
+            .saturating_add(extra_words)
+            .saturating_add(headroom);
+        if end_offset
+            .checked_add(headroom)
+            .is_none_or(|end| end > stack.size())
+        {
+            Self::alloc_overflow(needed, stack.size());
         }
 
         // Commit the reservation in one step.
@@ -100,7 +139,7 @@ impl<T> StackBox<T> {
 
     /// create uninit stack box
     fn new_uninit(stack: &Stack) -> StackBoxUninit<T> {
-        let (data_addr, prev_offset, end_offset) = Self::reserve(stack, HEADER_SIZE);
+        let (data_addr, prev_offset, end_offset) = Self::reserve(stack, HEADER_SIZE, 0);
         // A successful reservation guarantees that the header fits too.
         let header_addr = data_addr - HEADER_BYTES;
 
@@ -252,7 +291,8 @@ impl<F: FnOnce()> StackBox<F> {
             // no header and no stack handle of its own. The generator holds
             // the handle that keeps the mapping alive whenever `Func` can be
             // dropped.
-            let (data_addr, prev_offset, end_offset) = Self::reserve(stack, 0);
+            let (data_addr, prev_offset, end_offset) =
+                Self::reserve(stack, 0, INITIAL_FRAME_RESERVE);
             ptr::write(data_addr as *mut F, data);
 
             Func {
@@ -634,6 +674,24 @@ mod tests {
     #[test]
     fn data_address_rejects_blocks_below_address_zero() {
         assert!(data_address(0, 1, HEADER_ALIGN).is_none());
+    }
+
+    #[test]
+    fn reserve_keeps_the_initial_frame_headroom_free() {
+        let stack = Stack::new(17);
+        let (_, _, end_offset) = StackBox::<u64>::reserve(&stack, 0, INITIAL_FRAME_RESERVE);
+
+        // the headroom must not be part of the reserved block
+        assert_eq!(stack.offset(), end_offset);
+        assert!(end_offset + INITIAL_FRAME_RESERVE <= stack.size());
+    }
+
+    #[test]
+    #[should_panic(expected = "allocation exceeds stack")]
+    fn reserve_rejects_blocks_without_initial_frame_headroom() {
+        let stack = Stack::new(17);
+        // ask for more free space than the stack has
+        StackBox::<u64>::reserve(&stack, 0, stack.size());
     }
 
     #[repr(C, align(8192))]

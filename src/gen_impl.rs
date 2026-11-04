@@ -7,7 +7,7 @@ use crate::detail::gen_init;
 use crate::reg_context::RegContext;
 use crate::rt::{Context, ContextStack, Error};
 use crate::scope::Scope;
-use crate::stack::{Func, Stack, StackBox};
+use crate::stack::{overflow, Func, Stack, StackBox};
 
 use std::any::Any;
 use std::fmt;
@@ -359,6 +359,12 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     where
         T: 'a,
     {
+        // Install the overflow handler before the generator stack is used for
+        // the first time. The bootstrap frame runs before `gen_init_impl` gets
+        // a chance to install it, so a stack too small for that frame must
+        // fault into the handler instead of crashing the process.
+        overflow::init_once();
+
         // make sure the last one is finished
         if self.f.is_none() && self.context._ref == 0 {
             self.cancel();
