@@ -438,6 +438,32 @@ fn test_yield_from_send_type_miss_match() {
 // }
 
 #[test]
+#[should_panic(expected = "allocation exceeds stack")]
+fn test_stack_box_oversized_functor_panics() {
+    // The closure captures 16 KiB while the stack is only one page. This used
+    // to compute a pointer below the stack mapping (and crash with SIGSEGV,
+    // or corrupt unrelated memory); it must fail cleanly instead.
+    let big = [0u8; 1 << 14];
+    let _g = Gn::<()>::new_opt(16, move || {
+        std::hint::black_box(big[0]);
+        0u32
+    });
+}
+
+#[test]
+fn test_stack_box_large_functor_fits() {
+    // The same 16 KiB capture must still be accepted when the stack is big
+    // enough, so the new bounds check does not reject valid generators.
+    let big = [0u8; 1 << 14];
+    let mut g = Gn::<()>::new_opt(0x20000, move || {
+        std::hint::black_box(big[0]);
+        42u32
+    });
+    assert_eq!(g.next(), Some(42));
+    assert!(g.is_done());
+}
+
+#[test]
 fn test_scope_gen() {
     // now we can even deduce the input para type
     let mut g = Gn::new_scoped(|mut s| {

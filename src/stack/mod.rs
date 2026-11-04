@@ -52,11 +52,27 @@ impl<T> StackBox<T> {
         // would be wasted whenever `(*offset + size) % u_align == 0`)
         let pad_size = (u_align - (*offset + size) % u_align) % u_align;
         let data_size = size + pad_size;
-        *offset += data_size;
+
+        // The data plus its header must fit into the stack. Check this before
+        // mutating `*offset`: without the check, a `T` bigger than the stack
+        // (for example a closure capturing a large array) would move `end()`
+        // past the bottom of the mapping and the writes below would go out of
+        // bounds instead of failing cleanly.
+        let data_offset = match offset.checked_add(data_size) {
+            Some(data_offset) => data_offset,
+            None => Self::alloc_overflow(data_size, stack.size()),
+        };
+        let end_offset = match data_offset.checked_add(HEADER_SIZE) {
+            Some(end_offset) if end_offset <= stack.size() => end_offset,
+            _ => Self::alloc_overflow(data_size, stack.size()),
+        };
+
+        // Update the statck offset to point to the start of the data.
+        *offset = data_offset;
         let ptr = unsafe { ptr::NonNull::new_unchecked(stack.end() as *mut T) };
 
         // init the header
-        *offset += HEADER_SIZE;
+        *offset = end_offset;
         unsafe {
             let mut header = ptr::NonNull::new_unchecked(stack.end() as *mut StackBoxHeader);
             let header = header.as_mut();
@@ -65,6 +81,18 @@ impl<T> StackBox<T> {
             header.stack = stack.shadow_clone();
             MaybeUninit::new(StackBox { ptr })
         }
+    }
+
+    /// Panic with a clear message when a block does not fit into the stack.
+    #[cold]
+    #[inline(never)]
+    fn alloc_overflow(data_size: usize, capacity: usize) -> ! {
+        panic!(
+            "StackBox<{}> allocation exceeds stack: {} words needed, {} words capacity",
+            std::any::type_name::<T>(),
+            data_size.saturating_add(HEADER_SIZE),
+            capacity
+        );
     }
 
     fn get_header(&self) -> &StackBoxHeader {
