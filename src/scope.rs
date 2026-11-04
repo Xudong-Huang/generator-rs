@@ -6,7 +6,7 @@
 use std::marker::PhantomData;
 
 use crate::gen_impl::Generator;
-use crate::rt::{Context, ContextStack, Error};
+use crate::rt::{Context, ContextStack, Error, REF_ACTIVE};
 use crate::yield_::raw_yield_now;
 
 /// passed in scope type
@@ -51,7 +51,7 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
         raw_yield_now(env, context);
 
         // here we just panic to exit the func
-        if context._ref != 1 {
+        if context._ref != REF_ACTIVE {
             std::panic::panic_any(Error::Cancel);
         }
     }

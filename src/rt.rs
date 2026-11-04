@@ -11,6 +11,18 @@ use std::sync::atomic::{compiler_fence, Ordering};
 
 use crate::reg_context::RegContext;
 
+// Run-state values stored in the low bits of `Context::_ref`.
+//
+// `resume` adds one before switching in and a yield subtracts one, so a
+// suspended generator is `REF_IDLE`. If the body returns without yielding,
+// the outstanding resume remains and the generator is done. `raw_cancel`
+// records `REF_CANCELLED`, which also makes the resumed body panic at its
+// yield point.
+pub(crate) const REF_IDLE: usize = 0;
+pub(crate) const REF_ACTIVE: usize = 1;
+pub(crate) const REF_CANCELLED: usize = 2;
+pub(crate) const REF_STATE_MASK: usize = 0x3;
+
 thread_local! {
     // each thread has it's own generator context stack
     static ROOT_CONTEXT_P: Cell<*mut Context> = const { Cell::new(ptr::null_mut()) };
@@ -69,6 +81,9 @@ pub struct Context {
     /// this is just a buffer for the return value
     pub ret: MaybeUninit<*mut dyn Any>,
     /// track generator ref, yield will -1, send will +1
+    ///
+    /// The low bits hold the run state, see `REF_IDLE`/`REF_ACTIVE`/
+    /// `REF_CANCELLED`.
     pub _ref: usize,
     /// context local storage
     pub local_data: *mut u8,
@@ -92,7 +107,7 @@ impl Context {
             regs: RegContext::empty(),
             para: MaybeUninit::zeroed(),
             ret: MaybeUninit::zeroed(),
-            _ref: 1, // none zero means it's not running
+            _ref: REF_ACTIVE, // not idle: nothing has been installed yet
             err: None,
             child: ptr::null_mut(),
             parent: ptr::null_mut(),

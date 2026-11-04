@@ -7,7 +7,7 @@ use std::sync::atomic;
 
 use crate::gen_impl::{unlikely, Generator};
 use crate::reg_context::RegContext;
-use crate::rt::{is_generator, Context, ContextStack, Error};
+use crate::rt::{is_generator, Context, ContextStack, Error, REF_ACTIVE};
 
 /// it's a special return instruction that yield nothing
 /// but only terminate the generator safely
@@ -54,7 +54,7 @@ fn raw_yield<T: Any>(env: &ContextStack, context: &mut Context, v: T) {
     raw_yield_now(env, context);
 
     // here we just panic to exit the func
-    if unlikely(context._ref != 1) {
+    if unlikely(context._ref != REF_ACTIVE) {
         std::panic::panic_any(Error::Cancel);
     }
 }
@@ -140,9 +140,9 @@ pub fn co_yield_with<T: Any>(v: T) {
     RegContext::swap(&mut top.regs, &parent.regs);
 
     // here we just panic to exit the func, like the generator path: `cancel`
-    // sets `_ref` to 2 while the coroutine is suspended, so the panic fires as
-    // soon as it is resumed instead of at the next yield
-    if unlikely(context._ref != 1) {
+    // sets `_ref` to `REF_CANCELLED` while the coroutine is suspended, so the
+    // panic fires as soon as it is resumed instead of at the next yield
+    if unlikely(context._ref != REF_ACTIVE) {
         std::panic::panic_any(Error::Cancel);
     }
 }

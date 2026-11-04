@@ -5,7 +5,9 @@
 
 use crate::detail::gen_init;
 use crate::reg_context::RegContext;
-use crate::rt::{Context, ContextStack, Error};
+use crate::rt::{
+    Context, ContextStack, Error, REF_ACTIVE, REF_CANCELLED, REF_IDLE, REF_STATE_MASK,
+};
 use crate::scope::Scope;
 use crate::stack::{overflow, Func, Stack, StackBox};
 
@@ -25,19 +27,9 @@ use std::thread;
 pub const DEFAULT_STACK_SIZE: usize = 0x8000 / std::mem::size_of::<usize>();
 
 #[inline]
-#[cold]
-fn cold() {}
-
-// #[inline]
-// fn likely(b: bool) -> bool {
-//     if !b { cold() }
-//     b
-// }
-
-#[inline]
 pub(crate) fn unlikely(b: bool) -> bool {
     if b {
-        cold()
+        std::hint::cold_path()
     }
     b
 }
@@ -94,7 +86,7 @@ impl<'a, A, T> Generator<'a, A, T> {
     }
 
     /// init a heap based generator
-    // it's can be used to re-init a 'done' generator before it's get dropped
+    // it can be used to re-init a 'done' generator before it is dropped
     pub fn init_code<F: FnOnce() -> T + Send + 'a>(&mut self, f: F)
     where
         T: Send + 'a,
@@ -184,6 +176,10 @@ impl<'a, A, T, const LOCAL: bool> GeneratorObj<'a, A, T, LOCAL> {
     }
 
     /// get the generator panic data
+    ///
+    /// This only returns something for a coroutine-style generator (one whose
+    /// local data is set): a normal generator re-raises its panic from
+    /// `resume` instead, and the error is consumed there.
     #[inline]
     pub fn get_panic_data(&mut self) -> Option<Box<dyn Any + Send>> {
         self.gen.get_panic_data()
@@ -196,19 +192,26 @@ impl<'a, A, T, const LOCAL: bool> GeneratorObj<'a, A, T, LOCAL> {
         self.gen.resume()
     }
 
-    /// `raw_send`
+    /// resume the generator, passing `para` as the value the next
+    /// `get_yield` call returns; returns `None` once the generator is done
     #[inline]
     pub fn raw_send(&mut self, para: Option<A>) -> Option<T> {
         self.gen.raw_send(para)
     }
 
-    /// send interface
+    /// resume the generator with `para` and return the next yielded value
+    ///
+    /// # Panics
+    ///
+    /// Panics if the generator finishes instead of yielding a value.
     pub fn send(&mut self, para: A) -> T {
         self.gen.send(para)
     }
 
     /// cancel the generator
-    /// this will trigger a Cancel panic to unwind the stack and finish the generator
+    ///
+    /// This triggers a `Cancel` panic that unwinds the generator's stack and
+    /// finishes it.
     pub fn cancel(&mut self) {
         self.gen.cancel()
     }
@@ -358,7 +361,8 @@ struct GeneratorImpl<'a, A, T> {
 }
 
 impl<A: Any, T: Any> GeneratorImpl<'_, A, T> {
-    /// create a new generator with default stack size
+    /// point the deprecated `Context` input/output fields at this generator's
+    /// slots, so `yield_`/`get_yield` can reach them without a `Scope`
     fn init_context(&mut self) {
         unsafe {
             std::ptr::write(
@@ -371,7 +375,7 @@ impl<A: Any, T: Any> GeneratorImpl<'_, A, T> {
 }
 
 impl<'a, A, T> GeneratorImpl<'a, A, T> {
-    /// create a new generator with specified stack size
+    /// create a new generator backed by `stack`
     fn new(mut stack: Stack) -> StackBox<Self> {
         // the box keeps the stack alive; the mapping is released with the
         // last `Stack` handle
@@ -401,12 +405,19 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         A: 'a,
     {
         use std::mem::transmute;
+
+        // SAFETY: the scope borrows this generator's own para/ret slots,
+        // which stay at a fixed address for as long as the generator exists.
+        // The transmute only replaces the borrow's lifetime with the
+        // generator's `'a`; the `for<'scope>` bound on `F` keeps the scope
+        // from escaping the generator body, and `init_code` stores the
+        // closure on the generator's own stack.
         let scope: Scope<A, T> = unsafe { transmute(Scope::new(&mut self.para, &mut self.ret)) };
         self.init_code(move || f(scope));
     }
 
     /// init a heap based generator
-    // it's can be used to re-init a 'done' generator before it's get dropped
+    // it can be used to re-init a 'done' generator before it is dropped
     fn init_code<F: FnOnce() -> T + 'a>(&mut self, f: F)
     where
         T: 'a,
@@ -418,7 +429,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         overflow::init_once();
 
         // make sure the last one is finished
-        if self.f.is_none() && self.context._ref == 0 {
+        if self.f.is_none() && self.context._ref == REF_IDLE {
             self.cancel();
         }
 
@@ -428,7 +439,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // stack. A caught panic must not leave the generator resumable with
         // stale registers.
         self.context.parent = &mut self.context;
-        self.context._ref = 1;
+        self.context._ref = REF_ACTIVE;
 
         let _ = self.f.take();
 
@@ -448,7 +459,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
         // the function is installed, the generator is ready to start again
         self.f = Some(func);
-        self.context._ref = 0;
+        self.context._ref = REF_IDLE;
 
         let guard = (self.stack.begin() as usize, self.stack.end() as usize);
         self.context.stack_guard = guard;
@@ -538,7 +549,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.ret.take()
     }
 
-    /// `raw_send`
+    /// resume the generator, passing `para` to the next `get_yield`
     #[inline]
     fn raw_send(&mut self, para: Option<A>) -> Option<T> {
         if unlikely(self.is_done()) {
@@ -557,10 +568,10 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.ret.take()
     }
 
-    /// send interface
+    /// resume with `para` and return the next yielded value
     fn send(&mut self, para: A) -> T {
         let ret = self.raw_send(Some(para));
-        ret.expect("send got None return")
+        ret.expect("generator finished instead of yielding")
     }
 
     /// cancel the generator without any check
@@ -568,7 +579,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     fn raw_cancel(&mut self) {
         // tell the func to panic
         // so that we can stop the inner func
-        self.context._ref = 2;
+        self.context._ref = REF_CANCELLED;
         // NOTE: the `Cancel` control-flow panic raised inside the generator is
         // caught and silenced by `gen_init_impl`'s `catch_unwind_filter`, so we
         // must NOT touch the global panic hook here. Doing `panic::set_hook`
@@ -590,7 +601,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // consume the fun if it's not started
         if !self.is_started() {
             self.f.take();
-            self.context._ref = 1;
+            self.context._ref = REF_ACTIVE;
         } else {
             self.raw_cancel();
         }
@@ -599,7 +610,7 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     /// is finished
     #[inline]
     fn is_done(&self) -> bool {
-        self.is_started() && (self.context._ref & 0x3) != 0
+        self.is_started() && (self.context._ref & REF_STATE_MASK) != REF_IDLE
     }
 
     /// get stack total size and used size in word
