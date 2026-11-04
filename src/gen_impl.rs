@@ -52,6 +52,12 @@ pub struct GeneratorObj<'a, A, T, const LOCAL: bool> {
 /// `A` is an input to the generator body, so the type is invariant in it:
 /// the input lifetime cannot be shortened after the generator is created.
 ///
+/// A `Generator` is `Send` when `A` and `T` are `Send`, but the compiler
+/// cannot see which values the body keeps on its stack across a yield. Only
+/// move a suspended generator to another thread if those values are `Send`
+/// and no aliases of them remain on the originating thread; see the notes on
+/// the `Send` impl below.
+///
 /// ```compile_fail
 /// use generator::Generator;
 ///
@@ -63,10 +69,17 @@ pub struct GeneratorObj<'a, A, T, const LOCAL: bool> {
 /// ```
 pub type Generator<'a, A, T> = GeneratorObj<'a, A, T, false>;
 
-// Only when A, T and the functor are all sendable can the generator be sent.
 // The stack handles are thread-affine (`Rc`): they all live in the generator's
 // own stack allocation, so moving the generator moves the access to them too
 // and the non-atomic counts are never touched from several threads at once.
+//
+// `A: Send`, `T: Send` and `F: Send` (enforced by the constructors) are not
+// sufficient on their own: the functor's `Send` bound only covers its
+// captures, while a suspended generator's stack holds the body's live locals,
+// which the type system cannot see. Moving a suspended generator to another
+// thread is only safe when every value alive on its stack across a yield is
+// `Send` and no alias of such a value is left on the originating thread - the
+// same rule a future must obey to be `Send`.
 unsafe impl<A: Send, T: Send> Send for Generator<'static, A, T> {}
 
 impl<'a, A, T> Generator<'a, A, T> {
