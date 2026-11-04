@@ -324,17 +324,15 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
     fn new(mut stack: Stack) -> StackBox<Self> {
         // the box keeps the stack alive; the mapping is released with the
         // last `Stack` handle
-        unsafe {
-            let stack_box = stack.alloc_uninit_box::<GeneratorImpl<'a, A, T>>();
-            stack_box.init(GeneratorImpl {
-                para: None,
-                stack,
-                ret: None,
-                f: None,
-                context: Context::new(),
-                phantom: PhantomData,
-            })
-        }
+        let stack_box = stack.alloc_uninit_box::<GeneratorImpl<'a, A, T>>();
+        stack_box.init(GeneratorImpl {
+            para: None,
+            stack,
+            ret: None,
+            f: None,
+            context: Context::new(),
+            phantom: PhantomData,
+        })
     }
 
     /// prefetch the generator into cache

@@ -170,14 +170,9 @@ impl<T> StackBoxUninit<T> {
     }
 
     /// Write `value` into the block and turn it into a [`StackBox`].
-    ///
-    /// # Safety
-    ///
-    /// The block must not be initialized twice. Consuming `self` enforces
-    /// this for safe code.
-    pub(crate) unsafe fn init(self, value: T) -> StackBox<T> {
+    pub(crate) fn init(self, value: T) -> StackBox<T> {
         let this = std::mem::ManuallyDrop::new(self);
-        ptr::write(this.ptr.as_ptr(), value);
+        unsafe { ptr::write(this.ptr.as_ptr(), value) }
         StackBox { ptr: this.ptr }
     }
 }
@@ -373,10 +368,10 @@ impl Error for StackError {
     }
 }
 
-/// Represents any kind of stack memory.
+/// The bounds of a mapped stack region, from `bottom()` up to `top()`.
 ///
-/// `FixedSizeStack` as well as `ProtectedFixedSizeStack`
-/// can be used to allocate actual stack space.
+/// It does not own the memory; `StackMem` unmaps it when the last `Stack`
+/// handle is dropped.
 #[derive(Debug)]
 pub struct SysStack {
     top: *mut c_void,
@@ -484,7 +479,7 @@ struct StackMem {
 
 #[cfg(test)]
 thread_local! {
-    static STACK_DEALLOCS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static STACK_DEALLOCS: Cell<usize> = const { Cell::new(0) };
 }
 
 impl Drop for StackMem {
@@ -647,11 +642,9 @@ mod tests {
     #[test]
     fn stack_box_aligns_over_aligned_data() {
         let mut stack = Stack::new(0x2000);
-        let boxed = unsafe {
-            stack
-                .alloc_uninit_box::<OverAligned>()
-                .init(OverAligned([1; 8]))
-        };
+        let boxed = stack
+            .alloc_uninit_box::<OverAligned>()
+            .init(OverAligned([1; 8]));
 
         assert_eq!(
             boxed.as_ptr() as usize % std::mem::align_of::<OverAligned>(),
@@ -672,7 +665,7 @@ mod tests {
         let stack = Stack::new(0x100);
         let offset = stack.offset();
 
-        let boxed = unsafe { StackBox::<PanicOnDrop>::new_uninit(&stack).init(PanicOnDrop) };
+        let boxed = StackBox::<PanicOnDrop>::new_uninit(&stack).init(PanicOnDrop);
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(boxed)));
         assert!(result.is_err());
@@ -694,7 +687,7 @@ mod tests {
     fn stack_box_frees_stack_when_drop_panics() {
         let mut stack = Stack::new(0x100);
 
-        let boxed = unsafe { stack.alloc_uninit_box::<PanicOnDrop>().init(PanicOnDrop) };
+        let boxed = stack.alloc_uninit_box::<PanicOnDrop>().init(PanicOnDrop);
 
         // the box's handle is the last one, so dropping it frees the mapping
         drop(stack);
@@ -722,8 +715,8 @@ mod tests {
     fn stack_box_multiple_boxes_free_once() {
         let mut stack = Stack::new(0x100);
 
-        let first = unsafe { stack.alloc_uninit_box::<u64>().init(1) };
-        let second = unsafe { stack.alloc_uninit_box::<u64>().init(2) };
+        let first = stack.alloc_uninit_box::<u64>().init(1);
+        let second = stack.alloc_uninit_box::<u64>().init(2);
 
         let deallocations_before = STACK_DEALLOCS.with(std::cell::Cell::get);
         drop(second);
@@ -741,8 +734,8 @@ mod tests {
     fn stack_box_detects_non_lifo_drop() {
         let stack = Stack::new(0x100);
 
-        let first = unsafe { StackBox::<u64>::new_uninit(&stack).init(1) };
-        let second = unsafe { StackBox::<u64>::new_uninit(&stack).init(2) };
+        let first = StackBox::<u64>::new_uninit(&stack).init(1);
+        let second = StackBox::<u64>::new_uninit(&stack).init(2);
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(first)));
         assert!(
@@ -769,7 +762,7 @@ mod tests {
 
             // Same-stack allocation from a destructor: it must land below the
             // box being dropped, which is still reserved at this point.
-            let nested = unsafe { StackBox::<u64>::new_uninit(&stack).init(0xAA) };
+            let nested = StackBox::<u64>::new_uninit(&stack).init(0xAA);
             unsafe { (*out).set(Some(nested.as_ptr() as usize)) };
         }
     }
@@ -782,12 +775,10 @@ mod tests {
         let self_end = self_addr + std::mem::size_of::<AllocOnDrop>();
         let nested_addr = std::cell::Cell::new(None);
 
-        let boxed = unsafe {
-            uninit.init(AllocOnDrop {
-                stack,
-                out: &nested_addr,
-            })
-        };
+        let boxed = uninit.init(AllocOnDrop {
+            stack,
+            out: &nested_addr,
+        });
         drop(boxed);
 
         let nested_start = nested_addr.get().expect("destructor did not run");
