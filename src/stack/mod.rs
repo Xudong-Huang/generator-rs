@@ -472,15 +472,21 @@ impl SysStack {
 
         if let Some(size) = size.checked_add(add) {
             if size <= max_stack_size {
-                let mut ret = unsafe { sys::allocate_stack(size) };
+                let stack = unsafe { sys::allocate_stack(size) }.map_err(StackError::IoError)?;
 
                 if protected {
-                    if let Ok(stack) = ret {
-                        ret = unsafe { sys::protect_stack(&stack) };
+                    match unsafe { sys::protect_stack(&stack) } {
+                        Ok(protected) => return Ok(protected),
+                        Err(err) => {
+                            // The guard page could not be installed: release
+                            // the mapping instead of leaking it.
+                            unsafe { sys::deallocate_stack(stack.bottom(), stack.len()) };
+                            return Err(StackError::IoError(err));
+                        }
                     }
                 }
 
-                return ret.map_err(StackError::IoError);
+                return Ok(stack);
             }
         }
 
