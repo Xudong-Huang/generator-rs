@@ -93,8 +93,8 @@ impl<T> StackBox<T> {
     /// words of bookkeeping below the data, while keeping `headroom` words
     /// free below the reservation.
     ///
-    /// Returns `(data_addr, prev_offset, end_offset)`.
-    fn reserve(stack: &Stack, extra_words: usize, headroom: usize) -> (usize, usize, usize) {
+    /// Returns `(data_ptr, prev_offset, end_offset)`.
+    fn reserve(stack: &Stack, extra_words: usize, headroom: usize) -> (*mut u8, usize, usize) {
         let layout = std::alloc::Layout::new::<T>();
         let align = std::cmp::max(layout.align(), HEADER_ALIGN);
         let word = std::mem::size_of::<usize>();
@@ -105,13 +105,17 @@ impl<T> StackBox<T> {
         // possible while staying aligned; everything between its end and the
         // old end of the used area is padding.
         let offset = stack.offset();
-        let top = stack.mem.buf.top as usize;
-        let old_end = top - offset * word;
+        let top = stack.mem.buf.top.cast::<u8>();
+        let old_end = top.wrapping_sub(offset * word);
+        let old_end_addr = old_end.addr();
         let needed = layout.size().div_ceil(word).saturating_add(extra_words);
-        let data_addr = match data_address(old_end, layout.size(), align) {
+        let data_addr = match data_address(old_end_addr, layout.size(), align) {
             Some(data_addr) => data_addr,
             None => Self::alloc_overflow(needed, stack.size()),
         };
+        // Derive the data pointer from `old_end` itself instead of rebuilding
+        // it from an integer, so it keeps the mapping's provenance.
+        let data_ptr = old_end.wrapping_sub(old_end_addr - data_addr);
 
         // The data plus its bookkeeping must fit into the stack, and `headroom`
         // words must remain free below it. Check this before mutating the
@@ -120,7 +124,7 @@ impl<T> StackBox<T> {
         // bottom of the mapping and the writes below would go out of bounds
         // instead of failing cleanly.
         let prev_offset = offset;
-        let data_size = (old_end - data_addr) / word;
+        let data_size = (old_end_addr - data_addr) / word;
         let end_offset = prev_offset + data_size + extra_words;
         let needed = data_size
             .saturating_add(extra_words)
@@ -134,14 +138,14 @@ impl<T> StackBox<T> {
 
         // Commit the reservation in one step.
         stack.mem.offset.set(end_offset);
-        (data_addr, prev_offset, end_offset)
+        (data_ptr, prev_offset, end_offset)
     }
 
     /// create uninit stack box
     fn new_uninit(stack: &Stack) -> StackBoxUninit<T> {
-        let (data_addr, prev_offset, end_offset) = Self::reserve(stack, HEADER_SIZE, 0);
+        let (data_ptr, prev_offset, end_offset) = Self::reserve(stack, HEADER_SIZE, 0);
         // A successful reservation guarantees that the header fits too.
-        let header_addr = data_addr - HEADER_BYTES;
+        let header_ptr = data_ptr.wrapping_sub(HEADER_BYTES).cast::<StackBoxHeader>();
 
         // init the header. The memory is uninitialized, so it must be written
         // with `ptr::write`: assigning to `header.stack` would try to drop the
@@ -151,9 +155,9 @@ impl<T> StackBox<T> {
             prev_offset,
             end_offset,
         };
-        unsafe { ptr::write(header_addr as *mut StackBoxHeader, header) };
+        unsafe { ptr::write(header_ptr, header) };
 
-        let ptr = unsafe { ptr::NonNull::new_unchecked(data_addr as *mut T) };
+        let ptr = unsafe { ptr::NonNull::new_unchecked(data_ptr.cast::<T>()) };
         StackBoxUninit { ptr }
     }
 
@@ -178,13 +182,15 @@ impl<T> StackBox<T> {
         self.ptr.as_ptr()
     }
 
-    /// Constructs a StackBox from a raw pointer.
+    /// Constructs a `StackBox` from a raw pointer previously returned by
+    /// `Generator::into_raw`.
     ///
     /// # Safety
     ///
-    /// This function is unsafe because improper use may lead to
-    /// memory problems. For example, a double-free may occur if the
-    /// function is called twice on the same raw pointer.
+    /// `raw` must point to a value allocated by [`Stack::alloc_uninit_box`] on
+    /// a stack that is still alive, and its block header must be intact. The
+    /// returned box takes over ownership: reconstructing two boxes from the
+    /// same pointer causes a double free when both are dropped.
     #[inline]
     pub(crate) unsafe fn from_raw(raw: *mut T) -> Self {
         StackBox {
@@ -232,11 +238,16 @@ impl<T> Drop for StackBoxUninit<T> {
     }
 }
 
+/// A closure allocated on a generator stack.
+///
+/// The block, and the stack control block its offset points into, are kept
+/// alive by the owning generator: every `Func` lives either in
+/// `GeneratorImpl.f` or in a frame of the generator's own stack, so the offset
+/// is valid whenever `Func` can be dropped.
 pub struct Func {
     data: *mut (),
-    // points into the generator's stack control block, which outlives every
-    // `Func` that can still be dropped
-    offset: *const Cell<usize>,
+    // points into the generator's stack control block
+    offset: ptr::NonNull<Cell<usize>>,
     prev_offset: usize,
     end_offset: usize,
     func: fn(*mut ()),
@@ -258,7 +269,7 @@ impl Drop for Func {
         let data = self.data;
         self.data = ptr::null_mut();
         let _restore = OffsetGuard {
-            offset: unsafe { &*self.offset },
+            offset: unsafe { self.offset.as_ref() },
             prev_offset: self.prev_offset,
             end_offset: self.end_offset,
         };
@@ -271,7 +282,7 @@ impl Drop for Func {
 impl<F: FnOnce()> StackBox<F> {
     fn call_once(data: *mut ()) {
         unsafe {
-            let data = data as *mut F;
+            let data = data.cast::<F>();
             let f = data.read();
             f();
         }
@@ -279,7 +290,7 @@ impl<F: FnOnce()> StackBox<F> {
 
     fn drop_inner(data: *mut ()) {
         unsafe {
-            let data = data as *mut F;
+            let data = data.cast::<F>();
             ptr::drop_in_place(data);
         }
     }
@@ -291,13 +302,13 @@ impl<F: FnOnce()> StackBox<F> {
             // no header and no stack handle of its own. The generator holds
             // the handle that keeps the mapping alive whenever `Func` can be
             // dropped.
-            let (data_addr, prev_offset, end_offset) =
+            let (data_ptr, prev_offset, end_offset) =
                 Self::reserve(stack, 0, INITIAL_FRAME_RESERVE);
-            ptr::write(data_addr as *mut F, data);
+            ptr::write(data_ptr.cast::<F>(), data);
 
             Func {
-                data: data_addr as *mut (),
-                offset: stack.offset_cell(),
+                data: data_ptr.cast::<()>(),
+                offset: ptr::NonNull::from(stack.offset_cell()),
                 prev_offset,
                 end_offset,
                 func: Self::call_once,
@@ -380,7 +391,8 @@ impl<T> Drop for StackBox<T> {
 /// Error type returned by stack allocation methods.
 #[derive(Debug)]
 pub enum StackError {
-    /// Contains the maximum amount of memory allowed to be allocated as stack space.
+    /// Contains the maximum amount of memory allowed to be allocated as stack
+    /// space, in bytes.
     ExceedsMaximumSize(usize),
 
     /// Returned if some kind of I/O error happens during allocation.
@@ -436,7 +448,7 @@ impl SysStack {
         self.top
     }
 
-    /// Returns the bottom of the stack and thus it's end.
+    /// Returns the bottom of the stack and thus its end.
     #[inline]
     pub fn bottom(&self) -> *mut c_void {
         self.bottom
@@ -445,7 +457,7 @@ impl SysStack {
     /// Returns the size of the stack between top() and bottom().
     #[inline]
     pub fn len(&self) -> usize {
-        self.top as usize - self.bottom as usize
+        self.top.addr() - self.bottom.addr()
     }
 
     /// Returns the minimal stack size allowed by the current platform.
@@ -454,13 +466,13 @@ impl SysStack {
         sys::min_stack_size()
     }
 
-    /// Allocates a new stack of `size`.
-    fn allocate(mut size: usize, protected: bool) -> Result<SysStack, StackError> {
+    /// Allocates a new stack of `size`, with a guard page at the bottom.
+    fn allocate(mut size: usize) -> Result<SysStack, StackError> {
         let page_size = sys::page_size();
         let min_stack_size = sys::min_stack_size();
         let max_stack_size = sys::max_stack_size();
-        let add_shift = i32::from(protected);
-        let add = page_size << add_shift;
+        // one page for the guard and one page of rounding slack
+        let add = page_size << 1;
 
         if size < min_stack_size {
             size = min_stack_size;
@@ -474,19 +486,15 @@ impl SysStack {
             if size <= max_stack_size {
                 let stack = unsafe { sys::allocate_stack(size) }.map_err(StackError::IoError)?;
 
-                if protected {
-                    match unsafe { sys::protect_stack(&stack) } {
-                        Ok(protected) => return Ok(protected),
-                        Err(err) => {
-                            // The guard page could not be installed: release
-                            // the mapping instead of leaking it.
-                            unsafe { sys::deallocate_stack(stack.bottom(), stack.len()) };
-                            return Err(StackError::IoError(err));
-                        }
+                match unsafe { sys::protect_stack(&stack) } {
+                    Ok(protected) => return Ok(protected),
+                    Err(err) => {
+                        // The guard page could not be installed: release the
+                        // mapping instead of leaking it.
+                        unsafe { sys::deallocate_stack(stack.bottom(), stack.len()) };
+                        return Err(StackError::IoError(err));
                     }
                 }
-
-                return Ok(stack);
             }
         }
 
@@ -531,7 +539,12 @@ thread_local! {
 impl Drop for StackMem {
     fn drop(&mut self) {
         let page_size = sys::page_size();
-        let guard = (self.buf.bottom as usize - page_size) as *mut c_void;
+        let guard = self
+            .buf
+            .bottom
+            .cast::<u8>()
+            .wrapping_sub(page_size)
+            .cast::<c_void>();
         let size_with_guard = self.buf.len() + page_size;
         unsafe {
             sys::deallocate_stack(guard, size_with_guard);
@@ -560,7 +573,7 @@ impl Stack {
             .unwrap_or_else(|| panic!("requested stack size {size} words overflows usize"))
             .max(SysStack::min_size());
 
-        let buf = SysStack::allocate(bytes, true).expect("failed to alloc sys stack");
+        let buf = SysStack::allocate(bytes).expect("failed to alloc sys stack");
 
         let stk = Stack {
             mem: Rc::new(StackMem {
@@ -582,7 +595,7 @@ impl Stack {
         // words (instead of raw bytes) keeps the written pattern identical to
         // what `get_used_size` compares against, on any word size/endianness.
         unsafe {
-            let mut p = stk.mem.buf.bottom as *mut usize;
+            let mut p = stk.mem.buf.bottom.cast::<usize>();
             for _ in 0..count {
                 p.write(STACK_SENTINEL);
                 p = p.offset(1);
@@ -605,7 +618,7 @@ impl Stack {
         // written to at most `cap` words by `Stack::new`).
         let mut free: usize = 0;
         unsafe {
-            let mut ptr = self.mem.buf.bottom as *const usize;
+            let mut ptr = self.mem.buf.bottom.cast::<usize>();
             while free < cap && *ptr == STACK_SENTINEL {
                 free += 1;
                 ptr = ptr.offset(1);
@@ -623,12 +636,12 @@ impl Stack {
     /// Point to the high end of the allocated stack
     pub fn end(&self) -> *mut usize {
         let offset = self.offset();
-        unsafe { (self.mem.buf.top as *mut usize).offset(0 - offset as isize) }
+        unsafe { (self.mem.buf.top.cast::<usize>()).offset(0 - offset as isize) }
     }
 
     /// Point to the low end of the allocated stack
     pub fn begin(&self) -> *mut usize {
-        self.mem.buf.bottom as *mut _
+        self.mem.buf.bottom.cast::<usize>()
     }
 
     /// Reserve a block for `T` on this stack.

@@ -45,10 +45,7 @@ pub unsafe fn allocate_stack(size: usize) -> io::Result<SysStack> {
     if std::ptr::eq(ptr, libc::MAP_FAILED) {
         Err(io::Error::last_os_error())
     } else {
-        Ok(SysStack::new(
-            (ptr as usize + size) as *mut c_void,
-            ptr as *mut c_void,
-        ))
+        Ok(SysStack::new(ptr.cast::<u8>().add(size).cast(), ptr))
     }
 }
 
@@ -65,7 +62,7 @@ pub unsafe fn protect_stack(stack: &SysStack) -> io::Result<SysStack> {
     if ret != 0 {
         Err(io::Error::last_os_error())
     } else {
-        let bottom = (stack.bottom() as usize + page_size) as *mut c_void;
+        let bottom = stack.bottom().cast::<u8>().add(page_size).cast::<c_void>();
         Ok(SysStack::new(stack.top(), bottom))
     }
 }
