@@ -585,6 +585,14 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
 
 impl<A, T> Drop for GeneratorImpl<'_, A, T> {
     fn drop(&mut self) {
+        if self.context.overflowed {
+            // The overflow handler yields out of the generator without
+            // unwinding its frames, so the functor block allocated by
+            // `init_code` is still reserved. Tell the stack bookkeeping not to
+            // enforce the LIFO check for this box.
+            self.stack.abandon();
+        }
+
         // when the thread is already panic, do nothing
         if thread::panicking() {
             return;
@@ -607,9 +615,45 @@ impl<A, T> Drop for GeneratorImpl<'_, A, T> {
             // here we should record the stack in the class
             // next time will just use
             // set_stack_size::<F>(used_stack);
-        } else {
+        } else if !self.context.overflowed {
+            // Only surface the overflow here when the guard-page handler did
+            // not already deliver it through `context.err`: a caller that
+            // caught that error must be able to drop the generator normally.
+            // This check is the fallback for a stack that was filled to the
+            // bottom without faulting. The flag also stays set because the
+            // sentinel this check relies on is destroyed by an overflow.
             error!("stack overflow detected!");
             panic::panic_any(Error::StackErr);
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+
+    #[cfg(not(target_os = "fuchsia"))]
+    #[test]
+    fn test_overflow_marks_the_context() {
+        // not a tail call, so release builds cannot turn it into a loop
+        #[inline(never)]
+        fn exhaust(n: usize) -> usize {
+            let buf = [0u8; 512];
+            std::hint::black_box(&buf);
+            if n == usize::MAX {
+                return 0;
+            }
+            let r = exhaust(n + 1);
+            std::hint::black_box(r.wrapping_add(buf[0] as usize))
+        }
+
+        let mut g = Gn::<()>::new_opt(16, || exhaust(0));
+        let result = catch_unwind(AssertUnwindSafe(|| g.next()));
+        assert!(result.is_err());
+
+        // the handler must remember that it reported the overflow, so that
+        // dropping the generator does not panic a second time
+        assert!(g.gen.context.overflowed);
     }
 }

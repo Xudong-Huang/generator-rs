@@ -76,6 +76,13 @@ pub struct Context {
     pub err: Option<Box<dyn Any + Send>>,
     /// cached stack guard for fast path
     pub stack_guard: (usize, usize),
+    /// the overflow handler already reported an overflow for this stack
+    ///
+    /// The bottom-of-stack sentinel used by the drop-time usage check is
+    /// destroyed by an overflow, so that check can no longer tell a full
+    /// stack from an overflowed one. This flag stays set once the handler
+    /// has delivered `Error::StackErr` for this context.
+    pub overflowed: bool,
 }
 
 impl Context {
@@ -91,6 +98,7 @@ impl Context {
             parent: ptr::null_mut(),
             local_data: ptr::null_mut(),
             stack_guard: (0, 0),
+            overflowed: false,
         }
     }
 

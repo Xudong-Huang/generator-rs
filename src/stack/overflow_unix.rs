@@ -57,7 +57,9 @@ unsafe extern "C" fn signal_handler(
         msg.len(),
     );
 
-    ContextStack::current().top().err = Some(Box::new(crate::Error::StackErr));
+    let context = ContextStack::current().top();
+    context.err = Some(Box::new(crate::Error::StackErr));
+    context.overflowed = true;
 
     let mut sigset: libc::sigset_t = mem::zeroed();
     libc::sigemptyset(&mut sigset);

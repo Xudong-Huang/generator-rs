@@ -233,6 +233,7 @@ impl<T> Drop for StackBoxUninit<T> {
                 offset: stack.offset_cell(),
                 prev_offset: (*header).prev_offset,
                 end_offset: (*header).end_offset,
+                abandoned: Some(&stack.mem.abandoned),
             };
         }
     }
@@ -272,6 +273,7 @@ impl Drop for Func {
             offset: unsafe { self.offset.as_ref() },
             prev_offset: self.prev_offset,
             end_offset: self.end_offset,
+            abandoned: None,
         };
         if !data.is_null() {
             (self.drop)(data);
@@ -343,14 +345,20 @@ struct OffsetGuard<'a> {
     offset: &'a Cell<usize>,
     prev_offset: usize,
     end_offset: usize,
+    // the stack's abandoned flag, for guards that belong to a stack block.
+    // `Func` guards have no access to the stack and pass `None`: a functor
+    // left behind by an overflow is never dropped.
+    abandoned: Option<&'a Cell<bool>>,
 }
 
 impl Drop for OffsetGuard<'_> {
     fn drop(&mut self) {
         // Destructors may be skipped while unwinding (for example an
         // abandoned generator's functor), so only enforce strict LIFO
-        // accounting on the normal path.
-        if !std::thread::panicking() {
+        // accounting on the normal path. A stack abandoned by an overflow
+        // never unwound its frames, so later allocations are still reserved
+        // and the check does not apply either.
+        if !std::thread::panicking() && !self.abandoned.is_some_and(Cell::get) {
             debug_assert_eq!(
                 self.offset.get(),
                 self.end_offset,
@@ -382,6 +390,7 @@ impl<T> Drop for StackBox<T> {
             offset: stack.offset_cell(),
             prev_offset,
             end_offset,
+            abandoned: Some(&stack.mem.abandoned),
         };
 
         unsafe { ptr::drop_in_place(self.ptr.as_ptr()) };
@@ -529,6 +538,9 @@ struct StackMem {
     buf: SysStack,
     // bump offset in words from the top of the stack
     offset: Cell<usize>,
+    // an overflow abandoned the running frames without unwinding them, so
+    // allocations made by the body are still reserved
+    abandoned: Cell<bool>,
 }
 
 #[cfg(test)]
@@ -579,6 +591,7 @@ impl Stack {
             mem: Rc::new(StackMem {
                 buf,
                 offset: Cell::new(0),
+                abandoned: Cell::new(false),
             }),
         };
 
@@ -661,6 +674,16 @@ impl Stack {
     // the offset can be restored from a guard
     fn offset_cell(&self) -> &Cell<usize> {
         &self.mem.offset
+    }
+
+    /// Mark the stack as abandoned mid-run.
+    ///
+    /// A stack overflow yields out of the running frames without unwinding
+    /// them, so the functor block allocated by `init_code` is never freed.
+    /// The bump offset cannot be trusted after that, so the LIFO check is
+    /// skipped when the stack's blocks are dropped.
+    pub(crate) fn abandon(&self) {
+        self.mem.abandoned.set(true);
     }
 }
 

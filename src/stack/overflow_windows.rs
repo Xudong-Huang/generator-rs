@@ -36,6 +36,7 @@ unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTE
         let env = ContextStack::current();
         let cur = env.top();
         cur.err = Some(Box::new(crate::Error::StackErr));
+        cur.overflowed = true;
 
         context_init(env.pop_context(cur as *mut _), context);
 

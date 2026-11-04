@@ -5,6 +5,20 @@ extern crate generator;
 
 use generator::*;
 
+// Exhausts the current stack without relying on tail-call optimization, so
+// release builds cannot turn it into a loop.
+#[cfg(not(target_os = "fuchsia"))]
+#[inline(never)]
+fn overflow_stack(n: usize) -> usize {
+    let buf = [0u8; 512];
+    std::hint::black_box(&buf);
+    if n == usize::MAX {
+        return 0;
+    }
+    let r = overflow_stack(n + 1);
+    std::hint::black_box(r.wrapping_add(buf[0] as usize))
+}
+
 #[test]
 fn test_return() {
     let mut g = Gn::new_scoped(|_s| 42u32);
@@ -468,24 +482,12 @@ fn test_stack_box_large_functor_fits() {
 fn test_nested_stack_overflow() {
     use std::panic::catch_unwind;
 
-    // not a tail call, so release builds cannot turn the recursion into a loop
-    #[inline(never)]
-    fn recurse(n: usize) -> usize {
-        let buf = [0u8; 512];
-        std::hint::black_box(&buf);
-        if n == usize::MAX {
-            return 0;
-        }
-        let r = recurse(n + 1);
-        std::hint::black_box(r.wrapping_add(buf[0] as usize))
-    }
-
     // The inner generator overflows its own stack while the outer generator is
     // running. The overflow handler must validate the fault against the inner
     // (currently executing) stack guard, not the outermost generator's.
     let result = catch_unwind(|| {
         let mut outer = Gn::new_scoped(|_s: Scope<(), ()>| {
-            let mut inner = Gn::<()>::new_opt(16, || recurse(0));
+            let mut inner = Gn::<()>::new_opt(16, || overflow_stack(0));
             inner.next();
         });
         outer.next();
@@ -495,6 +497,25 @@ fn test_nested_stack_overflow() {
         result.map_err(|err| *err.downcast::<Error>().unwrap()),
         Err(Error::StackErr)
     ));
+}
+
+#[cfg(not(target_os = "fuchsia"))]
+#[test]
+fn test_caught_stack_overflow_drops_cleanly() {
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+
+    let mut g = Gn::new_scoped(|_s: Scope<(), usize>| overflow_stack(0));
+
+    let result = catch_unwind(AssertUnwindSafe(|| g.next()));
+    assert!(matches!(
+        result.map_err(|err| *err.downcast::<Error>().unwrap()),
+        Err(Error::StackErr)
+    ));
+
+    // The overflow was already reported by `next`; dropping the generator
+    // must not panic a second time, even though the abandoned frames leave
+    // the stack bookkeeping inconsistent.
+    drop(g);
 }
 
 #[test]
