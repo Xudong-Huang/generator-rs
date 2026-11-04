@@ -629,13 +629,14 @@ impl<A, T> Drop for GeneratorImpl<'_, A, T> {
 }
 
 #[cfg(test)]
+#[cfg(not(target_os = "fuchsia"))]
 mod test {
     use super::*;
     use std::panic::{catch_unwind, AssertUnwindSafe};
 
-    #[cfg(not(target_os = "fuchsia"))]
     #[test]
     fn test_overflow_marks_the_context() {
+        #[cfg(not(windows))]
         // not a tail call, so release builds cannot turn it into a loop
         #[inline(never)]
         fn exhaust(n: usize) -> usize {
@@ -648,9 +649,23 @@ mod test {
             std::hint::black_box(r.wrapping_add(buf[0] as usize))
         }
 
+        #[cfg(not(windows))]
         let mut g = Gn::<()>::new_opt(16, || exhaust(0));
+        // Windows cannot dispatch an exception from a frame that overflowed
+        // into the guard page, so fault the guard page directly instead
+        #[cfg(windows)]
+        let mut g = Gn::new_scoped(|_s: Scope<(), ()>| unsafe {
+            let guard = crate::rt::guard::current();
+            // read from the guard page to trigger a stack overflow
+            std::hint::black_box(*(guard.start as *const usize));
+        });
+
         let result = catch_unwind(AssertUnwindSafe(|| g.next()));
         assert!(result.is_err());
+        assert!(matches!(
+            result.map_err(|err| *err.downcast::<Error>().unwrap()),
+            Err(Error::StackErr)
+        ));
 
         // the handler must remember that it reported the overflow, so that
         // dropping the generator does not panic a second time

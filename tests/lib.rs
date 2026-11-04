@@ -7,7 +7,7 @@ use generator::*;
 
 // Exhausts the current stack without relying on tail-call optimization, so
 // release builds cannot turn it into a loop.
-#[cfg(not(target_os = "fuchsia"))]
+#[cfg(all(not(target_os = "fuchsia"), not(windows)))]
 #[inline(never)]
 fn overflow_stack(n: usize) -> usize {
     let buf = [0u8; 512];
@@ -477,7 +477,7 @@ fn test_stack_box_large_functor_fits() {
     assert!(g.is_done());
 }
 
-#[cfg(not(target_os = "fuchsia"))]
+#[cfg(all(not(target_os = "fuchsia"), not(windows)))]
 #[test]
 fn test_nested_stack_overflow() {
     use std::panic::catch_unwind;
@@ -499,7 +499,7 @@ fn test_nested_stack_overflow() {
     ));
 }
 
-#[cfg(not(target_os = "fuchsia"))]
+#[cfg(all(not(target_os = "fuchsia"), not(windows)))]
 #[test]
 fn test_caught_stack_overflow_drops_cleanly() {
     use std::panic::{catch_unwind, AssertUnwindSafe};
