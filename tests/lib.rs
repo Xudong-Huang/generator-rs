@@ -328,6 +328,49 @@ fn test_cancel() {
 }
 
 #[test]
+fn test_cancel_coroutine_prompts() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    let ran = Arc::new(AtomicBool::new(false));
+    let ran_in_body = ran.clone();
+    let mut g = Gn::<()>::new_opt(0x800, move || {
+        co_yield_with(0u32);
+        // must not run: the coroutine is canceled while suspended here
+        ran_in_body.store(true, Ordering::SeqCst);
+        co_yield_with(1u32);
+        2u32
+    });
+    // mark the generator as a coroutine
+    g.set_local_data(1 as *mut u8);
+
+    assert_eq!(g.next(), Some(0));
+    g.cancel();
+    assert!(g.is_done());
+    assert!(!ran.load(Ordering::SeqCst));
+}
+
+#[test]
+fn test_drop_coroutine_does_not_run_user_code() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    let ran = Arc::new(AtomicBool::new(false));
+    let ran_in_body = ran.clone();
+    {
+        let mut g = Gn::<()>::new_opt(0x800, move || {
+            co_yield_with(0u32);
+            ran_in_body.store(true, Ordering::SeqCst);
+            1u32
+        });
+        g.set_local_data(1 as *mut u8);
+        assert_eq!(g.next(), Some(0));
+        // dropped while suspended: the cancellation must not resume the body
+    }
+    assert!(!ran.load(Ordering::SeqCst));
+}
+
+#[test]
 #[should_panic]
 fn test_yield_from_functor_context() {
     // this is not run from generator

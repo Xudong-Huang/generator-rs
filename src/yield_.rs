@@ -131,11 +131,6 @@ pub fn co_yield_with<T: Any>(v: T) {
     //     return;
     // }
 
-    // here we just panic to exit the func
-    if unlikely(context._ref != 1) {
-        std::panic::panic_any(Error::Cancel);
-    }
-
     context.set_ret(v);
     context._ref -= 1;
 
@@ -143,6 +138,13 @@ pub fn co_yield_with<T: Any>(v: T) {
     let top = unsafe { &mut *context.parent };
     // here we should use the top regs
     RegContext::swap(&mut top.regs, &parent.regs);
+
+    // here we just panic to exit the func, like the generator path: `cancel`
+    // sets `_ref` to 2 while the coroutine is suspended, so the panic fires as
+    // soon as it is resumed instead of at the next yield
+    if unlikely(context._ref != 1) {
+        std::panic::panic_any(Error::Cancel);
+    }
 }
 
 /// coroutine get passed in yield para
