@@ -8,12 +8,24 @@ pub struct RegContext {
 }
 
 impl RegContext {
+    /// Create a fresh, all-zero context.
+    ///
+    /// This is only valid as the *save* target (`out_context`) of [`swap`]:
+    /// resuming into it would restore an all-zero register set and jump to
+    /// address 0. Use [`init_with`] (or a previous `swap`) to turn it into a
+    /// context that can be resumed.
     pub fn empty() -> RegContext {
         RegContext {
             regs: Registers::new(),
         }
     }
 
+    /// Prefetch the saved stack pointer into the cache.
+    ///
+    /// Only meaningful once the context has been initialized (via [`init_with`])
+    /// or has saved a running context: on a fresh [`empty`] context the saved
+    /// stack pointer is null. The prefetch instruction itself does not fault on
+    /// an invalid address.
     #[inline]
     pub fn prefetch(&self) {
         self.regs.prefetch();
@@ -35,18 +47,29 @@ impl RegContext {
         initialize_call_frame(&mut self.regs, init, arg, start, stack);
     }
 
-    /// Switch contexts
+    /// Switch contexts.
     ///
-    /// Suspend the current execution context and resume another by
-    /// saving the registers values of the executing thread to a Context
-    /// then loading the registers from a previously saved Context.
+    /// Suspend the current execution context and resume another by saving the
+    /// register values of the executing thread into `out_context`, then
+    /// loading the registers from `in_context`.
+    ///
+    /// The caller must ensure that:
+    /// - `in_context` holds a previously saved or initialized register set.
+    ///   Passing a fresh [`empty`] context resumes from an all-zero register
+    ///   set, which is undefined behavior.
+    /// - `out_context` and `in_context` do not alias.
     #[inline]
     pub fn swap(out_context: &mut RegContext, in_context: &RegContext) {
-        // debug!("register raw swap");
         unsafe { swap_registers(&mut out_context.regs, &in_context.regs) }
     }
 
     /// Load the context and switch. This function will never return.
+    ///
+    /// The current context is saved into a scratch buffer that is immediately
+    /// discarded: execution only continues in `to_context`.
+    ///
+    /// The caller must ensure that `to_context` holds a previously saved or
+    /// initialized register set.
     #[inline]
     #[cfg(test)]
     pub fn load(to_context: &RegContext) {
@@ -73,7 +96,7 @@ mod test {
         let ctx: &RegContext = unsafe { &*std::ptr::with_exposed_provenance(arg) };
         RegContext::load(ctx);
 
-        unreachable!("Should never comeback");
+        unreachable!("Should never come back");
     }
 
     #[cfg(target_arch = "x86_64")]
