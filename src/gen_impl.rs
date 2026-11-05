@@ -218,10 +218,12 @@ impl<'a, A, T, const LOCAL: bool> GeneratorObj<'a, A, T, LOCAL> {
         self.gen.send(para)
     }
 
-    /// cancel the generator
+    /// Cancel the generator.
     ///
-    /// This triggers a `Cancel` panic that unwinds the generator's stack and
-    /// finishes it.
+    /// A suspended generator is resumed with a `Cancel` panic at its yield
+    /// point, which unwinds its body and finishes it. A generator that has
+    /// not started is finished without running its body: its closure is
+    /// dropped. Cancelling a generator that is already done does nothing.
     pub fn cancel(&mut self) {
         self.gen.cancel()
     }
@@ -639,8 +641,10 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         // panic::set_hook(old);
     }
 
-    /// cancel the generator
-    /// this will trigger a Cancel panic to unwind the stack
+    /// Cancel the generator.
+    ///
+    /// A suspended run is resumed with a `Cancel` panic that unwinds its
+    /// stack; a run that never started is dropped without being executed.
     fn cancel(&mut self) {
         if self.is_done() {
             return;
