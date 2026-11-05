@@ -1,7 +1,6 @@
-//! # yield
+//! # scope
 //!
-//! generator yield implementation
-//!
+//! Scoped generator API with lifetime-aware yield operations
 
 use std::marker::PhantomData;
 
@@ -9,9 +8,19 @@ use crate::gen_impl::Generator;
 use crate::rt::{Context, ContextStack, Error, REF_ACTIVE};
 use crate::yield_::raw_yield_now;
 
-/// passed in scope type
-/// it not use the context to pass data, but keep it's own data ref
-/// this struct provide both compile type info and runtime data
+/// Scoped generator execution context.
+///
+/// Provides safe and unsafe methods to yield values and receive sent parameters
+/// while maintaining Rust's lifetime guarantees. Unlike the deprecated `yield_with`
+/// API, this uses direct references instead of `Any` type erasure.
+///
+/// # Lifetimes
+/// - `'scope`: Bounds the scope to the generator's execution (ensures scope cannot escape)
+/// - `'a`: Lifetime of captured references in yielded/received values
+///
+/// # Type Parameters
+/// - `A`: Type of values sent to the generator
+/// - `T`: Type of values yielded from the generator
 pub struct Scope<'scope, 'a, A, T> {
     para: &'a mut Option<A>,
     ret: &'a mut Option<T>,
@@ -19,7 +28,10 @@ pub struct Scope<'scope, 'a, A, T> {
 }
 
 impl<'a, A, T> Scope<'_, 'a, A, T> {
-    /// create a new scope object
+    /// Create a new scope object.
+    ///
+    /// This is used internally by the generator initialization code to bind
+    /// lifetime-aware yield operations to the current generator execution.
     pub(crate) fn new(para: &'a mut Option<A>, ret: &'a mut Option<T>) -> Self {
         Scope {
             para,
@@ -28,17 +40,22 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
         }
     }
 
-    /// set current generator return value
+    /// Set the current generator's return value.
+    ///
+    /// Uses volatile write to prevent compiler reordering of the assignment
+    /// across the context switch that follows.
     #[inline]
     fn set_ret(&mut self, v: T) {
-        // use volatile write to prevent compiler optimization reordering
-        // *self.ret = Some(v);
+        // SAFETY: Uses volatile write to prevent compiler from optimizing away
+        // the write or reordering it across the context switch. The compiler's
+        // ability to eliminate or reorder writes across suspension points is
+        // not guaranteed by the standard, but optimizations have been observed.
         unsafe {
             core::ptr::write_volatile(self.ret, Some(v));
         }
     }
 
-    /// raw yield without catch passed in para
+    /// Internal implementation of yield that performs the actual context switch.
     #[inline]
     fn raw_yield(&mut self, env: &ContextStack, context: &mut Context, v: T) {
         // check the context
@@ -56,7 +73,10 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
         }
     }
 
-    /// yield something without catch passed in para
+    /// Yield a value without receiving a sent parameter.
+    ///
+    /// The yielded value is sent back to the caller, while the generator
+    /// suspends and waits for the next `send()` or `resume()` call.
     #[inline]
     pub fn yield_with(&mut self, v: T) {
         let env = ContextStack::current();
@@ -64,12 +84,22 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
         self.raw_yield(&env, context, v);
     }
 
-    /// get current generator send para
+    /// Receive the parameter sent to this generator.
+    ///
+    /// Returns the value most recently sent via `send()`, or `None` if no value
+    /// has been sent yet.
+    ///
+    /// Uses volatile read to prevent compiler optimizations from eliminating or
+    /// reordering the read across the preceding context switch, ensuring the
+    /// correct value is retrieved at the right time.
     #[inline]
     pub fn get_yield(&mut self) -> Option<A> {
-        // in latest nightly (since 2026-08-15) Rust, `Option::take` seems calculated in advance,
-        // here we use volatile read to prevent compiler reordering
-        // self.para.take()
+        // SAFETY: Uses volatile read/write to prevent compiler optimizations.
+        // In recent Rust nightly versions (2026-08-15+), the compiler may
+        // speculatively calculate Option::take() before the context switch,
+        // leading to stale parameter values. Volatile operations force the
+        // compiler to perform the read/write at the precise time the code
+        // specifies, working around this optimization issue.
         unsafe {
             let r = core::ptr::read_volatile(self.para);
             core::ptr::write(self.para, None);
