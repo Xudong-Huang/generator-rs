@@ -80,6 +80,15 @@ fn test_yield_a() {
 }
 
 #[test]
+#[should_panic(expected = "generator finished instead of yielding")]
+fn test_send_after_finish() {
+    let mut g = Gn::<()>::new_opt(0x800, || 1u32);
+    assert_eq!(g.next(), Some(1));
+    assert!(g.is_done());
+    g.send(());
+}
+
+#[test]
 fn test_yield_with() {
     let mut g = Gn::new(|| {
         yield_with(10);
@@ -325,6 +334,27 @@ fn test_cancel() {
     }
 
     assert!(g.is_done());
+
+    // a cancelled generator can be re-initialized
+    g.init_code(|| 1i32);
+    assert_eq!(g.next(), Some(1));
+    assert!(g.is_done());
+}
+
+#[test]
+fn test_cancel_not_started() {
+    let mut g = Gn::<()>::new_opt(0x800, || 1u32);
+    assert!(!g.is_done());
+
+    // cancelling a generator that never ran consumes its functor
+    g.cancel();
+    assert!(g.is_done());
+    assert_eq!(g.next(), None);
+
+    // and the generator is still usable afterwards
+    g.init_code(|| 2u32);
+    assert_eq!(g.next(), Some(2));
+    assert!(g.is_done());
 }
 
 #[test]
@@ -368,6 +398,37 @@ fn test_drop_coroutine_does_not_run_user_code() {
         // dropped while suspended: the cancellation must not resume the body
     }
     assert!(!ran.load(Ordering::SeqCst));
+}
+
+#[test]
+fn test_local_data() {
+    static LOCAL: u8 = 0;
+    let local = &LOCAL as *const u8 as *mut u8;
+
+    let mut g = Gn::<()>::new_opt(0x800, || {
+        let expected = &LOCAL as *const u8 as *mut u8;
+        // the free function finds the running generator's local data
+        assert_eq!(get_local_data(), expected);
+        1u32
+    });
+    g.set_local_data(local);
+    assert_eq!(g.get_local_data(), local);
+    assert_eq!(g.next(), Some(1));
+}
+
+#[test]
+fn test_coroutine_panic_data() {
+    let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(0x800, || panic!("boom"));
+    g.set_local_data(1 as *mut u8);
+    assert_eq!(g.next(), None);
+    assert!(g.is_done());
+
+    let panic = g.get_panic_data().expect("coroutine panic data");
+    assert_eq!(panic.downcast_ref::<&str>().copied(), Some("boom"));
+
+    // the error is consumed
+    assert!(g.get_panic_data().is_none());
+    assert_eq!(g.next(), None);
 }
 
 #[test]
@@ -577,6 +638,26 @@ fn test_scope_gen() {
 }
 
 #[test]
+fn test_scoped_opt_constructors() {
+    // the size is in `usize` words, matching DEFAULT_STACK_SIZE
+    let mut g = Gn::<()>::new_scoped_opt(0x800, |mut s: Scope<(), u32>| {
+        s.yield_with(1);
+        2
+    });
+    assert_eq!(g.next(), Some(1));
+    assert_eq!(g.next(), Some(2));
+    assert!(g.is_done());
+
+    let mut l = Gn::<()>::new_scoped_opt_local(0x800, |mut s: Scope<(), u32>| {
+        s.yield_with(3);
+        4
+    });
+    assert_eq!(l.next(), Some(3));
+    assert_eq!(l.next(), Some(4));
+    assert!(l.is_done());
+}
+
+#[test]
 fn test_scope_yield_from_send() {
     let mut g = Gn::new_scoped(|mut s| {
         let g1 = Gn::new_scoped(|mut s| {
@@ -703,6 +784,62 @@ fn test_re_init_clears_panic_data() {
 }
 
 #[test]
+fn test_re_init_after_panic() {
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+
+    let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(0x800, || panic!("boom"));
+    let result = catch_unwind(AssertUnwindSafe(|| g.next()));
+    assert!(result.is_err());
+    assert!(g.is_done());
+    // `resume` re-raised and consumed the panic, so nothing is left here
+    assert!(g.get_panic_data().is_none());
+
+    // a generator that panicked can be re-initialized like a finished one
+    g.init_code(|| 1u32);
+    assert_eq!(g.next(), Some(1));
+    assert!(g.is_done());
+}
+
+#[test]
+fn test_re_init_while_suspended() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    struct Guard(Arc<AtomicBool>);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    let unwound = Arc::new(AtomicBool::new(false));
+    let guard_unwound = unwound.clone();
+    let mut g = Gn::new_scoped(move |mut s: Scope<u32, u32>| {
+        let _guard = Guard(guard_unwound);
+        s.yield_with(1);
+        s.yield_with(2);
+        3
+    });
+    assert_eq!(g.resume(), Some(1));
+    assert!(!g.is_done());
+    assert!(!unwound.load(Ordering::SeqCst));
+
+    // the old run is still suspended: re-initializing must cancel it first,
+    // which unwinds the suspended body and runs its destructors
+    g.scoped_init(|mut s: Scope<u32, u32>| {
+        s.yield_with(10);
+        11
+    });
+    assert!(
+        unwound.load(Ordering::SeqCst),
+        "suspended run was not cancelled"
+    );
+    assert_eq!(g.resume(), Some(10));
+    assert_eq!(g.resume(), Some(11));
+    assert!(g.is_done());
+}
+
+#[test]
 #[should_panic]
 fn done_in_normal() {
     done!();
@@ -790,5 +927,16 @@ fn test_into_raw_from_raw() {
     assert_eq!(g.next(), Some(1));
     assert_eq!(g.next(), Some(2));
     assert_eq!(g.next(), Some(3));
+    assert!(g.is_done());
+
+    // the local generator round-trips through the same API
+    let g: LocalGenerator<'_, (), u32> = Gn::<()>::new_scoped_local(|mut s: Scope<(), u32>| {
+        s.yield_with(4);
+        5
+    });
+    let raw = g.into_raw();
+    let mut g = unsafe { LocalGenerator::<(), u32>::from_raw(raw) };
+    assert_eq!(g.next(), Some(4));
+    assert_eq!(g.next(), Some(5));
     assert!(g.is_done());
 }

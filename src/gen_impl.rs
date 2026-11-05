@@ -96,6 +96,16 @@ impl<'a, A, T> Generator<'a, A, T> {
 }
 
 /// the local generator type, can't Send
+///
+/// Unlike [`Generator`], it accepts non-`Send` closures, but the result
+/// cannot be moved to another thread:
+///
+/// ```compile_fail
+/// fn assert_send<T: Send>(_: T) {}
+///
+/// let g = generator::Gn::<()>::new_scoped_local(|_s| 1u32);
+/// assert_send(g); // `LocalGenerator` is not `Send`
+/// ```
 pub type LocalGenerator<'a, A, T> = GeneratorObj<'a, A, T, true>;
 
 impl<'a, A, T> LocalGenerator<'a, A, T> {
@@ -259,6 +269,17 @@ pub struct Gn<A = ()> {
 
 impl<A> Gn<A> {
     /// create a scoped generator with default stack size
+    ///
+    /// The closure must be `Send`, so it cannot capture non-`Send` values;
+    /// use [`new_scoped_local`](Self::new_scoped_local) for those.
+    ///
+    /// ```compile_fail
+    /// use generator::Gn;
+    /// use std::rc::Rc;
+    ///
+    /// let rc = Rc::new(0);
+    /// let _g = Gn::<()>::new_scoped(move |_s| drop(rc)); // `Rc` is not `Send`
+    /// ```
     pub fn new_scoped<'a, T, F>(f: F) -> Generator<'a, A, T>
     where
         for<'scope> F: FnOnce(Scope<'scope, 'a, A, T>) -> T + Send + 'a,
