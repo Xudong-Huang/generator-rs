@@ -81,19 +81,17 @@ pub fn get_yield<A: Any>() -> Option<A> {
 fn raw_get_yield<A: Any>(context: &mut Context) -> Option<A> {
     // check the context
     if unlikely(!context.is_generator()) {
-        {
-            error!("get yield from none generator context");
-            std::panic::panic_any(Error::ContextErr);
-        }
+        panic!("get yield from none generator context");
     }
 
     context.get_para()
 }
 
 /// yield and get the send para
-// here yield need to return a static lifetime value, which is Any required
-// this is fine, but it's totally safe that we can refer to the function block
-// since we will come back later
+/// This function yields a value and returns the next value sent to the generator.
+/// A static lifetime is required for the yielded value because the generator may
+/// be suspended indefinitely, and we need to refer to it across the context switch
+/// without worrying about stack invalidation.
 #[inline]
 #[deprecated(since = "0.6.18", note = "please use `scope` version instead")]
 pub fn yield_<A: Any, T: Any>(v: T) -> Option<A> {
@@ -119,7 +117,11 @@ pub fn yield_from<A: Any, T: Any>(mut g: Generator<A, T>) -> Option<A> {
     p
 }
 
-/// coroutine yield
+/// Yield a value from a coroutine context, resuming with a sent value.
+///
+/// Unlike generators, coroutines can yield indefinitely and their parent may
+/// send values back. This function properly handles cancellation by panicking
+/// if the coroutine has been cancelled while suspended.
 pub fn co_yield_with<T: Any>(v: T) {
     let env = ContextStack::current();
     let context = env.co_ctx().unwrap();
@@ -155,14 +157,22 @@ pub fn co_yield_with<T: Any>(v: T) {
     }
 }
 
-/// coroutine get passed in yield para
+/// Get the parameter sent to the current coroutine via `send()`.
+///
+/// Returns `None` if no value has been sent, or if called outside a coroutine context.
+/// This is the coroutine equivalent of `get_yield()` but uses the coroutine's own
+/// parameter storage instead of the generic context.
 pub fn co_get_yield<A: Any>() -> Option<A> {
     ContextStack::current()
         .co_ctx()
         .and_then(|ctx| ctx.get_para())
 }
 
-/// set current coroutine para in user space
+/// Set a parameter in the current coroutine context for the parent to receive.
+///
+/// This allows coroutines to set a value that will be returned when the parent
+/// resumes after a `co_yield_with()`. Only has effect when called from within
+/// a coroutine; silently does nothing if called outside a coroutine context.
 pub fn co_set_para<A: Any>(para: A) {
     if let Some(ctx) = ContextStack::current().co_ctx() {
         ctx.set_para(para)
