@@ -844,6 +844,32 @@ fn test_re_init_clears_stale_para() {
 }
 
 #[test]
+fn test_re_init_after_cancel_clears_stale_para() {
+    // The first run yields without consuming the para queued before the
+    // resume, and is then canceled while suspended.
+    let mut g = Gn::new_scoped(|mut s: Scope<u32, u32>| {
+        s.yield_with(0);
+        1
+    });
+    g.set_para(7);
+    assert_eq!(g.resume(), Some(0));
+    assert!(!g.is_done());
+
+    g.cancel();
+    assert!(g.is_done());
+
+    // the new run must not receive the para the canceled run never consumed
+    g.scoped_init(|mut s: Scope<u32, u32>| {
+        s.yield_with(0);
+        assert_eq!(s.get_yield(), None, "stale para leaked into the new run");
+        2
+    });
+    assert_eq!(g.resume(), Some(0));
+    assert_eq!(g.resume(), Some(2));
+    assert!(g.is_done());
+}
+
+#[test]
 fn test_re_init_clears_panic_data() {
     let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(PANIC_TEST_STACK_SIZE, || panic!("boom"));
     // mark it as a coroutine, so the panic is stored instead of being
