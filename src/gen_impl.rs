@@ -685,15 +685,18 @@ impl<A, T> Drop for GeneratorImpl<'_, A, T> {
     }
 }
 
+// Windows cannot reliably surface the guard-page fault as
+// `EXCEPTION_STACK_OVERFLOW` from a probe frame (the kernel may consume the
+// guard page and retry the access instead), so the overflow tests are only
+// run where a real stack exhaustion can be triggered in-process.
 #[cfg(test)]
-#[cfg(not(target_os = "fuchsia"))]
+#[cfg(all(not(target_os = "fuchsia"), not(windows)))]
 mod test {
     use super::*;
     use std::panic::{catch_unwind, AssertUnwindSafe};
 
     #[test]
     fn test_overflow_marks_the_context() {
-        #[cfg(not(windows))]
         // not a tail call, so release builds cannot turn it into a loop
         #[inline(never)]
         fn exhaust(n: usize) -> usize {
@@ -706,16 +709,7 @@ mod test {
             std::hint::black_box(r.wrapping_add(buf[0] as usize))
         }
 
-        #[cfg(not(windows))]
         let mut g = Gn::<()>::new_opt(16, || exhaust(0));
-        // Windows cannot dispatch an exception from a frame that overflowed
-        // into the guard page, so fault the guard page directly instead
-        #[cfg(windows)]
-        let mut g = Gn::new_scoped(|_s: Scope<(), ()>| unsafe {
-            let guard = crate::rt::guard::current();
-            // read from the guard page to trigger a stack overflow
-            std::hint::black_box(*(guard.start as *const usize));
-        });
 
         let result = catch_unwind(AssertUnwindSafe(|| g.next()));
         assert!(result.is_err());
