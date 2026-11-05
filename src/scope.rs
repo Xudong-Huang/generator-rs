@@ -41,9 +41,6 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
     }
 
     /// Set the current generator's return value.
-    ///
-    /// Uses volatile write to prevent compiler reordering of the assignment
-    /// across the context switch that follows.
     #[inline]
     fn set_ret(&mut self, v: T) {
         // SAFETY: Uses volatile write to prevent compiler from optimizing away
@@ -88,10 +85,6 @@ impl<'a, A, T> Scope<'_, 'a, A, T> {
     ///
     /// Returns the value most recently sent via `send()`, or `None` if no value
     /// has been sent yet.
-    ///
-    /// Uses volatile read to prevent compiler optimizations from eliminating or
-    /// reordering the read across the preceding context switch, ensuring the
-    /// correct value is retrieved at the right time.
     #[inline]
     pub fn get_yield(&mut self) -> Option<A> {
         // SAFETY: Uses volatile read/write to prevent compiler optimizations.
