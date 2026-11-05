@@ -19,6 +19,11 @@ fn overflow_stack(n: usize) -> usize {
     std::hint::black_box(r.wrapping_add(buf[0] as usize))
 }
 
+// Panic messages are formatted, and backtraced when `RUST_BACKTRACE` is set,
+// on the generator's own stack. Panic tests need room for that: on a minimal
+// stack the hook can overflow, replacing the payload with `Error::StackErr`.
+const PANIC_TEST_STACK_SIZE: usize = DEFAULT_STACK_SIZE * 2;
+
 #[test]
 fn test_return() {
     let mut g = Gn::new_scoped(|_s| 42u32);
@@ -418,13 +423,19 @@ fn test_local_data() {
 
 #[test]
 fn test_coroutine_panic_data() {
-    let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(0x800, || panic!("boom"));
+    let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(PANIC_TEST_STACK_SIZE, || panic!("boom"));
     g.set_local_data(1 as *mut u8);
     assert_eq!(g.next(), None);
     assert!(g.is_done());
 
     let panic = g.get_panic_data().expect("coroutine panic data");
-    assert_eq!(panic.downcast_ref::<&str>().copied(), Some("boom"));
+    // the payload of `panic!` is `&'static str` for a bare literal and a
+    // `String` for a formatted message, so accept either representation
+    let msg = panic
+        .downcast_ref::<&str>()
+        .copied()
+        .or_else(|| panic.downcast_ref::<String>().map(String::as_str));
+    assert_eq!(msg, Some("boom"));
 
     // the error is consumed
     assert!(g.get_panic_data().is_none());
@@ -768,7 +779,7 @@ fn test_re_init_clears_stale_para() {
 
 #[test]
 fn test_re_init_clears_panic_data() {
-    let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(0x800, || panic!("boom"));
+    let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(PANIC_TEST_STACK_SIZE, || panic!("boom"));
     // mark it as a coroutine, so the panic is stored instead of being
     // re-raised by `resume`
     g.set_local_data(1 as *mut u8);
@@ -787,7 +798,7 @@ fn test_re_init_clears_panic_data() {
 fn test_re_init_after_panic() {
     use std::panic::{catch_unwind, AssertUnwindSafe};
 
-    let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(0x800, || panic!("boom"));
+    let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(PANIC_TEST_STACK_SIZE, || panic!("boom"));
     let result = catch_unwind(AssertUnwindSafe(|| g.next()));
     assert!(result.is_err());
     assert!(g.is_done());
