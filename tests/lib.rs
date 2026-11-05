@@ -367,9 +367,19 @@ fn test_cancel_coroutine_prompts() {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
+    struct Guard(Arc<AtomicBool>);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
     let ran = Arc::new(AtomicBool::new(false));
     let ran_in_body = ran.clone();
+    let unwound = Arc::new(AtomicBool::new(false));
+    let guard_unwound = unwound.clone();
     let mut g = Gn::<()>::new_opt(0x800, move || {
+        let _guard = Guard(guard_unwound);
         co_yield_with(0u32);
         // must not run: the coroutine is canceled while suspended here
         ran_in_body.store(true, Ordering::SeqCst);
@@ -383,6 +393,10 @@ fn test_cancel_coroutine_prompts() {
     g.cancel();
     assert!(g.is_done());
     assert!(!ran.load(Ordering::SeqCst));
+    assert!(
+        unwound.load(Ordering::SeqCst),
+        "cancel did not unwind the suspended body"
+    );
 }
 
 #[test]
@@ -427,19 +441,34 @@ fn test_drop_coroutine_does_not_run_user_code() {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
+    struct Guard(Arc<AtomicBool>);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
     let ran = Arc::new(AtomicBool::new(false));
     let ran_in_body = ran.clone();
+    let unwound = Arc::new(AtomicBool::new(false));
+    let guard_unwound = unwound.clone();
     {
         let mut g = Gn::<()>::new_opt(0x800, move || {
+            let _guard = Guard(guard_unwound);
             co_yield_with(0u32);
             ran_in_body.store(true, Ordering::SeqCst);
             1u32
         });
         g.set_local_data(1 as *mut u8);
         assert_eq!(g.next(), Some(0));
-        // dropped while suspended: the cancellation must not resume the body
+        // dropped while suspended: the body must unwind (so the guard's
+        // destructor runs), not resume past the yield
     }
     assert!(!ran.load(Ordering::SeqCst));
+    assert!(
+        unwound.load(Ordering::SeqCst),
+        "drop did not unwind the suspended body"
+    );
 }
 
 #[test]
