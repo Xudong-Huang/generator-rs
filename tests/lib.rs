@@ -20,8 +20,11 @@ fn overflow_stack(n: usize) -> usize {
 }
 
 // Panic messages are formatted, and backtraced when `RUST_BACKTRACE` is set,
-// on the generator's own stack. Panic tests need room for that: on a minimal
-// stack the hook can overflow, replacing the payload with `Error::StackErr`.
+// on the generator's own stack. Cancelling or dropping a suspended generator
+// also panics on that stack to unwind the body. Panic tests need room for
+// that: on a minimal stack the panic path overflows, and the overflow handler
+// yields out without unwinding, so the body's destructors never run. That is
+// what a 16 KiB stack does on macOS in debug builds.
 const PANIC_TEST_STACK_SIZE: usize = DEFAULT_STACK_SIZE * 2;
 
 #[test]
@@ -378,7 +381,9 @@ fn test_cancel_coroutine_prompts() {
     let ran_in_body = ran.clone();
     let unwound = Arc::new(AtomicBool::new(false));
     let guard_unwound = unwound.clone();
-    let mut g = Gn::<()>::new_opt(0x800, move || {
+    // cancelling resumes the body with a panic to unwind it, which needs the
+    // same stack headroom as any other panic inside a generator
+    let mut g = Gn::<()>::new_opt(PANIC_TEST_STACK_SIZE, move || {
         let _guard = Guard(guard_unwound);
         co_yield_with(0u32);
         // must not run: the coroutine is canceled while suspended here
@@ -414,7 +419,7 @@ fn test_cancel_coroutine_cannot_be_swallowed() {
 
     let unwound = Arc::new(AtomicBool::new(false));
     let guard_unwound = unwound.clone();
-    let mut g = Gn::<()>::new_opt(0x800, move || {
+    let mut g = Gn::<()>::new_opt(PANIC_TEST_STACK_SIZE, move || {
         let _guard = Guard(guard_unwound);
         // The canceled coroutine resumes inside this call with a `Cancel`
         // panic. Swallow it and try to suspend again: the second yield must
@@ -453,7 +458,9 @@ fn test_drop_coroutine_does_not_run_user_code() {
     let unwound = Arc::new(AtomicBool::new(false));
     let guard_unwound = unwound.clone();
     {
-        let mut g = Gn::<()>::new_opt(0x800, move || {
+        // dropping resumes the body with a panic to unwind it, which needs
+        // the same stack headroom as any other panic inside a generator
+        let mut g = Gn::<()>::new_opt(PANIC_TEST_STACK_SIZE, move || {
             let _guard = Guard(guard_unwound);
             co_yield_with(0u32);
             ran_in_body.store(true, Ordering::SeqCst);
