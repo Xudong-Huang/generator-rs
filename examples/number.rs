@@ -9,7 +9,7 @@ fn factors(n: u32) -> Generator<'static, (), u32> {
         s.yield_with(1);
 
         for i in 2..n {
-            if n % i == 0 {
+            if n.is_multiple_of(i) {
                 s.yield_with(i);
             }
         }

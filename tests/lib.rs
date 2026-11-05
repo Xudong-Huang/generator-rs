@@ -392,7 +392,7 @@ fn test_cancel_coroutine_prompts() {
         2u32
     });
     // mark the generator as a coroutine
-    g.set_local_data(1 as *mut u8);
+    g.set_local_data(std::ptr::dangling_mut::<u8>());
 
     assert_eq!(g.next(), Some(0));
     g.cancel();
@@ -429,7 +429,7 @@ fn test_cancel_coroutine_cannot_be_swallowed() {
         co_yield_with(1u32);
         2u32
     });
-    g.set_local_data(1 as *mut u8);
+    g.set_local_data(std::ptr::dangling_mut::<u8>());
 
     assert_eq!(g.next(), Some(0));
     g.cancel();
@@ -466,7 +466,7 @@ fn test_drop_coroutine_does_not_run_user_code() {
             ran_in_body.store(true, Ordering::SeqCst);
             1u32
         });
-        g.set_local_data(1 as *mut u8);
+        g.set_local_data(std::ptr::dangling_mut::<u8>());
         assert_eq!(g.next(), Some(0));
         // dropped while suspended: the body must unwind (so the guard's
         // destructor runs), not resume past the yield
@@ -497,7 +497,7 @@ fn test_local_data() {
 #[test]
 fn test_coroutine_panic_data() {
     let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(PANIC_TEST_STACK_SIZE, || panic!("boom"));
-    g.set_local_data(1 as *mut u8);
+    g.set_local_data(std::ptr::dangling_mut::<u8>());
     assert_eq!(g.next(), None);
     assert!(g.is_done());
 
@@ -881,7 +881,7 @@ fn test_re_init_clears_panic_data() {
     let mut g: Generator<'_, (), u32> = Gn::<()>::new_opt(PANIC_TEST_STACK_SIZE, || panic!("boom"));
     // mark it as a coroutine, so the panic is stored instead of being
     // re-raised by `resume`
-    g.set_local_data(1 as *mut u8);
+    g.set_local_data(std::ptr::dangling_mut::<u8>());
     assert_eq!(g.next(), None);
     assert!(g.is_done());
 
