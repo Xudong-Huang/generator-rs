@@ -131,6 +131,14 @@ pub fn co_yield_with<T: Any>(v: T) {
     //     return;
     // }
 
+    // A body that caught the `Cancel` panic raised after the swap below must
+    // not be able to suspend again: `_ref` is still `REF_CANCELLED` here, and
+    // decrementing it would turn it into `REF_ACTIVE`, which makes the
+    // generator look done while this body remains suspended.
+    if unlikely(context._ref != REF_ACTIVE) {
+        std::panic::panic_any(Error::Cancel);
+    }
+
     context.set_ret(v);
     context._ref -= 1;
 

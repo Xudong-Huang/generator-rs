@@ -386,6 +386,43 @@ fn test_cancel_coroutine_prompts() {
 }
 
 #[test]
+fn test_cancel_coroutine_cannot_be_swallowed() {
+    use std::panic::catch_unwind;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    struct Guard(Arc<AtomicBool>);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    let unwound = Arc::new(AtomicBool::new(false));
+    let guard_unwound = unwound.clone();
+    let mut g = Gn::<()>::new_opt(0x800, move || {
+        let _guard = Guard(guard_unwound);
+        // The canceled coroutine resumes inside this call with a `Cancel`
+        // panic. Swallow it and try to suspend again: the second yield must
+        // re-raise `Cancel` instead of parking a body whose generator already
+        // reports done.
+        let _ = catch_unwind(|| co_yield_with(0u32));
+        co_yield_with(1u32);
+        2u32
+    });
+    g.set_local_data(1 as *mut u8);
+
+    assert_eq!(g.next(), Some(0));
+    g.cancel();
+    assert!(g.is_done());
+    assert!(
+        unwound.load(Ordering::SeqCst),
+        "swallowed Cancel left the body suspended"
+    );
+    assert_eq!(g.next(), None);
+}
+
+#[test]
 fn test_drop_coroutine_does_not_run_user_code() {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
