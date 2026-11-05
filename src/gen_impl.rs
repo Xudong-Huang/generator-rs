@@ -418,31 +418,13 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.context.regs.prefetch();
     }
 
-    /// init a heap based generator with scoped closure
-    fn scoped_init<F>(&mut self, f: F)
-    where
-        for<'scope> F: FnOnce(Scope<'scope, 'a, A, T>) -> T + 'a,
-        T: 'a,
-        A: 'a,
-    {
-        use std::mem::transmute;
-
-        // SAFETY: the scope borrows this generator's own para/ret slots,
-        // which stay at a fixed address for as long as the generator exists.
-        // The transmute only replaces the borrow's lifetime with the
-        // generator's `'a`; the `for<'scope>` bound on `F` keeps the scope
-        // from escaping the generator body, and `init_code` stores the
-        // closure on the generator's own stack.
-        let scope: Scope<A, T> = unsafe { transmute(Scope::new(&mut self.para, &mut self.ret)) };
-        self.init_code(move || f(scope));
-    }
-
-    /// init a heap based generator
-    // it can be used to re-init a 'done' generator before it is dropped
-    fn init_code<F: FnOnce() -> T + 'a>(&mut self, f: F)
-    where
-        T: 'a,
-    {
+    /// Reset the run state before installing a new body.
+    ///
+    /// The input and output slots are cleared here, before `scoped_init`
+    /// creates a `Scope` that borrows them: writing through `&mut self` after
+    /// that point would invalidate the scope's references. Returns the raw
+    /// pointer the body's return value is written to.
+    fn prepare_init(&mut self) -> *mut Option<T> {
         // Install the overflow handler before the generator stack is used for
         // the first time. The bootstrap frame runs before `gen_init_impl` gets
         // a chance to install it, so a stack too small for that frame must
@@ -471,7 +453,17 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
         self.ret = None;
         self.context.err = None;
 
-        let ret = &mut self.ret as *mut _;
+        &mut self.ret as *mut _
+    }
+
+    /// Install `f` as the generator body and point the registers at it.
+    ///
+    /// `ret` is the slot returned by [`prepare_init`](Self::prepare_init); it
+    /// is captured before any `Scope` borrows that slot.
+    fn install_code<F: FnOnce() -> T + 'a>(&mut self, ret: *mut Option<T>, f: F)
+    where
+        T: 'a,
+    {
         // alloc the function on stack
         let func = StackBox::new_fn_once(&self.stack, move || {
             let r = f();
@@ -490,6 +482,41 @@ impl<'a, A, T> GeneratorImpl<'a, A, T> {
             &mut self.f as *mut _ as *mut usize,
             &self.stack,
         );
+    }
+
+    /// init a heap based generator with scoped closure
+    fn scoped_init<F>(&mut self, f: F)
+    where
+        for<'scope> F: FnOnce(Scope<'scope, 'a, A, T>) -> T + 'a,
+        T: 'a,
+        A: 'a,
+    {
+        use std::mem::transmute;
+
+        // Clear the slots, and take the return-value pointer, before the new
+        // `Scope` borrows them: clearing after `Scope::new` would write into
+        // places the scope already mutably borrows, and a pointer taken after
+        // it would be invalidated when the body first uses the scope.
+        let ret = self.prepare_init();
+
+        // SAFETY: the scope borrows this generator's own para/ret slots,
+        // which stay at a fixed address for as long as the generator exists.
+        // The transmute only replaces the borrow's lifetime with the
+        // generator's `'a`; the `for<'scope>` bound on `F` keeps the scope
+        // from escaping the generator body, and `install_code` stores the
+        // closure on the generator's own stack.
+        let scope: Scope<A, T> = unsafe { transmute(Scope::new(&mut self.para, &mut self.ret)) };
+        self.install_code(ret, move || f(scope));
+    }
+
+    /// init a heap based generator
+    // it can be used to re-init a 'done' generator before it is dropped
+    fn init_code<F: FnOnce() -> T + 'a>(&mut self, f: F)
+    where
+        T: 'a,
+    {
+        let ret = self.prepare_init();
+        self.install_code(ret, f);
     }
 
     /// resume the generator
