@@ -852,9 +852,14 @@ fn test_re_init_clears_panic_data() {
     assert_eq!(g.next(), None);
     assert!(g.is_done());
 
-    // Re-init without taking the panic data: the old error must not be
-    // re-raised by the next resume.
+    // Re-init without taking the panic data: the stale error must be cleared
+    // while the generator is still a coroutine, rather than resurfacing via
+    // `get_panic_data` or being re-raised by the next resume.
     g.init_code(|| 1u32);
+    assert!(
+        g.get_panic_data().is_none(),
+        "re-init kept the old panic data for a coroutine"
+    );
     g.set_local_data(std::ptr::null_mut());
     assert_eq!(g.next(), Some(1));
     assert!(g.is_done());
