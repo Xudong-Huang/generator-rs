@@ -26,7 +26,8 @@ cfg_select! {
         target_os = "watchos",
         target_os = "android",
         target_os = "illumos",
-        target_os = "solaris"
+        target_os = "solaris",
+        target_os = "hurd"
     ) => {
         const MAP_STACK: libc::c_int = 0;
     }
