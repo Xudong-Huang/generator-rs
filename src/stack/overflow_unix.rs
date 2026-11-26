@@ -2,12 +2,33 @@ use crate::rt::{guard, ContextStack};
 
 use crate::yield_::yield_now;
 use libc::{sigaction, sighandler_t, SA_ONSTACK, SA_SIGINFO, SIGBUS, SIGSEGV};
-use std::mem;
-use std::mem::MaybeUninit;
-use std::ptr::null_mut;
-use std::sync::{Mutex, Once};
+use std::cell::UnsafeCell;
+use std::mem::{self, MaybeUninit};
+use std::ptr::{null, null_mut};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Once;
 
-static SIG_ACTION: Mutex<MaybeUninit<sigaction>> = Mutex::new(MaybeUninit::uninit());
+struct SavedAction {
+    ready: AtomicBool,
+    action: UnsafeCell<MaybeUninit<sigaction>>,
+}
+
+// SAFETY: `action` is written at most once during `init()` before `ready` is
+// stored with `Ordering::Release`, and only read after `ready.load(Ordering::Acquire)`
+// observes `true`.
+unsafe impl Sync for SavedAction {}
+
+impl SavedAction {
+    const fn new() -> Self {
+        Self {
+            ready: AtomicBool::new(false),
+            action: UnsafeCell::new(MaybeUninit::uninit()),
+        }
+    }
+}
+
+static OLD_SIGSEGV: SavedAction = SavedAction::new();
+static OLD_SIGBUS: SavedAction = SavedAction::new();
 
 // Signal handler for the SIGSEGV and SIGBUS handlers. We've got guard pages
 // (unmapped pages) at the end of every thread's stack, so if a thread ends
@@ -40,9 +61,17 @@ unsafe extern "C" fn signal_handler(
 
     if !stack_guard.contains(&addr) {
         println!("{}", std::backtrace::Backtrace::force_capture());
-        // SIG_ACTION is available after we registered our handler
-        let old_action = SIG_ACTION.lock().unwrap();
-        sigaction(signum, old_action.assume_init_ref(), null_mut());
+        // Restore the prior disposition recorded before this handler was installed.
+        let saved = match signum {
+            SIGSEGV => Some(&OLD_SIGSEGV),
+            SIGBUS => Some(&OLD_SIGBUS),
+            _ => None,
+        };
+        if let Some(saved) = saved {
+            if saved.ready.load(Ordering::Acquire) {
+                sigaction(signum, (*saved.action.get()).as_ptr(), null_mut());
+            }
+        }
 
         // we are unable to handle this
         return;
@@ -78,10 +107,17 @@ unsafe fn init() {
     action.sa_flags = SA_SIGINFO | SA_ONSTACK;
     action.sa_sigaction = signal_handler as *const () as sighandler_t;
 
-    let mut old_action = SIG_ACTION.lock().unwrap();
-
-    for signal in [SIGSEGV, SIGBUS] {
-        sigaction(signal, &action, old_action.assume_init_mut());
+    for (saved, signal) in [(&OLD_SIGSEGV, SIGSEGV), (&OLD_SIGBUS, SIGBUS)] {
+        // Query and publish the previous disposition before installing our handler,
+        // keeping `sigaction` in `MaybeUninit` so partially initialized C fields
+        // (such as unused words in `sigset_t`) are never materialized as a Rust value.
+        // Only install our handler if querying succeeded so `signal_handler` always
+        // has a saved disposition to restore. Callers modifying process-wide signal
+        // dispositions must serialize those changes with generator initialization.
+        if sigaction(signal, null(), (*saved.action.get()).as_mut_ptr()) == 0 {
+            saved.ready.store(true, Ordering::Release);
+            let _ = sigaction(signal, &action, null_mut());
+        }
     }
 }
 
@@ -91,4 +127,56 @@ pub fn init_once() {
     INIT_ONCE.call_once(|| unsafe {
         init();
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn preserves_distinct_saved_dispositions_in_child() {
+        const ENV_KEY: &str = "GENERATOR_TEST_DISTINCT_SIGNAL_CHILD";
+        if std::env::var_os(ENV_KEY).is_some() {
+            assert_ne!(libc::SIG_DFL, libc::SIG_IGN);
+            unsafe {
+                let mut segv_act: sigaction = mem::zeroed();
+                segv_act.sa_sigaction = libc::SIG_DFL;
+                assert_eq!(sigaction(SIGSEGV, &segv_act, null_mut()), 0);
+
+                let mut bus_act: sigaction = mem::zeroed();
+                bus_act.sa_sigaction = libc::SIG_IGN;
+                assert_eq!(sigaction(SIGBUS, &bus_act, null_mut()), 0);
+
+                init_once();
+
+                assert!(OLD_SIGSEGV.ready.load(Ordering::Acquire));
+                assert!(OLD_SIGBUS.ready.load(Ordering::Acquire));
+                let saved_segv = (*OLD_SIGSEGV.action.get()).as_ptr();
+                let saved_bus = (*OLD_SIGBUS.action.get()).as_ptr();
+                assert_eq!((*saved_segv).sa_sigaction, libc::SIG_DFL);
+                assert_eq!((*saved_bus).sa_sigaction, libc::SIG_IGN);
+            }
+            return;
+        }
+
+        let exe = std::env::current_exe().unwrap();
+        let output = std::process::Command::new(exe)
+            .arg("--exact")
+            .arg("stack::sys::overflow::tests::preserves_distinct_saved_dispositions_in_child")
+            .arg("--nocapture")
+            .env(ENV_KEY, "1")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "child test exited with {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("1 passed"),
+            "expected child test to execute, got: {stdout}"
+        );
+    }
 }
