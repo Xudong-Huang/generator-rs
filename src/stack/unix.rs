@@ -103,9 +103,9 @@ pub fn max_stack_size() -> usize {
     if ret == 0 {
         let mut limit = std::mem::MaybeUninit::uninit();
         let limitret = unsafe { libc::getrlimit(libc::RLIMIT_STACK, limit.as_mut_ptr()) };
-        let limit = unsafe { limit.assume_init() };
 
         if limitret == 0 {
+            let limit = unsafe { limit.assume_init() };
             ret = if limit.rlim_max == libc::RLIM_INFINITY
                 || limit.rlim_max > (usize::MAX as libc::rlim_t)
             {
