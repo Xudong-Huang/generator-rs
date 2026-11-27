@@ -101,6 +101,20 @@ unsafe extern "C" fn signal_handler(
 }
 
 #[cold]
+unsafe fn install_signal_handler(saved: &SavedAction, signal: libc::c_int, action: &sigaction) {
+    // Query and publish the previous disposition before installing our handler,
+    // keeping `sigaction` in `MaybeUninit` so partially initialized C fields
+    // (such as unused words in `sigset_t`) are never materialized as a Rust value.
+    // Only install our handler if querying succeeded so `signal_handler` always
+    // has a saved disposition to restore. Callers modifying process-wide signal
+    // dispositions must serialize those changes with generator initialization.
+    if sigaction(signal, null(), (*saved.action.get()).as_mut_ptr()) == 0 {
+        saved.ready.store(true, Ordering::Release);
+        let _ = sigaction(signal, action, null_mut());
+    }
+}
+
+#[cold]
 unsafe fn init() {
     let mut action: sigaction = mem::zeroed();
 
@@ -108,16 +122,7 @@ unsafe fn init() {
     action.sa_sigaction = signal_handler as *const () as sighandler_t;
 
     for (saved, signal) in [(&OLD_SIGSEGV, SIGSEGV), (&OLD_SIGBUS, SIGBUS)] {
-        // Query and publish the previous disposition before installing our handler,
-        // keeping `sigaction` in `MaybeUninit` so partially initialized C fields
-        // (such as unused words in `sigset_t`) are never materialized as a Rust value.
-        // Only install our handler if querying succeeded so `signal_handler` always
-        // has a saved disposition to restore. Callers modifying process-wide signal
-        // dispositions must serialize those changes with generator initialization.
-        if sigaction(signal, null(), (*saved.action.get()).as_mut_ptr()) == 0 {
-            saved.ready.store(true, Ordering::Release);
-            let _ = sigaction(signal, &action, null_mut());
-        }
+        install_signal_handler(saved, signal, &action);
     }
 }
 
@@ -133,50 +138,72 @@ pub fn init_once() {
 mod tests {
     use super::*;
 
-    #[test]
-    fn preserves_distinct_saved_dispositions_in_child() {
-        const ENV_KEY: &str = "GENERATOR_TEST_DISTINCT_SIGNAL_CHILD";
-        if std::env::var_os(ENV_KEY).is_some() {
-            assert_ne!(libc::SIG_DFL, libc::SIG_IGN);
-            unsafe {
-                let mut segv_act: sigaction = mem::zeroed();
-                segv_act.sa_sigaction = libc::SIG_DFL;
-                assert_eq!(sigaction(SIGSEGV, &segv_act, null_mut()), 0);
+    struct RestoreSignal {
+        signal: libc::c_int,
+        prev: MaybeUninit<sigaction>,
+    }
 
-                let mut bus_act: sigaction = mem::zeroed();
-                bus_act.sa_sigaction = libc::SIG_IGN;
-                assert_eq!(sigaction(SIGBUS, &bus_act, null_mut()), 0);
-
-                init_once();
-
-                assert!(OLD_SIGSEGV.ready.load(Ordering::Acquire));
-                assert!(OLD_SIGBUS.ready.load(Ordering::Acquire));
-                let saved_segv = (*OLD_SIGSEGV.action.get()).as_ptr();
-                let saved_bus = (*OLD_SIGBUS.action.get()).as_ptr();
-                assert_eq!((*saved_segv).sa_sigaction, libc::SIG_DFL);
-                assert_eq!((*saved_bus).sa_sigaction, libc::SIG_IGN);
-            }
-            return;
+    impl RestoreSignal {
+        unsafe fn capture(signal: libc::c_int) -> Self {
+            let mut prev = MaybeUninit::uninit();
+            assert_eq!(sigaction(signal, null(), prev.as_mut_ptr()), 0);
+            Self { signal, prev }
         }
+    }
 
-        let exe = std::env::current_exe().unwrap();
-        let output = std::process::Command::new(exe)
-            .arg("--exact")
-            .arg("stack::sys::overflow::tests::preserves_distinct_saved_dispositions_in_child")
-            .arg("--nocapture")
-            .env(ENV_KEY, "1")
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "child test exited with {}: {}",
-            output.status,
-            String::from_utf8_lossy(&output.stderr)
-        );
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("1 passed"),
-            "expected child test to execute, got: {stdout}"
-        );
+    impl Drop for RestoreSignal {
+        fn drop(&mut self) {
+            unsafe {
+                let _ = sigaction(self.signal, self.prev.as_ptr(), null_mut());
+            }
+        }
+    }
+
+    #[test]
+    fn preserves_distinct_saved_dispositions() {
+        assert_ne!(libc::SIG_DFL, libc::SIG_IGN);
+        unsafe {
+            let _restore_usr1 = RestoreSignal::capture(libc::SIGUSR1);
+            let _restore_usr2 = RestoreSignal::capture(libc::SIGUSR2);
+
+            let mut dfl_act: sigaction = mem::zeroed();
+            dfl_act.sa_sigaction = libc::SIG_DFL;
+            assert_eq!(sigaction(libc::SIGUSR1, &dfl_act, null_mut()), 0);
+
+            let mut ign_act: sigaction = mem::zeroed();
+            ign_act.sa_sigaction = libc::SIG_IGN;
+            assert_eq!(sigaction(libc::SIGUSR2, &ign_act, null_mut()), 0);
+
+            let mut replacement: sigaction = mem::zeroed();
+            replacement.sa_flags = SA_SIGINFO | SA_ONSTACK;
+            replacement.sa_sigaction = signal_handler as *const () as sighandler_t;
+
+            let saved_first = SavedAction::new();
+            let saved_second = SavedAction::new();
+            let saved_invalid = SavedAction::new();
+
+            install_signal_handler(&saved_first, libc::SIGUSR1, &replacement);
+            install_signal_handler(&saved_second, libc::SIGUSR2, &replacement);
+            install_signal_handler(&saved_invalid, -1, &replacement);
+
+            assert!(saved_first.ready.load(Ordering::Acquire));
+            assert!(saved_second.ready.load(Ordering::Acquire));
+            assert!(!saved_invalid.ready.load(Ordering::Acquire));
+            assert_eq!(
+                (*(*saved_first.action.get()).as_ptr()).sa_sigaction,
+                libc::SIG_DFL
+            );
+            assert_eq!(
+                (*(*saved_second.action.get()).as_ptr()).sa_sigaction,
+                libc::SIG_IGN
+            );
+        }
+    }
+
+    #[test]
+    fn init_once_saves_sigsegv_and_sigbus_dispositions() {
+        init_once();
+        assert!(OLD_SIGSEGV.ready.load(Ordering::Acquire));
+        assert!(OLD_SIGBUS.ready.load(Ordering::Acquire));
     }
 }
