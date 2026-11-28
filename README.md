@@ -72,16 +72,25 @@ fn main() {
 * This crate supports below platforms, welcome to contribute with other arch and platforms
 
     - i686 Linux
+    - i686 OpenBSD (no CI)
     - x86_64 Linux
     - x86_64 macOS
     - x86_64 Windows
     - x86_64 Fuchsia (build only)
     - x86_64 Android
+    - x86_64 illumos (no CI)
+    - x86_64 Solaris (no CI)
+    - x86_64 OpenBSD (no CI)
+    - x86_64 GNU/Hurd (no CI)
     - aarch64 Linux
     - aarch64 macOS
+    - aarch64 iOS (no CI)
+    - aarch64 tvOS (no CI)
+    - aarch64 watchOS (no CI)
     - aarch64 Fuchsia (build only)
     - aarch64 Android
     - aarch64 Windows
+    - aarch64 OpenBSD (no CI)
     - loongarch64 Linux
     - armv7 Linux
     - riscv64 Linux
