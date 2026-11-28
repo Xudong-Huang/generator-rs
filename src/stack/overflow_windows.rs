@@ -3,7 +3,10 @@ use super::windows_bindings::Windows::Win32::{
 };
 use crate::rt::{guard, Context, ContextStack};
 use std::sync::Once;
-use windows_sys::Win32::{Foundation::EXCEPTION_STACK_OVERFLOW, System::Console::STD_ERROR_HANDLE};
+use windows_sys::Win32::{
+    Foundation::{EXCEPTION_ACCESS_VIOLATION, EXCEPTION_STACK_OVERFLOW},
+    System::Console::STD_ERROR_HANDLE,
+};
 
 unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTERS) -> i32 {
     const EXCEPTION_CONTINUE_SEARCH: i32 = 0;
@@ -18,8 +21,21 @@ unsafe extern "system" fn vectored_handler(exception_info: *mut EXCEPTION_POINTE
     #[cfg(target_arch = "aarch64")]
     let fault_sp = context.Sp as usize;
 
-    if rec.ExceptionCode == EXCEPTION_STACK_OVERFLOW as u32 && guard::current().contains(&fault_sp)
-    {
+    // A read of the read-only guard page reaches us as a stack overflow,
+    // because the kernel converts a stack guard-page fault below the stack
+    // limit. A write does not: the read-only protection is checked first, so
+    // it is reported as an access violation instead. The stack pointer can
+    // still be far above the guard page in that case, so the faulting address
+    // is the only way to recognize the overflow.
+    let overflow = if rec.ExceptionCode == EXCEPTION_STACK_OVERFLOW as u32 {
+        guard::current().contains(&fault_sp)
+    } else if rec.ExceptionCode == EXCEPTION_ACCESS_VIOLATION as u32 {
+        rec.NumberParameters >= 2 && guard::overflow_page().contains(&rec.ExceptionInformation[1])
+    } else {
+        false
+    };
+
+    if overflow {
         // formatting/locking via eprintln! is unsafe while running on the
         // overflowed stack, so write the message directly
         let msg = b"\ncoroutine has overflowed its stack\n";

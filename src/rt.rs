@@ -370,6 +370,22 @@ pub mod guard {
 
         start - page_size()..end
     }
+
+    /// The guard page at the bottom of the stack that is currently running.
+    ///
+    /// Windows reports an access to the read-only guard page as an access
+    /// violation when the access is a write, so the faulting address (which
+    /// lies in this page) is the only way to recognize it as an overflow.
+    #[cfg(windows)]
+    pub fn overflow_page() -> Guard {
+        let (start, _) = ContextStack::current().top().stack_guard;
+
+        if start == 0 {
+            return 0..0;
+        }
+
+        start - page_size()..start
+    }
 }
 
 #[cfg(test)]
@@ -394,11 +410,13 @@ mod test {
                 let mut g = Gn::new_scoped(move |_s: Scope<(), ()>| {
                     let guard = super::guard::current();
 
-                    // make sure the compiler does not apply any optimization on it
-                    std::hint::black_box(unsafe { *(guard.start as *const usize) });
+                    // Write to the guard page instead of reading it: Windows
+                    // reports a write to the read-only guard page as an access
+                    // violation, and unlike a read it can never be silently
+                    // retried after the kernel consumes the guard bit.
+                    unsafe { std::ptr::write_volatile(guard.start as *mut usize, 0) };
 
-                    eprintln!("entered unreachable code");
-                    std::process::abort();
+                    panic!("the guard page access should have overflowed the stack");
                 });
 
                 g.next();

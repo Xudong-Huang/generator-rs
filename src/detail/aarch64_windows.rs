@@ -82,5 +82,10 @@ pub fn initialize_call_frame(
 
     regs.gpr[STACK_BASE] = stack.end() as usize;
     regs.gpr[STACK_LIMIT] = stack.begin() as usize;
-    regs.gpr[STACK_DEALLOC] = 0; //mut_offset(sp, -8192) as usize;
+    // The base of the stack's mapping is the guard page. Pointing
+    // DeallocationStack at it tells the kernel the stack cannot grow any
+    // further, so a guard-page fault is reported as EXCEPTION_STACK_OVERFLOW
+    // instead of the kernel sometimes consuming the guard page and retrying
+    // the access (which would swallow the overflow).
+    regs.gpr[STACK_DEALLOC] = stack.begin() as usize - crate::stack::sys::page_size();
 }
